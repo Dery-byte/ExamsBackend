@@ -349,7 +349,6 @@ public class SecurityConfiguration {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
         http
                 // ✅ Disable CSRF (not needed for stateless JWT via headers)
                 .csrf(csrf -> csrf.disable())
@@ -388,10 +387,8 @@ public class SecurityConfiguration {
                         .logoutSuccessHandler((request, response, authentication) ->
                                 SecurityContextHolder.clearContext())
                 );
-
         return http.build();
     }
-
     // =========================
     // CORS CONFIGURATION (No Credentials)
     // =========================
@@ -402,7 +399,8 @@ public class SecurityConfiguration {
         // ✅ Allowed origins (your frontend URLs)
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:4200",
-                "https://assessmentapp-e1d04.web.app"
+                "https://assessmentapp-e1d04.web.app",
+                "https://exams-frontend-blond.vercel.app/"
         ));
 
         // ✅ Allowed HTTP methods
@@ -424,10 +422,8 @@ public class SecurityConfiguration {
 
         // ❌ NO credentials - we're using localStorage/sessionStorage
         configuration.setAllowCredentials(false);
-
         // ✅ Cache preflight for 1 hour
         configuration.setMaxAge(3600L);
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
