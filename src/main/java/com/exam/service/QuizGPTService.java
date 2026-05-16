@@ -455,13 +455,18 @@ public class QuizGPTService {
                 .flatMap(content -> content.getParts().stream())
                 .map(part -> {
                     String text = part.getText();
+                    
+                    // Safely extract marks and remove non-numeric characters like " Marks"
+                    String marksStr = extractField(text, "Marks:", "Criteria:").replaceAll("[^\\d.]", "").trim();
+                    double marks = marksStr.isEmpty() ? 10.0 : Double.parseDouble(marksStr);
+
                     return new QuestionSubmission(
                             extractField(text, "quizId ", ":"),
                             extractField(text, "tqid ", ":"),
                             extractField(text, "Question Number ", ":"),
                             extractField(text, ":", "Answer:"),
                             extractField(text, "Answer:", "Marks:"),
-                            Integer.parseInt(extractField(text, "Marks:", "Criteria:").trim()),
+                            marks,
                             extractField(text, "Criteria:", null)
                     );
                 })
