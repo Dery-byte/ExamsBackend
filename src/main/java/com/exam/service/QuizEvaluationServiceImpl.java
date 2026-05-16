@@ -168,7 +168,7 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
             throw new IllegalArgumentException("User or quiz not found");
         }
 
-        double maxMarks   = questions.get(0).getQuiz().getMaxMarks();
+        double maxMarks   = quiz.getMaxMarks();
         int    totalQs    = questions.size();
 
         double marksGot        = 0.0;

@@ -364,6 +364,7 @@ public class SecurityConfiguration {
                         // Public endpoints (authentication)
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/token-info").permitAll()
+                        .requestMatchers("/error").permitAll()
 
                         // Everything else requires authentication
                         .anyRequest().authenticated()
