@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Quiz Performance Report</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 18mm 16mm 22mm 16mm;
+      @bottom-left   { content: "University of Cape Coast  |  OTC  |  Official Record"; font-size: 7.5pt; color: #666; font-family: 'Times New Roman', serif; }
+      @bottom-right  { content: "Page " counter(page) " of " counter(pages); font-size: 7.5pt; color: #666; font-family: 'Times New Roman', serif; }
+    }
+    body         { font-family: 'Times New Roman', 'Liberation Serif', Georgia, serif; font-size: 10.5pt; color: #1a1a1a; margin: 0; padding: 0; }
+    h1           { font-size: 15pt; margin: 0; }
+    h2           { font-size: 12pt; margin: 0 0 6pt 0; }
+    h3           { font-size: 11pt; margin: 6pt 0 4pt 0; }
+    p            { margin: 0 0 4pt 0; }
+
+    /* ─── universal table ─── */
+    table        { border-collapse: collapse; width: 100%; }
+    td, th       { vertical-align: top; }
+
+    /* ─── bordered table ─── */
+    .tbl-border td, .tbl-border th { border: 0.5pt solid #aaa; padding: 5pt 7pt; }
+    .tbl-border th { background: #4a4a9c; color: #fff; font-weight: bold; text-align: left; font-size: 9.5pt; }
+    .th-label    { background: #f0f0f7 !important; color: #1a1a1a !important; font-weight: bold; width: 110pt; }
+
+    /* ─── section banner ─── */
+    .sect-banner { background: #4a4a9c; color: #fff; padding: 5pt 10pt; margin: 14pt 0 8pt 0; font-size: 10pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5pt; }
+
+    /* ─── score table rows ─── */
+    .row-total   { background: #f0f0f7; font-weight: bold; }
+    .score-pass  { color: #155724; font-weight: bold; }
+    .score-warn  { color: #856404; font-weight: bold; }
+    .score-fail  { color: #721c24; font-weight: bold; }
+
+    /* ─── MCQ option cells ─── */
+    .opt-correct { background: #d4edda; color: #155724; font-weight: bold; }
+    .opt-wrong   { background: #f8d7da; color: #721c24; font-weight: bold; }
+    .opt-normal  { background: #fff; color: #333; }
+
+    /* ─── status badge (inline span) ─── */
+    .badge       { padding: 2pt 6pt; font-size: 8.5pt; font-weight: bold; text-transform: uppercase; }
+    .badge-ok    { background: #d4edda; color: #155724; }
+    .badge-fail  { background: #f8d7da; color: #721c24; }
+    .badge-part  { background: #fff3cd; color: #856404; }
+    .badge-skip  { background: #e9ecef; color: #495057; }
+
+    /* ─── theory answer box ─── */
+    .ans-box     { border: 0.5pt solid #ccc; background: #fafafa; padding: 6pt 8pt; margin: 4pt 0 6pt 0; font-family: 'Courier New', monospace; font-size: 9.5pt; white-space: pre-wrap; }
+    .feedback-box{ border: 0.5pt solid #f5c06a; background: #fff8e1; padding: 5pt 8pt; margin: 4pt 0; font-size: 9.5pt; }
+
+    /* ─── dividers ─── */
+    .q-block     { margin-bottom: 14pt; page-break-inside: avoid; }
+    .rule        { border: none; border-top: 0.5pt solid #ccc; margin: 10pt 0; }
+    .page-break  { page-break-before: always; }
+    .no-break    { page-break-inside: avoid; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════ UNIVERSITY HEADER ══════════════════ -->
+<table style="border-bottom: 1.5pt solid #4a4a9c; margin-bottom: 10pt;">
+  <tr>
+    <td style="width: 65pt; text-align: center; vertical-align: middle;">
+      <table style="width: 55pt; height: 55pt; background: #4a4a9c;">
+        <tr><td style="text-align:center; vertical-align:middle; color:#fff; font-size:16pt; font-weight:bold; font-family: Georgia, serif;">UCC</td></tr>
+      </table>
+    </td>
+    <td style="padding-left: 12pt; vertical-align: middle;">
+      <h1 style="color:#4a4a9c;">University of Cape Coast</h1>
+      <p style="font-size:9pt; color:#555; margin-top:3pt;">Faculty of Physical Sciences &amp; Department of Computer Science and IT</p>
+      <p style="font-size:8pt; color:#888; text-transform:uppercase; letter-spacing:1pt; margin-top:3pt;">QUIZ PERFORMANCE REPORT — OFFICIAL </p>
+    </td>
+    <td style="text-align:right; vertical-align:top; width:90pt;">
+      <p style="font-size:8pt; color:#888; margin:0;">Reference ID</p>
+      <p style="font-size:14pt; font-weight:bold; color:#4a4a9c; margin:2pt 0;" th:text="'#' + ${refId}">#000001</p>
+      <p style="font-size:8pt; color:#888;" th:text="${generatedDate}">18 May 2026</p>
+    </td>
+  </tr>
+</table>
+
+<!-- ══════════════════ CANDIDATE DETAILS ══════════════════ -->
+<div class="sect-banner">Candidate Information</div>
+<table class="tbl-border" style="margin-bottom:12pt;">
+  <tr>
+    <td class="th-label">Full Name</td>
+    <td th:text="${candidateName}">John Doe</td>
+    <td class="th-label">Candidate ID</td>
+    <td th:text="${candidateId}">STUD001</td>
+  </tr>
+  <tr>
+    <td class="th-label">Course Code</td>
+    <td th:text="${courseCode}">CS101</td>
+    <td class="th-label">Course Title</td>
+    <td th:text="${courseTitle}">Introduction to Computing</td>
+  </tr>
+  <tr>
+    <td class="th-label">Assessment Title</td>
+    <td th:text="${assessmentTitle}">Mid-Semester Examination</td>
+    <td class="th-label">Duration</td>
+    <td th:text="${duration}">60 min</td>
+  </tr>
+  <tr>
+    <td class="th-label">Submission Date</td>
+    <td th:text="${submissionDate}">18 May 2026</td>
+    <td class="th-label">Merit Status</td>
+    <td th:text="${gradeStatus}"
+        th:class="${totalPct >= 50} ? 'score-pass' : 'score-fail'">QUALIFIED</td>
+  </tr>
+</table>
+
+<!-- ══════════════════ PERFORMANCE SUMMARY ══════════════════ -->
+<div class="sect-banner">Performance Summary</div>
+<table class="tbl-border" style="margin-bottom:14pt;">
+  <thead>
+    <tr>
+      <th>Section</th>
+      <th style="text-align:center; width:65pt;">Score</th>
+      <th style="text-align:center; width:65pt;">Max Marks</th>
+      <th style="text-align:center; width:55pt;">Percentage</th>
+      <th style="text-align:center; width:90pt;">Grade Remark</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr th:if="${showSectionA}">
+      <td>Section A — Objective Assessment</td>
+      <td style="text-align:center;" th:text="${objScore}">0</td>
+      <td style="text-align:center;" th:text="${maxObj}">0</td>
+      <td style="text-align:center;" th:text="${objPct} + '%'"
+          th:class="${objPct >= 70} ? 'score-pass' : (${objPct >= 50} ? 'score-warn' : 'score-fail')">0%</td>
+      <td style="text-align:center;"
+          th:text="${objPct >= 70} ? 'Excellent' : (${objPct >= 50} ? 'Satisfactory' : 'Needs Review')">-</td>
+    </tr>
+    <tr th:if="${showSectionB}">
+      <td>Section B — Theoretical Assessment</td>
+      <td style="text-align:center;" th:text="${thScore}">0</td>
+      <td style="text-align:center;" th:text="${maxTh}">0</td>
+      <td style="text-align:center;" th:text="${thPct} + '%'"
+          th:class="${thPct >= 70} ? 'score-pass' : (${thPct >= 50} ? 'score-warn' : 'score-fail')">0%</td>
+      <td style="text-align:center;"
+          th:text="${thPct >= 70} ? 'Excellent' : (${thPct >= 50} ? 'Satisfactory' : 'Needs Review')">-</td>
+    </tr>
+    <tr class="row-total">
+      <td>AGGREGATE TOTAL</td>
+      <td style="text-align:center;" th:text="${totalScore}">0</td>
+      <td style="text-align:center;" th:text="${totalMax}">0</td>
+      <td style="text-align:center;" th:text="${totalPct} + '%'"
+          th:class="${totalPct >= 70} ? 'score-pass' : (${totalPct >= 50} ? 'score-warn' : 'score-fail')">0%</td>
+      <td style="text-align:center; font-weight:bold;" th:text="${gradeLabel}"
+          th:class="${totalPct >= 70} ? 'score-pass' : (${totalPct >= 50} ? 'score-warn' : 'score-fail')">-</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ══════════════════ SECTION A — OBJECTIVE ══════════════════ -->
+<div th:if="${showSectionA}">
+  <div class="sect-banner page-break">Section A: Objective Assessment — Detailed Analysis</div>
+  <div th:each="q, qStat : ${mcqQuestions}" class="q-block">
+    <!-- Question row -->
+    <table style="margin-bottom:4pt;">
+      <tr>
+        <td style="width:20pt; font-weight:bold; color:#4a4a9c;" th:text="${q.number} + '.'">1.</td>
+        <td th:utext="${q.content}">Question text goes here.</td>
+        <td style="text-align:right; width:70pt; vertical-align:top;">
+          <span th:text="${q.status}"
+                th:class="${q.status == 'CORRECT'} ? 'badge badge-ok' : (${q.status == 'WRONG'} ? 'badge badge-fail' : (${q.status == 'PARTIAL'} ? 'badge badge-part' : 'badge badge-skip'))">STATUS</span>
+        </td>
+      </tr>
+    </table>
+    <!-- Options grid (2 per row) -->
+    <table style="margin-left:18pt; width:calc(100% - 18pt);">
+      <tr th:each="rowIdx : ${#numbers.sequence(0, (q.options.size() - 1) / 2)}">
+        <td th:with="opt=${q.options.get(rowIdx * 2)}"
+            style="width:50%; padding:3pt 6pt; border:0.4pt solid #ddd;"
+            th:class="${opt.correct} ? 'opt-correct' : (${opt.selected} ? 'opt-wrong' : 'opt-normal')">
+          <b th:text="${opt.letter} + ')'">A)</b>
+          <span th:text="${opt.text}">Option text</span>
+        </td>
+        <td th:if="${rowIdx * 2 + 1 < q.options.size()}"
+            th:with="opt2=${q.options.get(rowIdx * 2 + 1)}"
+            style="width:50%; padding:3pt 6pt; border:0.4pt solid #ddd;"
+            th:class="${opt2.correct} ? 'opt-correct' : (${opt2.selected} ? 'opt-wrong' : 'opt-normal')">
+          <b th:text="${opt2.letter} + ')'">B)</b>
+          <span th:text="${opt2.text}">Option text</span>
+        </td>
+        <td th:if="${rowIdx * 2 + 1 >= q.options.size()}" style="width:50%;"></td>
+      </tr>
+    </table>
+    <!-- Legend note on last question -->
+    <p th:if="${qStat.last}" style="font-size:8pt; color:#888; margin-top:6pt;">
+      &#9632; Green highlight = Correct Answer &nbsp;&nbsp; &#9632; Red highlight = Incorrect Selection
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════════ SECTION B — THEORY ══════════════════ -->
+<div th:if="${showSectionB}">
+  <div class="sect-banner page-break">Section B: Theoretical Assessment — Detailed Analysis</div>
+  <div th:each="grp : ${theoryGroups}" style="margin-bottom:16pt;">
+    <!-- Module subheader -->
+    <table style="margin-bottom:8pt;">
+      <tr>
+        <td style="width:6pt; background:#4a4a9c;"> </td>
+        <td style="padding-left:8pt; font-weight:bold; font-size:10.5pt; color:#4a4a9c;"
+            th:text="${grp.prefix}">Module Q1</td>
+        <td style="border-bottom:0.5pt solid #4a4a9c;"> </td>
+      </tr>
+    </table>
+
+    <div th:each="ans, ansStat : ${grp.questions}" class="q-block">
+      <!-- Theory question header -->
+      <table>
+        <tr>
+          <td style="width:50pt; font-size:9pt; font-weight:bold; color:#555;"
+              th:text="${ans.quesNo}">Q1a</td>
+          <td style="font-weight:bold;" th:text="${ans.question}">Theory question text.</td>
+          <td style="text-align:right; width:80pt;">
+            <span th:text="${ans.score} + ' / ' + ${ans.maxMarks}"
+                  th:class="${ans.scorePct >= 70} ? 'score-pass' : (${ans.scorePct >= 50} ? 'score-warn' : 'score-fail')"
+                  style="font-size:11pt; font-weight:bold;">0 / 0</span>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Candidate's response -->
+      <p style="font-size:8.5pt; color:#555; margin:5pt 0 2pt 0; text-transform:uppercase; letter-spacing:0.5pt;">Candidate Response:</p>
+      <div class="ans-box"
+           th:text="${ans.studentAnswer != null and !#strings.isEmpty(ans.studentAnswer)} ? ${ans.studentAnswer} : '(No response provided)'">
+        Student answer here.
+      </div>
+
+      <!-- Evaluator feedback / key concepts missed -->
+      <div th:if="${ans.keyMissed != null and !ans.keyMissed.isEmpty()}" class="feedback-box">
+        <b style="font-size:8.5pt; color:#856404; text-transform:uppercase;">&#9888; Evaluator Feedback:</b>
+        <span th:text="${#strings.listJoin(ans.keyMissed, ', ')}">Key points missed.</span>
+      </div>
+
+      <hr class="rule" th:if="${!ansStat.last}"/>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ FOOTER SEAL ══════════════════ -->
+<table style="margin-top:20pt; border-top:1.5pt solid #4a4a9c; padding-top:8pt;">
+  <tr>
+    <td style="font-size:8.5pt; color:#555;">
+      <b>University of Cape Coast</b> — OTC<br/>
+      This is a computer-generated academic transcript. No physical signature is required for validity.<br/>
+      Portal Security: <b style="color:#155724;">Active &amp; Verified</b>
+    </td>
+    <td style="text-align:right; width:120pt; font-size:10pt; font-weight:bold;"
+        th:text="${gradeLabel}"
+        th:style="${totalPct >= 70} ? 'color:#155724;' : (${totalPct >= 50} ? 'color:#856404;' : 'color:#721c24;')">EXCELLENT</td>
+  </tr>
+</table>
+
+</body>
+</html>

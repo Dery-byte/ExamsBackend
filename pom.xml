@@ -178,6 +178,20 @@
         </dependency>
 
 
+		<!-- PDF Generation: Flying Saucer renders Thymeleaf HTML → PDF -->
+		<dependency>
+			<groupId>org.xhtmlrenderer</groupId>
+			<artifactId>flying-saucer-pdf-openpdf</artifactId>
+			<version>9.3.1</version>
+		</dependency>
+
+		<!-- Jsoup: sanitize Thymeleaf HTML output to valid XHTML for Flying Saucer -->
+		<dependency>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>1.17.2</version>
+		</dependency>
+
 	</dependencies>
 
 
