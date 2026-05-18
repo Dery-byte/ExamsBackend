@@ -2,21 +2,19 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>Examination Performance Report</title>
+  <title>Quiz Performance Report</title>
   <style>
     @page {
       size: A4 portrait;
       margin: 14mm 15mm 18mm 15mm;
-      @bottom-left  { content: "University of Cape Coast  |  Lexa Examination Framework  |  Official Transcript"; font-size: 6.5pt; color: #888; font-family: 'Times New Roman', serif; padding-top: 3pt; border-top: 0.5pt solid #ccc; }
+      @bottom-left  { content: "University of Cape Coast  |  OTC |  Official Transcript"; font-size: 6.5pt; color: #888; font-family: 'Times New Roman', serif; padding-top: 3pt; border-top: 0.5pt solid #ccc; }
       @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 6.5pt; color: #888; font-family: 'Times New Roman', serif; padding-top: 3pt; border-top: 0.5pt solid #ccc; }
     }
 
     body        { font-family: 'Times New Roman', 'Liberation Serif', Georgia, serif; font-size: 10.5pt; color: #1a1a1a; margin: 0; padding: 0; line-height: 1.35; }
 
     /* ── Watermark (repeats on every page via position:fixed) ── */
-    .watermark  { position: fixed; top: 45%; left: 0; width: 100%; text-align: center;
-                  font-size: 62pt; font-weight: bold; color: #ededfa; text-transform: uppercase;
-                  letter-spacing: 5pt; z-index: -1; font-family: Georgia, serif; }
+    .watermark  { position: fixed; top: 0; left: 0; width: 100%; height: 100%; text-align: center; z-index: -1; }
 
     /* ── Tables ── */
     table       { border-collapse: collapse; width: 100%; }
@@ -73,7 +71,9 @@
 <body>
 
 <!-- ── WATERMARK (Candidate ID repeated on every page) ── -->
-<div class="watermark" th:text="${candidateId}">STUD001</div>
+<div class="watermark">
+  <img th:if="${watermarkBase64 != null and !watermarkBase64.isEmpty()}" th:src="${watermarkBase64}" style="width: 100%; height: 100%; object-fit: contain;" alt="Watermark" />
+</div>
 
 <!-- ══════════ UNIVERSITY HEADER ══════════ -->
 <table style="border-bottom: 2pt solid #1a2744; margin-bottom: 8pt; padding-bottom: 7pt;">

@@ -23,6 +23,15 @@ import java.util.*;
 import java.util.stream.Collectors;
 import org.springframework.core.io.ClassPathResource;
 
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.geom.AffineTransform;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
+
 @Service
 public class PdfReportService {
 
@@ -120,8 +129,9 @@ public class PdfReportService {
         Context ctx = new Context();
         String firstName = report != null && report.getUser() != null ? safeStr(report.getUser().getFirstname()) : "";
         String lastName  = report != null && report.getUser() != null ? safeStr(report.getUser().getLastname())  : "";
+        String candidateIdStr = report != null && report.getUser() != null ? report.getUser().getUsername().toUpperCase() : "N/A";
         ctx.setVariable("candidateName",   (firstName + " " + lastName).trim().isEmpty() ? "N/A" : (firstName + " " + lastName).trim());
-        ctx.setVariable("candidateId",     report != null && report.getUser() != null ? report.getUser().getUsername().toUpperCase() : "N/A");
+        ctx.setVariable("candidateId",     candidateIdStr);
         ctx.setVariable("courseCode",      report != null && report.getQuiz() != null && report.getQuiz().getCategory() != null ? safeStr(report.getQuiz().getCategory().getCourseCode()) : "N/A");
         ctx.setVariable("courseTitle",     report != null && report.getQuiz() != null && report.getQuiz().getCategory() != null ? safeStr(report.getQuiz().getCategory().getTitle()) : "N/A");
         ctx.setVariable("assessmentTitle", report != null && report.getQuiz() != null ? safeStr(report.getQuiz().getTitle()) : "N/A");
@@ -144,6 +154,7 @@ public class PdfReportService {
         ctx.setVariable("showSectionB", showSectionB);
         ctx.setVariable("mcqQuestions",  mcqDtos);
         ctx.setVariable("theoryGroups",  theoryGroups);
+        ctx.setVariable("watermarkBase64", generateDiagonalWatermarkBase64(candidateIdStr));
 
         try {
             ClassPathResource imgFile = new ClassPathResource("static/images/ucc-logo.png");
@@ -231,4 +242,56 @@ public class PdfReportService {
     private String fmt(double v) { return v == Math.floor(v) ? String.valueOf((int) v) : String.format("%.1f", v); }
     private String formatDuration(int m) { int h = m / 60; int mm = m % 60; return h > 0 ? h + " hr " + mm + " min" : mm + " min"; }
     private String gradeLabel(int p) { return p >= 70 ? "EXCELLENT" : p >= 50 ? "SATISFACTORY" : "NEEDS IMPROVEMENT"; }
+
+    private String generateDiagonalWatermarkBase64(String text) {
+        try {
+            int width = 800;
+            int height = 1100;
+            BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2d = image.createGraphics();
+
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+            // Create a large spaced out string
+            StringBuilder spacedText = new StringBuilder();
+            for (char c : text.toCharArray()) {
+                spacedText.append(c).append(" ");
+            }
+            String finalText = spacedText.toString().trim();
+
+            int fontSize = 120;
+            Font font = new Font("Georgia", Font.BOLD, fontSize);
+            g2d.setFont(font);
+            FontMetrics fm = g2d.getFontMetrics();
+            int textWidth = fm.stringWidth(finalText);
+
+            // Scale down font size if text is too long to fit the diagonal
+            while (textWidth > 1000 && fontSize > 20) {
+                fontSize -= 4;
+                font = new Font("Georgia", Font.BOLD, fontSize);
+                g2d.setFont(font);
+                fm = g2d.getFontMetrics();
+                textWidth = fm.stringWidth(finalText);
+            }
+
+            g2d.setColor(new Color(230, 230, 245, 120)); // Light purplish grey, translucent
+            
+            AffineTransform transform = new AffineTransform();
+            transform.translate(width / 2.0, height / 2.0);
+            transform.rotate(-Math.PI / 4); // -45 degrees
+            g2d.setTransform(transform);
+
+            g2d.drawString(finalText, -textWidth / 2, (fm.getAscent() - fm.getDescent()) / 2);
+
+            g2d.dispose();
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", baos);
+            byte[] imageBytes = baos.toByteArray();
+            return "data:image/png;base64," + Base64.getEncoder().encodeToString(imageBytes);
+        } catch (Exception e) {
+            return "";
+        }
+    }
 }

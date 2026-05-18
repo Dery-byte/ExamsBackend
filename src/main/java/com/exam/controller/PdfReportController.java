@@ -1,6 +1,7 @@
 package com.exam.controller;
 
 import com.exam.model.User;
+import com.exam.model.exam.Quiz;
 import com.exam.service.PdfReportService;
 import com.exam.service.QuizService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,22 +38,23 @@ public class PdfReportController {
             User user = (User) userDetailsService.loadUserByUsername(principal.getName());
             byte[] pdf = pdfReportService.generateReportPdf(quizId, user.getId());
 
-            String coursetle = String.valueOf(quizService.getQuiz(quizId).getCategory());
-            String quizTitle = String.valueOf(quizService.getQuiz(quizId).getTitle());
 
-//            String filename = "ResultSlip_" + user.getUsername().toUpperCase() + "_Q" + quizId +".pdf";
+            Quiz quiz = quizService.getQuiz(quizId);
+            String safeCourseName = quiz.getCategory() != null ? quiz.getCategory().getTitle() : "Course";
+            String safeQuizTitle = quiz.getTitle() != null ? quiz.getTitle() : "Quiz";
+
+            System.out.println(safeCourseName);
+            System.out.println(safeQuizTitle);
 
 
-            String filename = "ResultSlip_" + coursetle + "_" + quizTitle  +".pdf";
+            String filename = "ResultsSlips_" + safeCourseName + "_" + safeQuizTitle + ".pdf";
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
             headers.setContentDisposition(
                     ContentDisposition.attachment().filename(filename).build());
             headers.setContentLength(pdf.length);
-
             return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
-
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to generate report: " + e.getMessage());
