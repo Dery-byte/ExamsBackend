@@ -15,9 +15,13 @@ import org.thymeleaf.context.Context;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.core.io.ClassPathResource;
 
 @Service
 public class PdfReportService {
@@ -140,6 +144,15 @@ public class PdfReportService {
         ctx.setVariable("showSectionB", showSectionB);
         ctx.setVariable("mcqQuestions",  mcqDtos);
         ctx.setVariable("theoryGroups",  theoryGroups);
+
+        try {
+            ClassPathResource imgFile = new ClassPathResource("static/images/ucc-logo.png");
+            byte[] bytes = org.springframework.util.StreamUtils.copyToByteArray(imgFile.getInputStream());
+            String base64Img = Base64.getEncoder().encodeToString(bytes);
+            ctx.setVariable("uccLogoBase64", "data:image/png;base64," + base64Img);
+        } catch (Exception e) {
+            ctx.setVariable("uccLogoBase64", "");
+        }
 
         // 11. Render HTML with Thymeleaf
         String html = templateEngine.process("exam-report", ctx);
