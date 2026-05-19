@@ -5,6 +5,7 @@ import com.exam.model.User;
 import com.exam.model.exam.Quiz;
 import com.exam.model.exam.Report;
 import com.exam.repository.ReportRepository;
+import com.exam.repository.AnswerRepository;
 import com.exam.service.AuthenticationService;
 import com.exam.service.QuizService;
 import com.exam.service.ReportService;
@@ -33,6 +34,8 @@ private ReportService reportService;
     @Autowired
     @Lazy
     ReportRepository reportRepository;
+    @Autowired
+    private com.exam.repository.AnswerRepository answerRepository;
     @Autowired
     private QuizService quizService;
     @Autowired
@@ -139,6 +142,46 @@ public ResponseEntity<List<Report>> getQuizIds(@PathVariable("quiz_Id") Long qui
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User or Quiz not Found");
         }
 }
+
+    public static class SaveReviewRequest {
+        public Long userId;
+        public Long quizId;
+        public java.math.BigDecimal marksB;
+        public Boolean isReviewed;
+        public java.util.Map<String, String> comments;
+        public java.util.Map<String, Double> reviewedMarks;
+    }
+
+    @PutMapping("/save-review")
+    public ResponseEntity<?> saveReview(@RequestBody SaveReviewRequest request, Principal principal) {
+        if (principal == null) return ResponseEntity.badRequest().body("Principal is null");
+
+        Report existingReport = reportService.findByUserAndQuiz(Math.toIntExact(request.userId), request.quizId);
+        if (existingReport == null) {
+            return ResponseEntity.badRequest().body("Report not found for this user and quiz");
+        }
+
+        existingReport.setMarksB(request.marksB);
+        existingReport.setIsReviewed(request.isReviewed);
+
+        // Update answers
+        if (request.reviewedMarks != null && !request.reviewedMarks.isEmpty()) {
+            java.util.List<com.exam.model.exam.Answer> answers = answerRepository.findByUser_IdAndQuiz_qId(request.userId, request.quizId);
+            for (com.exam.model.exam.Answer answer : answers) {
+                String key = answer.getQuesNo();
+                if (request.reviewedMarks.containsKey(key)) {
+                    answer.setScore(request.reviewedMarks.get(key));
+                }
+                if (request.comments != null && request.comments.containsKey(key)) {
+                    answer.setFeedback(request.comments.get(key));
+                }
+                answerRepository.save(answer);
+            }
+        }
+
+        Report updatedReport = reportRepository.save(existingReport);
+        return ResponseEntity.ok(updatedReport);
+    }
 
 
 

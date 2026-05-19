@@ -48,5 +48,11 @@ public class AnswerController {
         return ResponseEntity.ok(answerService.getAnswersByUserAndQuiz(user.getId(), quizId));
     }
 
+    @GetMapping("/answers/by-user-quiz/{userId}/{quizId}")
+    public ResponseEntity<List<AnswerDTO>> getStudentAnswers(
+            @PathVariable Long userId,
+            @PathVariable Long quizId) {
+        return ResponseEntity.ok(answerService.getAnswersByUserAndQuiz(userId, quizId));
+    }
 
 }

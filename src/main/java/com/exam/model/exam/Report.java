@@ -39,6 +39,9 @@ public class Report {
     @Column(name = "evaluation_method", length = 20)
     private String evaluationMethod;
 
+    @Column(name = "is_reviewed")
+    private Boolean isReviewed = false;
+
     // ✅ RELATIONSHIPS
 
     @ManyToOne(cascade = CascadeType.ALL)
@@ -180,6 +183,14 @@ public class Report {
 
     public void setEvaluationMethod(String evaluationMethod) {
         this.evaluationMethod = evaluationMethod;
+    }
+
+    public Boolean getIsReviewed() {
+        return isReviewed;
+    }
+
+    public void setIsReviewed(Boolean isReviewed) {
+        this.isReviewed = isReviewed;
     }
 
     public Quiz getQuiz() {
