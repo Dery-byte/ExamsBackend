@@ -214,20 +214,20 @@
         </td>
       </tr>
     </table>
-    <table class="t-opt" style="margin-left:15pt; width:calc(100% - 15pt);">
+    <table class="t-opt" style="margin-left:15pt; width:calc(100% - 15pt); table-layout:fixed; word-wrap:break-word;">
       <thead>
         <tr>
-          <th style="text-align:left; padding:4pt 6pt; background:#f4f5f7; border:0.5pt solid #d0d4ee; font-size:9pt; width:33%;">Prompt</th>
-          <th style="text-align:left; padding:4pt 6pt; background:#f4f5f7; border:0.5pt solid #d0d4ee; font-size:9pt; width:33%;">Expected Match</th>
-          <th style="text-align:left; padding:4pt 6pt; background:#f4f5f7; border:0.5pt solid #d0d4ee; font-size:9pt; width:33%;">Student Answer</th>
+          <th style="text-align:left; padding:4pt 6pt; background:#f4f5f7; border:0.5pt solid #d0d4ee; font-size:9pt; width:33.33%;">Prompt</th>
+          <th style="text-align:left; padding:4pt 6pt; background:#f4f5f7; border:0.5pt solid #d0d4ee; font-size:9pt; width:33.33%;">Expected Match</th>
+          <th style="text-align:left; padding:4pt 6pt; background:#f4f5f7; border:0.5pt solid #d0d4ee; font-size:9pt; width:33.33%;">Student Answer</th>
         </tr>
       </thead>
       <tbody>
         <tr th:each="pair : ${q.pairs}">
           <td style="padding:4pt 6pt; border:0.5pt solid #d0d4ee; font-size:9.5pt;" th:text="${pair.prompt}">Prompt</td>
           <td style="padding:4pt 6pt; border:0.5pt solid #d0d4ee; font-size:9.5pt;" th:text="${pair.expected}">Expected</td>
-          <td style="padding:4pt 6pt; border:0.5pt solid #d0d4ee; font-size:9.5pt; font-weight:bold;"
-              th:class="${pair.correct} ? 'c-ok' : 'c-bad'"
+          <td th:class="${pair.correct} ? 'c-ok' : 'c-bad'"
+              style="padding:4pt 6pt; border:0.5pt solid #d0d4ee; font-size:9.5pt; font-weight:bold;"
               th:text="${pair.selected != null and !#strings.isEmpty(pair.selected)} ? ${pair.selected} : '(No Answer)'">Student</td>
         </tr>
       </tbody>
