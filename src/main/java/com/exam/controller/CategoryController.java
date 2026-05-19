@@ -3,6 +3,7 @@ package com.exam.controller;
 import com.exam.DTO.CategoryDTO;
 import com.exam.DTO.CategoryRequest;
 import com.exam.DTO.CategoryUpdateRequest;
+import com.exam.DTO.CategoryWithQuizzesDTO;
 import com.exam.exception.ErrorMessage;
 import com.exam.model.exam.Category;
 import com.exam.model.exam.Quiz;
@@ -116,6 +117,18 @@ private List<Quiz> itemList = new ArrayList<>();
     @GetMapping("/categoriesForUser")
     public List<Category> getCategoriesForLoggedInUser(Principal principal) {
         return categoryService.getCategoriesForLoggedInUser(principal);
+    }
+
+    // ✅ GET CATEGORIES AND QUIZZES BY LECTURER ID
+    @GetMapping("/category/lecturer/{lecturerId}/with-quizzes")
+    public ResponseEntity<List<CategoryWithQuizzesDTO>> getCategoriesWithQuizzesForLecturer(@PathVariable("lecturerId") Long lecturerId) {
+        return ResponseEntity.ok(categoryService.getCategoriesWithQuizzesByLecturerId(lecturerId));
+    }
+
+    // ✅ GET CATEGORIES AND QUIZZES FOR THE LOGGED-IN LECTURER (via Principal)
+    @GetMapping("/category/my-courses-with-quizzes")
+    public ResponseEntity<List<CategoryWithQuizzesDTO>> getMyCoursesWithQuizzes(Principal principal) {
+        return ResponseEntity.ok(categoryService.getCategoriesWithQuizzesForLoggedInUser(principal));
     }
 
 

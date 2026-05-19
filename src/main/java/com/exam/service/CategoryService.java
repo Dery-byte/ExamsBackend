@@ -3,6 +3,8 @@ package com.exam.service;
 import com.exam.DTO.CategoryDTO;
 import com.exam.DTO.CategoryRequest;
 import com.exam.DTO.CategoryUpdateRequest;
+import com.exam.DTO.CategoryWithQuizzesDTO;
+import com.exam.DTO.QuizDTO;
 import com.exam.model.User;
 import com.exam.model.exam.Category;
 import com.exam.model.exam.Quiz;
@@ -16,6 +18,7 @@ import java.security.Principal;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class CategoryService  {
@@ -211,11 +214,45 @@ UserRepository userRepository;
 
 
     /**
-     * Get all categories assigned to a specific lecturer
+     * Get all categories and their associated quizzes assigned to a specific lecturer
      */
-//    public List<Category> getCategoriesByLecturer(Long lecturerId) {
-//        return categoryRepository.findByUserIdOrderByCourseCodeAsc(lecturerId);
-//    }
+    @Transactional(readOnly = true)
+    public List<CategoryWithQuizzesDTO> getCategoriesWithQuizzesByLecturerId(Long lecturerId) {
+        List<Category> categories = categoryRepository.findByUser_Id(lecturerId);
+        return categories.stream().map(c -> {
+            CategoryWithQuizzesDTO dto = new CategoryWithQuizzesDTO();
+            dto.setCid(c.getCid());
+            dto.setTitle(c.getTitle());
+            dto.setCourseCode(c.getCourseCode());
+            dto.setDescription(c.getDescription());
+            dto.setLevel(c.getLevel());
+            if (c.getQuizzes() != null) {
+                List<QuizDTO> quizDtos = c.getQuizzes().stream().map(QuizDTO::new).collect(Collectors.toList());
+                dto.setQuizzes(quizDtos);
+            }
+            return dto;
+        }).collect(Collectors.toList());
+    }
 
+    /**
+     * Get all categories and their associated quizzes for the currently logged-in user
+     */
+    @Transactional(readOnly = true)
+    public List<CategoryWithQuizzesDTO> getCategoriesWithQuizzesForLoggedInUser(Principal principal) {
+        List<Category> categories = getCategoriesForLoggedInUser(principal);
+        return categories.stream().map(c -> {
+            CategoryWithQuizzesDTO dto = new CategoryWithQuizzesDTO();
+            dto.setCid(c.getCid());
+            dto.setTitle(c.getTitle());
+            dto.setCourseCode(c.getCourseCode());
+            dto.setDescription(c.getDescription());
+            dto.setLevel(c.getLevel());
+            if (c.getQuizzes() != null) {
+                List<QuizDTO> quizDtos = c.getQuizzes().stream().map(QuizDTO::new).collect(Collectors.toList());
+                dto.setQuizzes(quizDtos);
+            }
+            return dto;
+        }).collect(Collectors.toList());
+    }
 
 }
