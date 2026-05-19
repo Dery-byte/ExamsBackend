@@ -440,10 +440,11 @@ public class ReportService {
                         status = AnswerStatus.WRONG;
                     }
 
-                    questionMap.put("pairsCorrect", pairsCorrect);
-                    questionMap.put("pairsTotal",   pairsTotal);
                     questionMap.put("earnedMark",   earnedMark);
                 }
+                
+                questionMap.put("pairsCorrect", pairsCorrect);
+                questionMap.put("pairsTotal",   pairsTotal);
 
                 // Include pairs with per-pair correctness for frontend rendering
                 if (pairs != null) {

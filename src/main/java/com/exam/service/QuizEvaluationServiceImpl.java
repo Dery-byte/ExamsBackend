@@ -121,12 +121,9 @@ package com.exam.service;
 
 import com.exam.DTO.QuizEvaluationResult;
 import com.exam.model.User;
-import com.exam.model.exam.MatchingPair;
-import com.exam.model.exam.QuestionType;
-import com.exam.model.exam.Questions;
-import com.exam.model.exam.Quiz;
-import com.exam.model.exam.Report;
+import com.exam.model.exam.*;
 import com.exam.repository.ReportRepository;
+import com.exam.repository.StudentAnswerRepository;
 import com.exam.service.Impl.QuizEvaluationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -154,6 +151,9 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
 
     @Autowired
     private ReportRepository reportRepository;
+
+    @Autowired
+    private StudentAnswerRepository studentAnswerRepository;
 
     @Override
     public QuizEvaluationResult evaluateQuiz(List<Questions> questions, String username, Long quizId) {
@@ -239,6 +239,13 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
                     }
                 }
             }
+
+            // ── Save Student Answer ──────────────────────────────────────────────
+            StudentAnswer studentAnswer = new StudentAnswer();
+            studentAnswer.setUser(user);
+            studentAnswer.setQuestion(persisted);
+            studentAnswer.setSelectedOptions(q.getGivenAnswer());
+            studentAnswerRepository.save(studentAnswer);
         }
 
         // ── Save / update report ──────────────────────────────────────────────

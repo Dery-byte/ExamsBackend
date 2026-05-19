@@ -60,6 +60,24 @@ public class PdfReportService {
     }
 
     @Getter @AllArgsConstructor
+    public static class MatchingPairDto {
+        private String prompt;
+        private String expected;
+        private String selected;
+        private boolean correct;
+    }
+
+    @Getter @AllArgsConstructor
+    public static class MatchingDto {
+        private int number;
+        private String content;
+        private String status;
+        private int pairsCorrect;
+        private int pairsTotal;
+        private List<MatchingPairDto> pairs;
+    }
+
+    @Getter @AllArgsConstructor
     public static class TheoryAnswerDto {
         private String quesNo;
         private String question;
@@ -123,6 +141,7 @@ public class PdfReportService {
 
         // 9. Build DTOs
         List<McqDto>        mcqDtos      = buildMcqDtos(mcqResult);
+        List<MatchingDto>   matchingDtos = buildMatchingDtos(mcqResult);
         List<TheoryGroupDto> theoryGroups = buildTheoryGroups(theoryAnswers);
 
         // 10. Thymeleaf context
@@ -153,6 +172,8 @@ public class PdfReportService {
         ctx.setVariable("showSectionA", showSectionA && !mcqDtos.isEmpty());
         ctx.setVariable("showSectionB", showSectionB);
         ctx.setVariable("mcqQuestions",  mcqDtos);
+        ctx.setVariable("matchingQuestions", matchingDtos);
+        ctx.setVariable("showSectionMatching", !matchingDtos.isEmpty());
         ctx.setVariable("theoryGroups",  theoryGroups);
         ctx.setVariable("watermarkBase64", generateDiagonalWatermarkBase64(candidateIdStr));
 
@@ -207,6 +228,35 @@ public class PdfReportService {
                 opts.add(new OptionDto(letters[i], txt, cSet.contains(txt), sSet.contains(txt)));
             }
             dtos.add(new McqDto(num++, String.valueOf(q.getOrDefault("content", "")), status, opts));
+        }
+        return dtos;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<MatchingDto> buildMatchingDtos(Map<String, Object> mcqResult) {
+        List<Map<String, Object>> results = (List<Map<String, Object>>) mcqResult.getOrDefault("results", List.of());
+        List<MatchingDto> dtos = new ArrayList<>();
+        int num = 1;
+        for (Map<String, Object> q : results) {
+            String qType = String.valueOf(q.getOrDefault("questionType", "MCQ"));
+            if (!"MATCHING".equals(qType)) {
+                if (!"THEORY".equals(qType)) num++; // Keep numbering aligned with all questions
+                continue;
+            }
+            String status = String.valueOf(q.getOrDefault("status", "SKIPPED"));
+            int pairsCorrect = (int) Double.parseDouble(String.valueOf(q.getOrDefault("pairsCorrect", 0)));
+            int pairsTotal = (int) Double.parseDouble(String.valueOf(q.getOrDefault("pairsTotal", 0)));
+            
+            List<Map<String, Object>> pairsList = (List<Map<String, Object>>) q.getOrDefault("matchingPairs", List.of());
+            List<MatchingPairDto> pairs = new ArrayList<>();
+            for (Map<String, Object> p : pairsList) {
+                String prompt = safeStr(p.get("prompt"));
+                String expected = safeStr(p.get("correctAnswer"));
+                String student = safeStr(p.get("studentAnswer"));
+                boolean correct = Boolean.parseBoolean(String.valueOf(p.get("correct")));
+                pairs.add(new MatchingPairDto(prompt, expected, student, correct));
+            }
+            dtos.add(new MatchingDto(num++, String.valueOf(q.getOrDefault("content", "")), status, pairsCorrect, pairsTotal, pairs));
         }
         return dtos;
     }

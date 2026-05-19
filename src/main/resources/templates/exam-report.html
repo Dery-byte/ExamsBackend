@@ -200,6 +200,44 @@
   </div>
 </div>
 
+<!-- ══════════ MATCHING QUESTIONS ══════════ -->
+<div th:if="${showSectionMatching}" style="margin-top: 25pt;">
+  <div class="s-title">Matching Assessment — Detailed Analysis</div>
+  <div th:each="q, qStat : ${matchingQuestions}" class="q-block">
+    <table style="margin-bottom: 3pt;">
+      <tr>
+        <td style="width:17pt; font-weight:bold; color:#1a2744; vertical-align:top;" th:text="${q.number} + '.'">1.</td>
+        <td style="vertical-align:top;" th:utext="${q.content}">Question text.</td>
+        <td style="text-align:right; width:63pt; vertical-align:top;">
+          <span th:text="${q.status}"
+                th:class="${q.status == 'CORRECT'} ? 'badge b-ok' : (${q.status == 'WRONG'} ? 'badge b-bad' : (${q.status == 'PARTIAL'} ? 'badge b-part' : 'badge b-skip'))">STATUS</span>
+        </td>
+      </tr>
+    </table>
+    <table class="t-opt" style="margin-left:15pt; width:calc(100% - 15pt);">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:4pt 6pt; background:#f4f5f7; border:0.5pt solid #d0d4ee; font-size:9pt; width:33%;">Prompt</th>
+          <th style="text-align:left; padding:4pt 6pt; background:#f4f5f7; border:0.5pt solid #d0d4ee; font-size:9pt; width:33%;">Expected Match</th>
+          <th style="text-align:left; padding:4pt 6pt; background:#f4f5f7; border:0.5pt solid #d0d4ee; font-size:9pt; width:33%;">Student Answer</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="pair : ${q.pairs}">
+          <td style="padding:4pt 6pt; border:0.5pt solid #d0d4ee; font-size:9.5pt;" th:text="${pair.prompt}">Prompt</td>
+          <td style="padding:4pt 6pt; border:0.5pt solid #d0d4ee; font-size:9.5pt;" th:text="${pair.expected}">Expected</td>
+          <td style="padding:4pt 6pt; border:0.5pt solid #d0d4ee; font-size:9.5pt; font-weight:bold;"
+              th:class="${pair.correct} ? 'c-ok' : 'c-bad'"
+              th:text="${pair.selected != null and !#strings.isEmpty(pair.selected)} ? ${pair.selected} : '(No Answer)'">Student</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="font-size:8.5pt; color:#1a2744; margin-top:4pt; margin-left:15pt; font-weight:bold;">
+      Score: <span th:text="${q.pairsCorrect} + ' / ' + ${q.pairsTotal}"></span> pairs matched correctly
+    </p>
+  </div>
+</div>
+
 <!-- ══════════ SECTION B: THEORY QUESTIONS ══════════ -->
 <div th:if="${showSectionB}" style="margin-top: 25pt;">
   <div class="s-title">Section B: Theoretical Assessment — Detailed Analysis</div>
