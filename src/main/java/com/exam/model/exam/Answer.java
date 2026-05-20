@@ -49,6 +49,8 @@ private String studentAnswer;
 
     private String feedback;
 
+    private String lecturerComment;
+
     /**
      * Store keyMissed as JSON string in DB,
      * mapped to List<String> in Java
@@ -137,6 +139,14 @@ private String studentAnswer;
 
     public void setFeedback(String feedback) {
         this.feedback = feedback;
+    }
+
+    public String getLecturerComment() {
+        return lecturerComment;
+    }
+
+    public void setLecturerComment(String lecturerComment) {
+        this.lecturerComment = lecturerComment;
     }
 
     public List<String> getKeyMissed() {

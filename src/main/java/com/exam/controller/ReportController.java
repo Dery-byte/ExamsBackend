@@ -173,7 +173,7 @@ public ResponseEntity<List<Report>> getQuizIds(@PathVariable("quiz_Id") Long qui
                     answer.setScore(request.reviewedMarks.get(key));
                 }
                 if (request.comments != null && request.comments.containsKey(key)) {
-                    answer.setFeedback(request.comments.get(key));
+                    answer.setLecturerComment(request.comments.get(key));
                 }
                 answerRepository.save(answer);
             }

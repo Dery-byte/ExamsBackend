@@ -52,7 +52,8 @@ private AnswerRepository answerRepository;
                             a.getKeyMissed(),
                             a.getQuiz().getqId(),
                             tq.getTqId(),
-                            a.getFeedback()
+                            a.getFeedback(),
+                            a.getLecturerComment()
 
                     );
                 })

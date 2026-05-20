@@ -19,6 +19,7 @@ public class AnswerDTO {
     private Long theoryQuestionId;
     private Long quizId;
     private String feedback;
+    private String lecturerComment;
 
 
 
