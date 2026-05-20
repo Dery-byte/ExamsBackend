@@ -86,6 +86,7 @@ public class PdfReportService {
         private String maxMarks;
         private int    scorePct;
         private List<String> keyMissed;
+        private String feedback;
     }
 
     @Getter @AllArgsConstructor
@@ -272,7 +273,7 @@ public class PdfReportService {
             List<String> km = a.getKeyMissed() != null ? a.getKeyMissed() : List.of();
             map.computeIfAbsent(prefix, k -> new ArrayList<>())
                .add(new TheoryAnswerDto(qNo, q, safeStr(a.getStudentAnswer()),
-                       fmt(a.getScore()), fmt(a.getMaxMarks()), sPct, km));
+                       fmt(a.getScore()), fmt(a.getMaxMarks()), sPct, km, safeStr(a.getFeedback())));
         }
         return map.entrySet().stream()
                 .map(e -> new TheoryGroupDto(e.getKey(), e.getValue()))

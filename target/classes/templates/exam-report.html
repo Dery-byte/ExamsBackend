@@ -262,6 +262,10 @@
         <b style="font-size:8pt; color:#7a5600; text-transform:uppercase;">&#9888; Evaluator Feedback: </b>
         <span th:text="${#strings.listJoin(ans.keyMissed, ', ')}">Feedback.</span>
       </div>
+      <div th:if="${ans.feedback != null and !#strings.isEmpty(ans.feedback)}" class="fb-box" style="border-left-color: #2ab57d; background: #effdf5;">
+        <b style="font-size:8pt; color:#0a5522; text-transform:uppercase;">Lecturer Comment: </b>
+        <span th:text="${ans.feedback}">Comment.</span>
+      </div>
       <hr style="border:none; border-top:0.4pt solid #d0d4ee; margin:7pt 0;" th:if="${!st.last}"/>
     </div>
   </div>
