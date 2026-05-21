@@ -54,9 +54,13 @@ public class QuizController {
     @PostMapping("/addQuiz")
     public ResponseEntity<Quiz> add(@RequestBody Quiz quiz ){
         return ResponseEntity.ok(this.quizService.addQuiz(quiz));
-
-
     }
+
+    @PostMapping("/lecturer/addQuiz")
+    public ResponseEntity<Quiz> LecturerAdd(@RequestBody Quiz quiz) {
+        return ResponseEntity.ok(this.quizService.lectureAddQuiz(quiz));
+    }
+
     @DeleteMapping("delete/quiz/{qid}")
     public  void delete(@PathVariable("qid") Long qid){
         this.quizService.deleteQuiz(qid);

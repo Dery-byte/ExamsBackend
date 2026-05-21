@@ -31,11 +31,23 @@ public class CategoryController {
 
     @Autowired
     private CategoryRepository categoryRepository;
+
+
+
     @PostMapping("/add")
     public ResponseEntity<Category> addCategory(@RequestBody Category category){
         Category category1 = this.categoryService.addCategory(category);
         return ResponseEntity.ok(category1);
     }
+
+    @PostMapping("/lecturer/addCategory")
+    public ResponseEntity<Category> lecturerAddCategory(@RequestBody Category category){
+        Category category1 = this.categoryService.lecturerAddCategory(category);
+        return ResponseEntity.ok(category1);
+    }
+
+
+
     @GetMapping("/getCategories")
     public ResponseEntity<?> getCategories(){
         return ResponseEntity.ok(this.categoryService.getCategories());

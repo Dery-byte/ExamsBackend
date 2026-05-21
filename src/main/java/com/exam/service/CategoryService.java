@@ -11,6 +11,7 @@ import com.exam.model.exam.Quiz;
 import com.exam.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,7 +54,15 @@ UserRepository userRepository;
 
 
 
-
+    public Category lecturerAddCategory(Category category) {
+        String username = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+        User currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        category.setUser(currentUser);
+        return this.categoryRepository.save(category);
+    }
 
 
     // Service

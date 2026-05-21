@@ -292,6 +292,7 @@ import com.exam.model.exam.*;
 import com.exam.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -314,9 +315,39 @@ public class QuizService {
 
     // ── Create ────────────────────────────────────────────────────────────────
 
+
+
+
+
+
+
+
+
     public Quiz addQuiz(Quiz quiz) {
         return quizRepository.save(quiz);
     }
+
+
+    public Quiz lectureAddQuiz(Quiz quiz) {
+        String username = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+
+        User currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        quiz.setUser(currentUser);
+        return quizRepository.save(quiz);
+    }
+
+
+
+
+
+
+
+
+
 
     @Transactional
     public Quiz addQuizForLoggedInUser(Quiz quiz, Principal principal) {
