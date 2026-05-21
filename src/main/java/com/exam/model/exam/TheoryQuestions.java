@@ -23,7 +23,7 @@ public class TheoryQuestions {
     private String marks;
 
 
-    @Column(nullable = false, length = 5000)
+    @Column(nullable = true, length = 5000)
     private String evaluationCriteria;
 
 
@@ -32,7 +32,7 @@ public class TheoryQuestions {
     @Column(nullable = false)
     private Boolean isCompulsory = false;
 
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne(cascade = CascadeType.MERGE)
 //    @JoinColumn(name = "quiz_id")
     private Quiz quiz;
 

@@ -32,7 +32,17 @@ public class TheoryController {
 
 
     @PostMapping("theoryquestion/add")
-    public ResponseEntity<TheoryQuestions> add(@RequestBody TheoryQuestions theoryQuestions) {
+    public ResponseEntity<?> add(@RequestBody TheoryQuestions theoryQuestions) {
+        // The frontend sends { quiz: { qId: X }, ... }
+        // Jackson creates a transient Quiz with only qId set — that detached object
+        // must be replaced with the managed entity from the DB before we can save.
+        if (theoryQuestions.getQuiz() == null || theoryQuestions.getQuiz().getqId() == null) {
+            return ResponseEntity.badRequest().body("quiz.qId is required");
+        }
+        Long quizId = theoryQuestions.getQuiz().getqId();
+        Quiz managedQuiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new RuntimeException("Quiz not found: " + quizId));
+        theoryQuestions.setQuiz(managedQuiz);
         return ResponseEntity.ok(this.theoryService.addQuestions(theoryQuestions));
     }
 
