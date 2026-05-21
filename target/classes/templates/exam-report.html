@@ -7,7 +7,7 @@
     @page {
       size: A4 portrait;
       margin: 14mm 15mm 18mm 15mm;
-      @bottom-left  { content: "University of Cape Coast  |  OTC |  Official Transcript"; font-size: 6.5pt; color: #888; font-family: 'Times New Roman', serif; padding-top: 3pt; border-top: 0.5pt solid #ccc; }
+      @bottom-left  { content: "University of Cape Coast  |  OTC |  Official Quiz Report"; font-size: 6.5pt; color: #888; font-family: 'Times New Roman', serif; padding-top: 3pt; border-top: 0.5pt solid #ccc; }
       @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 6.5pt; color: #888; font-family: 'Times New Roman', serif; padding-top: 3pt; border-top: 0.5pt solid #ccc; }
     }
 
@@ -88,13 +88,13 @@
     </td>
     <td style="padding-left: 10pt; vertical-align: middle;">
       <div style="font-size: 14.5pt; font-weight: bold; color: #1a2744; margin-bottom: 1pt;">University of Cape Coast</div>
-      <div style="font-size: 9pt; color: #4a4a9c; font-weight: bold; margin-bottom: 1pt;">Faculty of Physical Sciences</div>
+      <div style="font-size: 9pt; color: #4a4a9c; font-weight: bold; margin-bottom: 1pt;">School of Physical Sciences</div>
       <div style="font-size: 9pt; color: #4a4a9c;">Department of Computer Science and Information Technology</div>
-      <div style="font-size: 7pt; color: #888; text-transform: uppercase; letter-spacing: 1pt; margin-top: 2pt;">Official Examination Performance Report</div>
+      <div style="font-size: 7pt; color: #888; text-transform: uppercase; letter-spacing: 1pt; margin-top: 2pt;">Official Quiz Performance Report</div>
     </td>
     <td style="text-align: right; vertical-align: top; width: 82pt;">
-      <div style="font-size: 7pt; color: #888;">Reference ID</div>
-      <div style="font-size: 13pt; font-weight: bold; color: #1a2744;" th:text="'#' + ${refId}">#000001</div>
+      <div style="font-size: 7pt; color: #888;">Date Generated</div>
+<!--      <div style="font-size: 13pt; font-weight: bold; color: #1a2744;" th:text="'#' + ${refId}">#000001</div>-->
       <div style="font-size: 7.5pt; color: #888; margin-top: 4pt;" th:text="${generatedDate}">18 May 2026</div>
     </td>
   </tr>
@@ -147,14 +147,14 @@
       <td style="text-align:center;" th:text="${objScore}">0</td>
       <td style="text-align:center;" th:text="${maxObj}">0</td>
       <td style="text-align:center;" th:text="${objPct} + '%'" th:class="${objPct >= 70} ? 's-pass' : (${objPct >= 50} ? 's-warn' : 's-fail')">0%</td>
-      <td style="text-align:center;" th:text="${objPct >= 70} ? 'Excellent' : (${objPct >= 50} ? 'Satisfactory' : 'Needs Review')">-</td>
+      <td style="text-align:center;" th:text="${objPct >= 70} ? 'Excellent' : (${objPct >= 50} ? 'Satisfactory' : 'Below Average')">-</td>
     </tr>
     <tr th:if="${showSectionB}">
       <td>Section B — Theoretical Assessment</td>
       <td style="text-align:center;" th:text="${thScore}">0</td>
       <td style="text-align:center;" th:text="${maxTh}">0</td>
       <td style="text-align:center;" th:text="${thPct} + '%'" th:class="${thPct >= 70} ? 's-pass' : (${thPct >= 50} ? 's-warn' : 's-fail')">0%</td>
-      <td style="text-align:center;" th:text="${thPct >= 70} ? 'Excellent' : (${thPct >= 50} ? 'Satisfactory' : 'Needs Review')">-</td>
+      <td style="text-align:center;" th:text="${thPct >= 70} ? 'Excellent' : (${thPct >= 50} ? 'Satisfactory' : 'Below Average')">-</td>
     </tr>
     <tr class="tot">
       <td>AGGREGATE TOTAL</td>
@@ -262,10 +262,10 @@
         <b style="font-size:8pt; color:#7a5600; text-transform:uppercase;">&#9888; Evaluator Feedback: </b>
         <span th:text="${#strings.listJoin(ans.keyMissed, ', ')}">Feedback.</span>
       </div>
-      <div th:if="${ans.feedback != null and !#strings.isEmpty(ans.feedback)}" class="fb-box" style="border-left-color: #3b82f6; background: #eff6ff;">
-        <b style="font-size:8pt; color:#1d4ed8; text-transform:uppercase;">AI Feedback: </b>
-        <span th:text="${ans.feedback}">Feedback.</span>
-      </div>
+<!--      <div th:if="${ans.feedback != null and !#strings.isEmpty(ans.feedback)}" class="fb-box" style="border-left-color: #3b82f6; background: #eff6ff;">-->
+<!--        <b style="font-size:8pt; color:#1d4ed8; text-transform:uppercase;">AI Feedback: </b>-->
+<!--        <span th:text="${ans.feedback}">Feedback.</span>-->
+<!--      </div>-->
       <div th:if="${ans.lecturerComment != null and !#strings.isEmpty(ans.lecturerComment)}" class="fb-box" style="border-left-color: #2ab57d; background: #effdf5;">
         <b style="font-size:8pt; color:#0a5522; text-transform:uppercase;">Lecturer Comment: </b>
         <span th:text="${ans.lecturerComment}">Comment.</span>
@@ -279,9 +279,9 @@
 <table style="margin-top:12pt; border-top:1.5pt solid #1a2744; padding-top:6pt;" class="no-break">
   <tr>
     <td style="font-size:8pt; color:#555;">
-      <b>University of Cape Coast</b> — Lexa Examination Framework<br/>
-      Computer-generated academic transcript. No physical signature required.<br/>
-      Portal Security: <b style="color:#0a5522;">Active &amp; Verified</b>
+      <b>University of Cape Coast</b> — OTC Quiz Portal<br/>
+      Computer-generated Quiz Report. No physical signature required.<br/>
+<!--      Portal Security: <b style="color:#0a5522;">Active &amp; Verified</b>-->
     </td>
     <td style="text-align:right; width:105pt; vertical-align:middle; font-size:11pt; font-weight:bold;"
         th:text="${gradeLabel}"

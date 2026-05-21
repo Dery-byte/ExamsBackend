@@ -170,7 +170,7 @@ public class PdfReportService {
         ctx.setVariable("totalMax",   fmt(totalMax));
         ctx.setVariable("totalPct",   totalPct);
         ctx.setVariable("gradeLabel", gradeLabel(totalPct));
-        ctx.setVariable("gradeStatus", totalPct >= 50 ? "QUALIFIED" : "REVIEW");
+        ctx.setVariable("gradeStatus", totalPct >= 50 ? "QUALIFIED" : "BELOW AVERAGE");
         ctx.setVariable("showSectionA", showSectionA && !mcqDtos.isEmpty());
         ctx.setVariable("showSectionB", showSectionB);
         ctx.setVariable("mcqQuestions",  mcqDtos);
@@ -293,7 +293,7 @@ public class PdfReportService {
     private int    pct(double g, double m) { return m > 0 ? (int) Math.round(g / m * 100) : 0; }
     private String fmt(double v) { return v == Math.floor(v) ? String.valueOf((int) v) : String.format("%.1f", v); }
     private String formatDuration(int m) { int h = m / 60; int mm = m % 60; return h > 0 ? h + " hr " + mm + " min" : mm + " min"; }
-    private String gradeLabel(int p) { return p >= 70 ? "EXCELLENT" : p >= 50 ? "SATISFACTORY" : "NEEDS IMPROVEMENT"; }
+    private String gradeLabel(int p) { return p >= 70 ? "EXCELLENT" : p >= 50 ? "SATISFACTORY" : "BELOW AVERAGE"; }
 
     private String generateDiagonalWatermarkBase64(String text) {
         try {
