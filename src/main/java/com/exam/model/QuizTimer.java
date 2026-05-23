@@ -5,7 +5,10 @@ import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.DynamicUpdate;
+
 @Entity
+@DynamicUpdate
 @Table(name = "quiz_timers",
         uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "quiz_id"}))
 public class QuizTimer {

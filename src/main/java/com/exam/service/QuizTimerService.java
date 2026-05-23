@@ -247,6 +247,7 @@ public class QuizTimerService {
                     QuizTimer t = new QuizTimer();
                     t.setUser(user);
                     t.setQuiz(quiz);
+                    t.setTotalViolationCount(0);
                     return t;
                 });
 
@@ -387,6 +388,7 @@ public class QuizTimerService {
                     t.setUser(userRepository.findById(userId).orElseThrow());
                     t.setQuiz(quizRepository.findById(quizId).orElseThrow());
                     t.setRemainingTime(0);
+                    t.setTotalViolationCount(0);
                     return t;
                 });
 
