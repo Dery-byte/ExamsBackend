@@ -55,13 +55,19 @@ public class AuthenticationService {
 
 // RESGISTER AS A STUDENT
     public AuthenticationResponse register(RegisterRequest request) throws UserFoundException {
+        // Check duplicate username
         var userExist = userRepository.findByUsername(request.getUsername());
         if (userExist.isPresent()) {
-            System.out.println("User is already in the system");
-            throw new UserFoundException();
+            System.out.println("Username already in the system");
+            throw new UserFoundException("An account with this Student ID already exists. Please sign in instead.");
         }
-        else
-        {
+        // Check duplicate email
+        var emailExist = userRepository.findByEmail(request.getEmail());
+        if (emailExist.isPresent()) {
+            System.out.println("Email already registered");
+            throw new UserFoundException("An account with this email address already exists. Please sign in or use a different email.");
+        }
+
         var user = User.builder()
                 .firstname(request.getFirstname())
                 .lastname(request.getLastname())
@@ -79,35 +85,39 @@ public class AuthenticationService {
                 .token(jwtToken)
                 .build();
     }
-    }
 
 
     // RESGISTER AS A LECTURER
     public AuthenticationResponse registerAslecturer(RegisterRequest request) throws UserFoundException {
+        // Check duplicate username
         var userExist = userRepository.findByUsername(request.getUsername());
         if (userExist.isPresent()) {
-            System.out.println("User is already in the system");
-            throw new UserFoundException();
+            System.out.println("Username already in the system");
+            throw new UserFoundException("An account with this Staff ID already exists.");
         }
-        else
-        {
-            var user = User.builder()
-                    .firstname(request.getFirstname())
-                    .lastname(request.getLastname())
-                    .email(request.getEmail())
-                    .phone(request.getPhone())
-                    .username(request.getUsername())
-                    .enabled(true)
-                    .password(passwordEncoder.encode(request.getPassword()))
-                    .role(Role.LECTURER)
-                    .build();
-            var savedUser = userRepository.save(user);
-            var jwtToken = jwtService.generateToken(user);
-            saveUserToken(savedUser, jwtToken);
-            return AuthenticationResponse.builder()
-                    .token(jwtToken)
-                    .build();
+        // Check duplicate email
+        var emailExist = userRepository.findByEmail(request.getEmail());
+        if (emailExist.isPresent()) {
+            System.out.println("Email already registered");
+            throw new UserFoundException("An account with this email address already exists.");
         }
+
+        var user = User.builder()
+                .firstname(request.getFirstname())
+                .lastname(request.getLastname())
+                .email(request.getEmail())
+                .phone(request.getPhone())
+                .username(request.getUsername())
+                .enabled(true)
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(Role.LECTURER)
+                .build();
+        var savedUser = userRepository.save(user);
+        var jwtToken = jwtService.generateToken(user);
+        saveUserToken(savedUser, jwtToken);
+        return AuthenticationResponse.builder()
+                .token(jwtToken)
+                .build();
     }
 
 

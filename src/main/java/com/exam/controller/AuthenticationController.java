@@ -32,6 +32,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.io.UnsupportedEncodingException;
 import java.security.Principal;
@@ -74,18 +75,59 @@ public class AuthenticationController {
 
 // STUDENT
     @PostMapping("/register")
-    public ResponseEntity<AuthenticationResponse> register(
+    public ResponseEntity<?> register(
             @RequestBody RegisterRequest request
-    ) throws UserFoundException {
-        return ResponseEntity.ok(service.register(request));
+    ) {
+        try {
+            return ResponseEntity.ok(service.register(request));
+        } catch (UserFoundException e) {
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body(java.util.Map.of("message", e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            // Fallback: DB-level unique constraint (e.g. duplicate email or phone)
+            String msg = e.getMostSpecificCause().getMessage();
+            String friendly = "An account with these details already exists. Please sign in or use different information.";
+            if (msg != null && msg.contains("email")) {
+                friendly = "An account with this email address already exists. Please sign in or use a different email.";
+            } else if (msg != null && msg.contains("phone")) {
+                friendly = "An account with this phone number already exists.";
+            }
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body(java.util.Map.of("message", friendly));
+        } catch (Exception e) {
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(java.util.Map.of("message", "Registration failed. Please try again."));
+        }
     }
 
 //LECTURER
     @PostMapping("/register/lecturer")
-    public ResponseEntity<AuthenticationResponse> registerLecturer(
+    public ResponseEntity<?> registerLecturer(
             @RequestBody RegisterRequest request
-    ) throws UserFoundException {
-        return ResponseEntity.ok(service.registerAslecturer(request));
+    ) {
+        try {
+            return ResponseEntity.ok(service.registerAslecturer(request));
+        } catch (UserFoundException e) {
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body(java.util.Map.of("message", e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            String msg = e.getMostSpecificCause().getMessage();
+            String friendly = "An account with these details already exists.";
+            if (msg != null && msg.contains("email")) {
+                friendly = "An account with this email address already exists.";
+            }
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body(java.util.Map.of("message", friendly));
+        } catch (Exception e) {
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(java.util.Map.of("message", "Registration failed. Please try again."));
+        }
     }
     //ADMIN
     @PostMapping("/register/admin")
@@ -222,8 +264,8 @@ return "Password changed " + user.getPassword();
 
 
 
-    @PostMapping("/forgotten-password")
-    public ResponseEntity<Void> forgottenPassword(
+    @PostMapping("/forgotten-password/email-only")
+    public ResponseEntity<Void> forgottenPasswordEmailOnly(
             @RequestBody ForgottenPasswordRequest request
     ) throws MessagingException, UnsupportedEncodingException {
         service.forgottenPassword(request);

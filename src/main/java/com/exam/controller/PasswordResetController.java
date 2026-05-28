@@ -524,10 +524,13 @@
 package com.exam.controller;
 
 import com.exam.DTO.ForgotPasswordRequest;
+import com.exam.DTO.ForgotPasswordUnifiedRequest;
 import com.exam.DTO.ResetPasswordWithTokenRequest;
 import com.exam.DTO.TokenData;
 import com.exam.repository.UserRepository;
 import com.exam.service.MNotifyV2SmsService;
+import com.exam.service.Impl.EmailService;
+import com.exam.service.Impl.EmailTemplateName;
 import com.exam.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -558,6 +561,9 @@ public class PasswordResetController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private EmailService emailService;
+
 
 
 
@@ -572,9 +578,114 @@ public class PasswordResetController {
     private static final long TOKEN_EXPIRY_MS = TOKEN_EXPIRY_MINUTES * 60 * 1000;
     private static final long RATE_LIMIT_MS = 2 * 60 * 1000; // 2 minutes
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // UNIFIED endpoint: POST /api/v1/auth/forgotten-password
+    // Body: { "phone": "0544073427" }  OR  { "email": "user@example.com" }
+    // ─────────────────────────────────────────────────────────────────────────
+    @PostMapping("/forgotten-password")
+    public ResponseEntity<?> forgottenPasswordUnified(@RequestBody ForgotPasswordUnifiedRequest request) {
+        try {
+            boolean hasPhone = request.getPhone() != null && !request.getPhone().trim().isEmpty();
+            boolean hasEmail = request.getEmail() != null && !request.getEmail().trim().isEmpty();
+
+            if (!hasPhone && !hasEmail) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false, "message", "Please provide a phone number or email address."));
+            }
+
+            // ── Phone / SMS path ─────────────────────────────────────────────
+            if (hasPhone) {
+                String phone = normalizePhoneNumber(request.getPhone().trim());
+
+                User user = userRepository.findByPhone(phone);
+                if (user == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body(Map.of("success", false, "message", "No account found for this phone number."));
+                }
+
+                // Rate limiting
+                Long lastRequest = rateLimits.get(phone);
+                long now = System.currentTimeMillis();
+                if (lastRequest != null && (now - lastRequest) < RATE_LIMIT_MS) {
+                    long wait = (RATE_LIMIT_MS - (now - lastRequest)) / 1000;
+                    return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                            .body(Map.of("success", false, "message",
+                                    "Please wait " + wait + " seconds before requesting again."));
+                }
+
+                String resetToken = UUID.randomUUID().toString();
+                long expiryTime = System.currentTimeMillis() + TOKEN_EXPIRY_MS;
+                resetTokens.put(resetToken, new TokenData(phone, user.getId(), expiryTime));
+                rateLimits.put(phone, System.currentTimeMillis());
+
+                String resetLink = String.format("%s/reset-password?token=%s", frontendUrl, resetToken);
+
+                Map<String, Object> vars = new HashMap<>();
+                vars.put("username", user.getFullName());
+                vars.put("resetUrl", resetLink);
+
+                System.out.println("📱 [SMS] Reset link: " + resetLink);
+                smsService.sendSms(phone, vars);
+                cleanupExpiredTokens();
+
+                return ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "message", "Recovery code sent to your phone.",
+                        "channel", "sms"
+                ));
+            }
+
+            // ── Email path ────────────────────────────────────────────────────
+            String email = request.getEmail().trim().toLowerCase();
+            Optional<User> userOpt = userRepository.findByEmail(email);
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("success", false, "message", "No account found for this email address."));
+            }
+            User user = userOpt.get();
+
+            // Rate limiting by email
+            Long lastRequest = rateLimits.get(email);
+            long now = System.currentTimeMillis();
+            if (lastRequest != null && (now - lastRequest) < RATE_LIMIT_MS) {
+                long wait = (RATE_LIMIT_MS - (now - lastRequest)) / 1000;
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body(Map.of("success", false, "message",
+                                "Please wait " + wait + " seconds before requesting again."));
+            }
+
+            String resetToken = UUID.randomUUID().toString();
+            long expiryTime = System.currentTimeMillis() + TOKEN_EXPIRY_MS;
+            resetTokens.put(resetToken, new TokenData(email, user.getId(), expiryTime));
+            rateLimits.put(email, System.currentTimeMillis());
+
+            String resetLink = String.format("%s/reset-password?token=%s", frontendUrl, resetToken);
+
+            Map<String, Object> vars = new HashMap<>();
+            vars.put("username", user.getFullName());
+            vars.put("resetUrl", resetLink);
+
+            System.out.println("📧 [Email] Reset link: " + resetLink);
+            emailService.sendEmail(user.getEmail(), EmailTemplateName.RESET_PASSWORD, vars, "Password Reset");
+            cleanupExpiredTokens();
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Recovery link sent to your email.",
+                    "channel", "email"
+            ));
+
+        } catch (Exception e) {
+            System.err.println("❌ [forgotten-password] " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to send reset code. Please try again."));
+        }
+    }
+
     /**
-     * Request password reset link via SMS
-     * POST /api/forgotten-password
+     * Request password reset link via SMS  (legacy endpoint kept for back-compat)
+     * POST /api/forgotten-password/send/link
      * Body: { "recipient": ["0544073427"] }
      */
     @PostMapping("/forgotten-password/send/link")
