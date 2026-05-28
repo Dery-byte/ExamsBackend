@@ -1,6 +1,7 @@
 package com.exam.repository;
 
 import com.exam.token.Token;
+import com.exam.token.TokenType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -19,5 +20,8 @@ public interface TokenRepository extends JpaRepository<Token, Integer> {
     List<Token> findAllValidTokenByUser(Integer id);
 
     Optional<Token> findByToken(String token);
+
+    // Scoped lookup — only matches RESET tokens, never JWT Bearer tokens
+    Optional<Token> findByTokenAndTokenType(String token, TokenType tokenType);
 
 }

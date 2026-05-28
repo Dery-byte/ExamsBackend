@@ -29,7 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.UnsupportedEncodingException;
-import java.security.SecureRandom;
+
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -236,7 +236,8 @@ public class AuthenticationService {
     // PASSWORD RESET STUFF
 
     public void resetPassword(ResetPasswordRequest request) {
-        Token token = tokenRepository.findByToken(request.getToken())
+        Token token = tokenRepository
+                .findByTokenAndTokenType(request.getToken().trim(), TokenType.RESET)
                 .orElseThrow(() -> new RuntimeException("Invalid token"));
         if (LocalDateTime.now().isAfter(token.getExpiresAt())) {
             throw new ResetPasswordTokenExpiredException("Token has expired. Please request a new one.");
@@ -345,29 +346,18 @@ public class AuthenticationService {
 
 
     private String generateAndSaveResetPasswordToken(User user) {
-        String generatedToken = generateActivationCode(6); // Reuse your existing token generator
+        // UUID gives 122 bits of entropy — far stronger than a 6-digit code
+        // and matches the UUID format that appears in the reset-password email links
+        String generatedToken = UUID.randomUUID().toString();
         var token = Token.builder()
                 .token(generatedToken)
+                .tokenType(TokenType.RESET)   // distinct from BEARER — prevents cross-lookup collisions
                 .createdAt(LocalDateTime.now())
                 .expiresAt(LocalDateTime.now().plusMinutes(15))
                 .user(user)
                 .build();
         tokenRepository.save(token);
         return generatedToken;
-    }
-
-
-
-
-    private String generateActivationCode(int length) {
-        String characters = "0123456789";
-        StringBuilder codeBuilder = new StringBuilder();
-        SecureRandom secureRandom = new SecureRandom();
-        for (int i = 0; i < length; i++) {
-            int randomIndex = secureRandom.nextInt(characters.length());
-            codeBuilder.append(characters.charAt(randomIndex));
-        }
-        return codeBuilder.toString();
     }
 
 
