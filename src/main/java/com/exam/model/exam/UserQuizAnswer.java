@@ -29,7 +29,7 @@ public class UserQuizAnswer {
             name = "user_answer_options",
             joinColumns = @JoinColumn(name = "user_quiz_progress_id")
     )
-    @Column(name = "selected_option")
+    @Column(name = "selected_option", columnDefinition = "TEXT")
     private List<String> selectedOptions = new ArrayList<>();
 
     @Column(name = "quiz_id")

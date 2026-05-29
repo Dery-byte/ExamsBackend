@@ -56,6 +56,7 @@ private String studentAnswer;
      * mapped to List<String> in Java
      */
     @Convert(converter = StringListConverter.class)
+    @Column(columnDefinition = "TEXT")
     private List<String> keyMissed;
 
     // === Getters & Setters ===

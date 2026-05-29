@@ -24,6 +24,6 @@ public class StudentAnswer {
     private Questions question;
 
     @Convert(converter = StringArrayConverter.class)
-    @Column(nullable = true)
+    @Column(nullable = true, columnDefinition = "TEXT")
     private String[] selectedOptions;
 }

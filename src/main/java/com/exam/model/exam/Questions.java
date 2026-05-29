@@ -199,6 +199,7 @@ public class Questions {
     // MCQ / TRUE_FALSE  → stores selected option text e.g. ["True"] or ["option2"]
     // MATCHING          → stores correct answer values in pairOrder e.g. ["Not Found","OK","Forbidden"]
     @Convert(converter = StringArrayConverter.class)
+    @Column(columnDefinition = "TEXT")
     private String[] correct_answer;
 
     @Transient
