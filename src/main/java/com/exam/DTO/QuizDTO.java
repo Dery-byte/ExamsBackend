@@ -2,6 +2,7 @@ package com.exam.DTO;
 
 import com.exam.model.QuizStatus;
 import com.exam.model.QuizType;
+import com.exam.model.exam.LlmProvider;
 import com.exam.model.exam.Quiz;
 import com.exam.model.exam.ViolationAction;
 
@@ -40,6 +41,9 @@ public class QuizDTO {
     private Boolean enableScreenshotBlocking;
     private Boolean enableDevToolsBlocking;
 
+    /** LLM provider selected for subjective evaluation of this quiz. */
+    private LlmProvider llmProvider = LlmProvider.GPT;
+
 
     // Constructors
     public QuizDTO() {
@@ -71,6 +75,7 @@ public class QuizDTO {
         this.enableFullscreenLock = quiz.getEnableFullscreenLock();
         this.enableScreenshotBlocking = quiz.getEnableScreenshotBlocking();
         this.enableDevToolsBlocking = quiz.getEnableDevToolsBlocking();
+        this.llmProvider = quiz.getLlmProvider();
 
         // Convert category to DTO (avoid sending user info)
         if (quiz.getCategory() != null) {
@@ -278,5 +283,13 @@ public class QuizDTO {
 
     public void setEnableDevToolsBlocking(Boolean enableDevToolsBlocking) {
         this.enableDevToolsBlocking = enableDevToolsBlocking;
+    }
+
+    public LlmProvider getLlmProvider() {
+        return llmProvider;
+    }
+
+    public void setLlmProvider(LlmProvider llmProvider) {
+        this.llmProvider = llmProvider;
     }
 }

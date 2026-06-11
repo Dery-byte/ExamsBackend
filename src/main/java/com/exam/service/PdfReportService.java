@@ -194,6 +194,7 @@ public class PdfReportService {
         // 12. Convert to XHTML with Jsoup (required by Flying Saucer)
         Document doc = Jsoup.parse(html);
         doc.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
+        doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
         String xhtml = doc.html();
 
         // 13. PDF with Flying Saucer

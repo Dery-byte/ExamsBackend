@@ -6,7 +6,7 @@ import com.exam.model.exam.GeminiRequest;
 import com.exam.model.exam.QuestionEvaluationResult;
 import com.exam.model.exam.TheoryQuestions;
 import com.exam.repository.TheoryQuestionsRepository;
-import com.exam.service.QuizGPTService;
+import com.exam.service.SubjectiveEvaluationService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +29,7 @@ public class QuizGPTController {
     private static final Logger logger = LoggerFactory.getLogger(QuizGPTController.class);
 
     @Autowired
-    private QuizGPTService quizGPTService;
+    private SubjectiveEvaluationService subjectiveEvaluationService;
 
     @Autowired
     private TheoryQuestionsRepository theoryQuestionsRepository;
@@ -98,11 +98,7 @@ public class QuizGPTController {
             }
 
 //            logger.info("=== CALLING SERVICE ===");
-            QuizEvaluationResponse response = quizGPTService.evaluateQuiz(request, currentUser);
-//            logger.info("=== SERVICE RETURNED ===");
-//            logger.info("Report ID: {}", response.getReportId());
-//            logger.info("Answers saved: {}", response.getSummary().getAnswersSaved());
-//            logger.info("Total score: {}/{}", response.getSummary().getTotalScore(), response.getSummary().getTotalMaxMarks());
+            QuizEvaluationResponse response = subjectiveEvaluationService.evaluate(request, currentUser);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
 //            logger.error("=== ILLEGAL ARGUMENT EXCEPTION ===");
@@ -144,7 +140,8 @@ public class QuizGPTController {
                         .body(createErrorResponse("Only one question allowed for single evaluation"));
             }
 
-            List<QuestionEvaluationResult> results = (List<QuestionEvaluationResult>) quizGPTService.evaluateQuiz(request, currentUser);
+            List<QuestionEvaluationResult> results = (List<QuestionEvaluationResult>)
+                    subjectiveEvaluationService.evaluate(request, currentUser).getResults();
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);

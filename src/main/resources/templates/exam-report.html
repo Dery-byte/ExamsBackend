@@ -180,7 +180,7 @@
         </td>
       </tr>
     </table>
-    <table class="t-opt" style="margin-left:15pt; width:calc(100% - 15pt);">
+    <table class="t-opt" style="margin-left:15pt; width:calc(100% - 15pt);" th:if="${!q.options.isEmpty()}">
       <tr th:each="rowIdx : ${#numbers.sequence(0, (q.options.size() - 1) / 2)}">
         <td th:with="o=${q.options.get(rowIdx * 2)}"
             th:class="${o.correct} ? 'c-ok' : (${o.selected} ? 'c-bad' : 'c-nor')">

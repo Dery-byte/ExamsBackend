@@ -1,6 +1,7 @@
 package com.exam.DTO;
 import com.exam.model.QuizStatus;
 import com.exam.model.QuizType;
+import com.exam.model.exam.LlmProvider;
 import com.exam.model.exam.ViolationAction;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -46,6 +47,9 @@ public class QuizUpdateRequest {
     private Boolean enableScreenshotBlocking = true;
 
     private Boolean enableDevToolsBlocking = true;
+
+    /** LLM provider to use for subjective evaluation. Null means no change. */
+    private LlmProvider llmProvider;
 
 
 
@@ -255,5 +259,13 @@ public class QuizUpdateRequest {
 
     public void setEnableDevToolsBlocking(Boolean enableDevToolsBlocking) {
         this.enableDevToolsBlocking = enableDevToolsBlocking;
+    }
+
+    public LlmProvider getLlmProvider() {
+        return llmProvider;
+    }
+
+    public void setLlmProvider(LlmProvider llmProvider) {
+        this.llmProvider = llmProvider;
     }
 }

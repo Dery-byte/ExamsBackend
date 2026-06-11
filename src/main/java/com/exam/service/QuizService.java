@@ -444,6 +444,9 @@ public class QuizService {
         if (req.getEnableScreenshotBlocking()   != null) quiz.setEnableScreenshotBlocking(req.getEnableScreenshotBlocking());
         if (req.getEnableDevToolsBlocking()     != null) quiz.setEnableDevToolsBlocking(req.getEnableDevToolsBlocking());
 
+        // ── LLM Provider ──────────────────────────────────────────────────────
+        if (req.getLlmProvider()                != null) quiz.setLlmProvider(req.getLlmProvider());
+
         // active is a primitive boolean — always apply
         quiz.setActive(req.isActive());
 

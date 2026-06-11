@@ -97,10 +97,14 @@ public class Quiz {
     @JsonIgnore
     private Set<Report> reports = new LinkedHashSet<>();
     @Enumerated(EnumType.STRING)
-
     private QuizStatus status = QuizStatus.OPEN;
 
     private QuizType quizType;
+
+    /** Which LLM evaluates this quiz's subjective (theory) answers. Defaults to GPT. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "llm_provider", length = 20)
+    private LlmProvider llmProvider = LlmProvider.GPT;
 
     @JsonFormat(pattern = "HH:mm")
     private LocalTime startTime;
@@ -399,5 +403,13 @@ public class Quiz {
     public String getStartTime24H() {
         if (startTime == null) return null;
         return startTime.toString(); // "12:34:00"
+    }
+
+    public LlmProvider getLlmProvider() {
+        return llmProvider;
+    }
+
+    public void setLlmProvider(LlmProvider llmProvider) {
+        this.llmProvider = llmProvider != null ? llmProvider : LlmProvider.GPT;
     }
 }
