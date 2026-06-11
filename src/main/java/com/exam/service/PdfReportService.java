@@ -100,22 +100,23 @@ public class PdfReportService {
 
     public byte[] generateReportPdf(Long quizId, Long userId) throws Exception {
 
-        // 1. Base report (scores, candidate, quiz meta)
+        System.out.println("[PDF-SVC] ▶ Step A: Looking up report for quizId=" + quizId + ", userId=" + userId);
         Report report = reportRepository.findByUser_idAndQuiz_qId(userId.intValue(), quizId);
+        System.out.println("[PDF-SVC] ✔ Step A Done — report found=" + (report != null));
 
-        // 2. MCQ results with per-question status
+        System.out.println("[PDF-SVC] ▶ Step B: Getting MCQ results");
         Map<String, Object> mcqResult = reportService.getStudentQuizResult(quizId, userId);
+        System.out.println("[PDF-SVC] ✔ Step B Done");
 
-        // 3. Theory answers for this user only
+        System.out.println("[PDF-SVC] ▶ Step C: Loading theory answers");
         List<Answer> theoryAnswers = answerRepository.findByQuiz_qId(quizId).stream()
                 .filter(a -> a.getUser() != null && userId.equals(a.getUser().getId()))
                 .collect(Collectors.toList());
+        System.out.println("[PDF-SVC] ✔ Step C Done — theoryAnswers count=" + theoryAnswers.size());
 
-        // 4. Time allowed for theory section
         List<NumberOfTheoryToAnswer> theoryConfig = numberOfTheoryToAnswerService.findByQuizId(quizId);
         double theoryMins = theoryConfig.isEmpty() ? 0 : theoryConfig.get(0).getTimeAllowed();
 
-        // 5. Scores
         double objScore   = report != null && report.getMarks() != null        ? report.getMarks().doubleValue()          : 0;
         double maxObj     = report != null && report.getQuiz() != null         ? safeDouble(report.getQuiz().getMaxMarks()) : 0;
         double thScore    = theoryAnswers.stream().mapToDouble(Answer::getScore).sum();
@@ -126,30 +127,28 @@ public class PdfReportService {
         int    objPct     = pct(objScore, maxObj);
         int    thPct      = pct(thScore, maxTh);
 
-        // 6. Flags
         String  qt           = report != null && report.getQuiz() != null ? safeStr(report.getQuiz().getQuizType()) : "";
         boolean showSectionA = !"THEORY".equals(qt);
         boolean showSectionB = !"OBJ".equals(qt) && !theoryAnswers.isEmpty();
 
-        // 7. Duration
         double objMins = report != null && report.getQuiz() != null ? safeDouble(report.getQuiz().getQuizTime()) : 0;
         String duration = formatDuration((int)(objMins + theoryMins));
 
-        // 8. Submission date
         String submDate = "N/A";
         if (report != null && report.getSubmissionDate() != null) {
             submDate = report.getSubmissionDate().format(DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm"));
         }
 
-        // 9. Build DTOs
-        List<McqDto>        mcqDtos      = buildMcqDtos(mcqResult);
-        List<MatchingDto>   matchingDtos = buildMatchingDtos(mcqResult);
+        System.out.println("[PDF-SVC] ▶ Step D: Building DTOs (mcq, matching, theory)");
+        List<McqDto>         mcqDtos      = buildMcqDtos(mcqResult);
+        List<MatchingDto>    matchingDtos = buildMatchingDtos(mcqResult);
         List<TheoryGroupDto> theoryGroups = buildTheoryGroups(theoryAnswers);
+        System.out.println("[PDF-SVC] ✔ Step D Done — mcq=" + mcqDtos.size() + ", matching=" + matchingDtos.size() + ", theory=" + theoryGroups.size());
 
-        // 10. Thymeleaf context
+        System.out.println("[PDF-SVC] ▶ Step E: Building Thymeleaf context");
         Context ctx = new Context();
-        String firstName = report != null && report.getUser() != null ? safeStr(report.getUser().getFirstname()) : "";
-        String lastName  = report != null && report.getUser() != null ? safeStr(report.getUser().getLastname())  : "";
+        String firstName      = report != null && report.getUser() != null ? safeStr(report.getUser().getFirstname()) : "";
+        String lastName       = report != null && report.getUser() != null ? safeStr(report.getUser().getLastname())  : "";
         String candidateIdStr = report != null && report.getUser() != null ? report.getUser().getUsername().toUpperCase() : "N/A";
         ctx.setVariable("candidateName",   (firstName + " " + lastName).trim().isEmpty() ? "N/A" : (firstName + " " + lastName).trim());
         ctx.setVariable("candidateId",     candidateIdStr);
@@ -178,31 +177,37 @@ public class PdfReportService {
         ctx.setVariable("showSectionMatching", !matchingDtos.isEmpty());
         ctx.setVariable("theoryGroups",  theoryGroups);
         ctx.setVariable("watermarkBase64", generateDiagonalWatermarkBase64(candidateIdStr));
+        System.out.println("[PDF-SVC] ✔ Step E Done");
 
         try {
             ClassPathResource imgFile = new ClassPathResource("static/images/ucc-logo.png");
             byte[] bytes = org.springframework.util.StreamUtils.copyToByteArray(imgFile.getInputStream());
             String base64Img = Base64.getEncoder().encodeToString(bytes);
             ctx.setVariable("uccLogoBase64", "data:image/png;base64," + base64Img);
+            System.out.println("[PDF-SVC] ✔ Logo loaded");
         } catch (Exception e) {
+            System.out.println("[PDF-SVC] ⚠ Logo not found, continuing without it");
             ctx.setVariable("uccLogoBase64", "");
         }
 
-        // 11. Render HTML with Thymeleaf
+        System.out.println("[PDF-SVC] ▶ Step F: Rendering Thymeleaf HTML template");
         String html = templateEngine.process("exam-report", ctx);
+        System.out.println("[PDF-SVC] ✔ Step F Done — HTML length=" + html.length());
 
-        // 12. Convert to XHTML with Jsoup (required by Flying Saucer)
+        System.out.println("[PDF-SVC] ▶ Step G: Converting HTML to XHTML via Jsoup");
         Document doc = Jsoup.parse(html);
         doc.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
         doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
         String xhtml = doc.html();
+        System.out.println("[PDF-SVC] ✔ Step G Done — XHTML length=" + xhtml.length());
 
-        // 13. PDF with Flying Saucer
+        System.out.println("[PDF-SVC] ▶ Step H: Rendering PDF via Flying Saucer / iText");
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ITextRenderer renderer = new ITextRenderer();
         renderer.setDocumentFromString(xhtml);
         renderer.layout();
         renderer.createPDF(out);
+        System.out.println("[PDF-SVC] ✔ Step H Done — PDF generated successfully");
         return out.toByteArray();
     }
 

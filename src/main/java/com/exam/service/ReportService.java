@@ -377,8 +377,14 @@ public class ReportService {
         List<StudentAnswer> answers   = studentAnswerRepository.findByStudentAndQuiz(studentId, quizId);
 
         // Map questionId → StudentAnswer for O(1) lookup
+        // Use merge function (a, b) -> b  to gracefully handle duplicate answers —
+        // i.e. if a student somehow submitted two answers for the same question, keep the latest one.
         Map<Long, StudentAnswer> answerMap = answers.stream()
-                .collect(Collectors.toMap(a -> a.getQuestion().getQuesId(), a -> a));
+                .collect(Collectors.toMap(
+                        a -> a.getQuestion().getQuesId(),
+                        a -> a,
+                        (existing, replacement) -> replacement   // keep the last/newest answer
+                ));
 
         double maxMarks = Optional.ofNullable(quiz.getMaxMarks()).orElse(0.0);
 
