@@ -400,6 +400,7 @@ public class SecurityConfiguration {
         // ✅ Allowed origins (your frontend URLs)
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:4200",
+                "http://localhost:4201",
                 "https://assessmentapp-e1d04.web.app",
                 "https://exams-frontend-blond.vercel.app/"
         ));
