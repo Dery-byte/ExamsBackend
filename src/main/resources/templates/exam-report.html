@@ -185,11 +185,15 @@
         <td th:with="o=${q.options.get(rowIdx * 2)}"
             th:class="${o.correct} ? 'c-ok' : (${o.selected} ? 'c-bad' : 'c-nor')">
           <b th:text="${o.letter} + ')'">A)</b>&#160;<span th:text="${o.text}">Opt</span>
+          <span th:if="${o.selected and o.correct}" style="font-size: 7.5pt; font-style: italic; margin-left: 4pt; color: #0a5522;">(Your Selection &#10003;)</span>
+          <span th:if="${o.selected and !o.correct}" style="font-size: 7.5pt; font-style: italic; margin-left: 4pt; color: #b30000;">(Your Selection &#10007;)</span>
         </td>
         <td th:if="${rowIdx * 2 + 1 < q.options.size()}"
             th:with="o2=${q.options.get(rowIdx * 2 + 1)}"
             th:class="${o2.correct} ? 'c-ok' : (${o2.selected} ? 'c-bad' : 'c-nor')">
           <b th:text="${o2.letter} + ')'">B)</b>&#160;<span th:text="${o2.text}">Opt</span>
+          <span th:if="${o2.selected and o2.correct}" style="font-size: 7.5pt; font-style: italic; margin-left: 4pt; color: #0a5522;">(Your Selection &#10003;)</span>
+          <span th:if="${o2.selected and !o2.correct}" style="font-size: 7.5pt; font-style: italic; margin-left: 4pt; color: #b30000;">(Your Selection &#10007;)</span>
         </td>
         <td th:if="${rowIdx * 2 + 1 >= q.options.size()}"></td>
       </tr>
@@ -227,8 +231,11 @@
           <td style="padding:4pt 6pt; border:0.5pt solid #d0d4ee; font-size:9.5pt;" th:text="${pair.prompt}">Prompt</td>
           <td style="padding:4pt 6pt; border:0.5pt solid #d0d4ee; font-size:9.5pt;" th:text="${pair.expected}">Expected</td>
           <td th:class="${pair.correct} ? 'c-ok' : 'c-bad'"
-              style="padding:4pt 6pt; border:0.5pt solid #d0d4ee; font-size:9.5pt; font-weight:bold;"
-              th:text="${pair.selected != null and !#strings.isEmpty(pair.selected)} ? ${pair.selected} : '(No Answer)'">Student</td>
+              style="padding:4pt 6pt; border:0.5pt solid #d0d4ee; font-size:9.5pt; font-weight:bold;">
+              <span th:text="${pair.selected != null and !#strings.isEmpty(pair.selected)} ? ${pair.selected} : '(No Answer)'">Student</span>
+              <span th:if="${pair.selected != null and !#strings.isEmpty(pair.selected) and pair.correct}" style="font-size: 7.5pt; font-style: italic; margin-left: 4pt; color: #0a5522;">(Your Match &#10003;)</span>
+              <span th:if="${pair.selected != null and !#strings.isEmpty(pair.selected) and !pair.correct}" style="font-size: 7.5pt; font-style: italic; margin-left: 4pt; color: #b30000;">(Your Match &#10007;)</span>
+          </td>
         </tr>
       </tbody>
     </table>
