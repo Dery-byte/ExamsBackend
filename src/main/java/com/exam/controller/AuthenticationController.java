@@ -224,12 +224,52 @@ public ResponseEntity<?> logout(
     //Change Password if logged In
     @PutMapping("/updatepassword")
     String changePassword(Principal principal, @RequestBody User users){
-
         User user = (User) userDetailsService.loadUserByUsername(principal.getName());
-//        user.setPassword(users.getPassword());
         user.setPassword(passwordEncoder.encode(users.getPassword()));
         userRepository.save(user);
-return "Password changed " + user.getPassword();
+        return "Password changed " + user.getPassword();
+    }
+
+    // Update own profile — works for ANY role (ADMIN, LECTURER, NORMAL)
+    // Uses the authenticated principal so no role filter needed.
+    @PutMapping("/update-my-profile")
+    public ResponseEntity<?> updateMyProfile(
+            Principal principal,
+            @RequestBody Map<String, String> body) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        User user = (User) userDetailsService.loadUserByUsername(principal.getName());
+
+        String firstname = body.get("firstname");
+        String lastname  = body.get("lastname");
+        String email     = body.get("email");
+        String phone     = body.get("phone");
+
+        if (firstname != null && !firstname.isBlank()) user.setFirstname(firstname);
+        if (lastname  != null && !lastname.isBlank())  user.setLastname(lastname);
+        if (email     != null && !email.isBlank())     user.setEmail(email);
+        if (phone     != null && !phone.isBlank())     user.setPhone(phone);
+
+        userRepository.save(user);
+
+        UserResponse response = new UserResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getFirstname(),
+                user.getLastname(),
+                user.getRole().name(),
+                user.getAuthorities().stream()
+                        .map(a -> a.getAuthority())
+                        .collect(Collectors.joining(", ")),
+                user.isEnabled(),
+                user.getPhone(),
+                user.isAccountNonExpired(),
+                user.isCredentialsNonExpired(),
+                user.isAccountNonLocked()
+        );
+        return ResponseEntity.ok(response);
     }
 
     //Change Password if not logged in
