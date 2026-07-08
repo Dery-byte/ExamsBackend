@@ -5,6 +5,17 @@ public class LecturerUpdateDTO {
     private String email;
     private String phone;
     private String username;
+    private Integer currentLevel;
+    private Integer currentSemester;
+    private Long programId;
+
+    public Long getProgramId() { return programId; }
+    public void setProgramId(Long programId) { this.programId = programId; }
+
+    public Integer getCurrentLevel() { return currentLevel; }
+    public void setCurrentLevel(Integer currentLevel) { this.currentLevel = currentLevel; }
+    public Integer getCurrentSemester() { return currentSemester; }
+    public void setCurrentSemester(Integer currentSemester) { this.currentSemester = currentSemester; }
 
 
 // getters and setters
@@ -50,3 +61,4 @@ public class LecturerUpdateDTO {
         this.username = username;
     }
 }
+

@@ -366,6 +366,9 @@ public class SecurityConfiguration {
                         .requestMatchers("/token-info").permitAll()
                         .requestMatchers("/error").permitAll()
 
+                        // Super Admin only
+                        .requestMatchers("/api/v1/super-admin/**").hasAuthority("SUPER_ADMIN")
+
                         // Everything else requires authentication
                         .anyRequest().authenticated()
                 )

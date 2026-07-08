@@ -1,11 +1,14 @@
 package com.exam.model;
 
 import com.exam.model.exam.Category;
+import com.exam.model.exam.Department;
+import com.exam.model.exam.Program;
 import com.exam.model.exam.Providers;
 import com.exam.model.exam.Quiz;
 import com.exam.model.exam.Report;
 import com.exam.token.Token;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -51,6 +54,23 @@ public class User implements UserDetails {
   private String providerUserId;
   @Column(length = 1000)
   private String about;
+
+  // ── Department / Program / Level / Semester (for HODs and Students) ──────
+  @ManyToOne(fetch = FetchType.EAGER)
+  @JoinColumn(name = "department_id")
+  @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+  private Department department;
+
+  @ManyToOne(fetch = FetchType.EAGER)
+  @JoinColumn(name = "program_id")
+  @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+  private Program program;
+
+  /** Student's current academic level (100, 200, 300 …). Set by student on signup. */
+  private Integer currentLevel;
+
+  /** Student's current semester (1 or 2). Set by HOD / Super Admin. */
+  private Integer currentSemester;
 
 //Trying to check for one quiz attempts
 

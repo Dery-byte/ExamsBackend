@@ -8,6 +8,10 @@ import com.exam.exception.ResetPasswordTokenAlreadyUsedException;
 import com.exam.exception.ResetPasswordTokenExpiredException;
 import com.exam.helper.UserFoundException;
 import com.exam.helper.UserNotFoundException;
+import com.exam.model.exam.Department;
+import com.exam.model.exam.Program;
+import com.exam.repository.DepartmentRepository;
+import com.exam.repository.ProgramRepository;
 import com.exam.repository.TokenRepository;
 import com.exam.repository.UserRepository;
 import com.exam.service.Impl.EmailService;
@@ -46,6 +50,12 @@ public class AuthenticationService {
     @Autowired
     private MNotifyV2SmsService mNotifyV2SmsService;
 
+    @Autowired
+    private DepartmentRepository departmentRepository;
+
+    @Autowired
+    private ProgramRepository programRepository;
+
 
 
 
@@ -68,6 +78,12 @@ public class AuthenticationService {
             throw new UserFoundException("An account with this email address already exists. Please sign in or use a different email.");
         }
 
+        // Optionally link program chosen during signup
+        Program program = null;
+        if (request.getProgramId() != null) {
+            program = programRepository.findById(request.getProgramId()).orElse(null);
+        }
+
         var user = User.builder()
                 .firstname(request.getFirstname())
                 .lastname(request.getLastname())
@@ -77,6 +93,8 @@ public class AuthenticationService {
                 .enabled(true)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.NORMAL)
+                .program(program)
+                .currentLevel(request.getCurrentLevel())
                 .build();
         var savedUser = userRepository.save(user);
         var jwtToken = jwtService.generateToken(user);
@@ -149,6 +167,57 @@ public class AuthenticationService {
         }
     }
 
+
+    // REGISTER AS HOD (role = ADMIN, linked to a Department)
+    public AuthenticationResponse registerAsHod(RegisterHodRequest request) throws UserFoundException {
+        var userExist = userRepository.findByUsername(request.getUsername());
+        if (userExist.isPresent()) throw new UserFoundException("An account with this Staff ID already exists.");
+        var emailExist = userRepository.findByEmail(request.getEmail());
+        if (emailExist.isPresent()) throw new UserFoundException("An account with this email address already exists.");
+
+        Department department = departmentRepository.findById(request.getDepartmentId())
+                .orElseThrow(() -> new RuntimeException("Department not found: " + request.getDepartmentId()));
+
+        var user = User.builder()
+                .firstname(request.getFirstname())
+                .lastname(request.getLastname())
+                .email(request.getEmail())
+                .phone(request.getPhone())
+                .username(request.getUsername())
+                .enabled(true)
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(Role.ADMIN)
+                .department(department)
+                .build();
+        var savedUser = userRepository.save(user);
+        var jwtToken = jwtService.generateToken(user);
+        saveUserToken(savedUser, jwtToken);
+        return AuthenticationResponse.builder().token(jwtToken).build();
+    }
+
+
+    // REGISTER AS SUPER ADMIN
+    public AuthenticationResponse registerAsSuperAdmin(RegisterRequest request) throws UserFoundException {
+        var userExist = userRepository.findByUsername(request.getUsername());
+        if (userExist.isPresent()) throw new UserFoundException("An account with this username already exists.");
+        var emailExist = userRepository.findByEmail(request.getEmail());
+        if (emailExist.isPresent()) throw new UserFoundException("An account with this email address already exists.");
+
+        var user = User.builder()
+                .firstname(request.getFirstname())
+                .lastname(request.getLastname())
+                .email(request.getEmail())
+                .phone(request.getPhone())
+                .username(request.getUsername())
+                .enabled(true)
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(Role.SUPER_ADMIN)
+                .build();
+        var savedUser = userRepository.save(user);
+        var jwtToken = jwtService.generateToken(user);
+        saveUserToken(savedUser, jwtToken);
+        return AuthenticationResponse.builder().token(jwtToken).build();
+    }
 
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) throws UserNotFoundException {
@@ -404,15 +473,21 @@ public class AuthenticationService {
 
     // Convert User to DTO
     private LecturerDTO toDTO(User user) {
-        return new LecturerDTO(
-                user.getId(),
-                user.getFirstname(),
-                user.getLastname(),
-                user.getEmail(),
-                user.getUsername(),
-                user.getFullName(),
-                user.getPhone()
-        );
+        LecturerDTO dto = new LecturerDTO();
+        dto.setId(user.getId());
+        dto.setFirstname(user.getFirstname());
+        dto.setLastname(user.getLastname());
+        dto.setEmail(user.getEmail());
+        dto.setUsername(user.getUsername());
+        dto.setFullName(user.getFullName());
+        dto.setPhone(user.getPhone());
+        dto.setCurrentLevel(user.getCurrentLevel());
+        dto.setCurrentSemester(user.getCurrentSemester());
+        if (user.getProgram() != null) {
+            dto.setProgramId(user.getProgram().getId());
+            dto.setProgramName(user.getProgram().getName());
+        }
+        return dto;
     }
 
     // Get all lecturers as DTOs
@@ -527,6 +602,11 @@ public class AuthenticationService {
                     existing.setEmail(updateDTO.getEmail());
                     existing.setPhone(updateDTO.getPhone());
                     existing.setUsername(updateDTO.getUsername());
+                    if (updateDTO.getCurrentLevel() != null) { existing.setCurrentLevel(updateDTO.getCurrentLevel()); }
+                    if (updateDTO.getCurrentSemester() != null) { existing.setCurrentSemester(updateDTO.getCurrentSemester()); }
+                    if (updateDTO.getProgramId() != null) {
+                        existing.setProgram(programRepository.findById(updateDTO.getProgramId()).orElse(null));
+                    }
                     User saved = userRepository.save(existing);
                     userRepository.flush();
                     return toDTO(saved);
@@ -602,3 +682,6 @@ public class AuthenticationService {
 
 
 }
+
+
+

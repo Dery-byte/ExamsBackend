@@ -7,8 +7,11 @@ import com.exam.DTO.CategoryWithQuizzesDTO;
 import com.exam.DTO.QuizDTO;
 import com.exam.model.User;
 import com.exam.model.exam.Category;
+import com.exam.model.exam.Program;
 import com.exam.model.exam.Quiz;
+import com.exam.model.exam.Registered_courses;
 import com.exam.repository.*;
+import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,15 +19,23 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.Principal;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class CategoryService  {
 @Autowired
 private CategoryRepository categoryRepository;
+
+    /** One-time data migration: ensure all stored levels are plain numbers (e.g. "100" not "Level 100"). */
+    @PostConstruct
+    @Transactional
+    public void normalizeLegacyLevels() {
+        int updated = categoryRepository.normalizeLevelPrefix();
+        if (updated > 0) {
+            System.out.println("[CategoryService] Normalised " + updated + " legacy category levels (stripped 'Level ' prefix).");
+        }
+    }
 
 @Autowired
     Registered_coursesRepository registeredCoursesRepository;
@@ -44,17 +55,41 @@ QuestionsRepository questionsRepository;
 @Autowired
 UserRepository userRepository;
 
+@Autowired
+ProgramRepository programRepository;
 
 
+
+    /**
+     * Resolves programId → Program entity, normalises semester (String → Integer)
+     * and level format ("Level 100" → "100"), then saves.
+     */
+    private void resolveAndNormalize(Category category) {
+        // 1. Resolve programId → Program
+        if (category.getProgram() == null && category.getProgramId() != null) {
+            programRepository.findById(category.getProgramId())
+                    .ifPresent(category::setProgram);
+        }
+        // 2. Normalise level: strip leading "Level " so we always store "100", "200" etc.
+        if (category.getLevel() != null) {
+            String lvl = category.getLevel().trim();
+            if (lvl.toLowerCase().startsWith("level ")) {
+                lvl = lvl.substring(6).trim();
+            }
+            category.setLevel(lvl);
+        }
+    }
 
     public Category addCategory(Category category){
-        return  this.categoryRepository.save(category);
+        resolveAndNormalize(category);
+        return this.categoryRepository.save(category);
     }
 
 
 
 
     public Category lecturerAddCategory(Category category) {
+        resolveAndNormalize(category);
         String username = SecurityContextHolder.getContext()
                 .getAuthentication()
                 .getName();
@@ -264,4 +299,115 @@ UserRepository userRepository;
         }).collect(Collectors.toList());
     }
 
+
+    /**
+     * Returns courses visible to the currently logged-in student:
+     * - Program-specific courses at their current level + semester
+     * - PLUS global courses (program = null) at their level + semester
+     * Level is normalised (strips "Level " prefix) for consistent comparison.
+     * Falls back to broader queries if no results found.
+     */
+    public List<Category> getCoursesForStudent(Principal principal) {
+        if (principal == null) {
+            return categoryRepository.findAll();
+        }
+        String username = principal.getName();
+        User student = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Program program = student.getProgram();
+        Integer level    = student.getCurrentLevel();
+        Integer semester = student.getCurrentSemester();
+
+        // No level assigned — return full catalogue
+        if (level == null) {
+            return categoryRepository.findAll();
+        }
+
+        String levelStr = String.valueOf(level);
+
+        // Helper: normalise stored level string
+        java.util.function.Function<String, String> norm = raw -> {
+            if (raw == null) return "";
+            String s = raw.trim();
+            if (s.toLowerCase().startsWith("level ")) s = s.substring(6).trim();
+            return s;
+        };
+
+        // Collect program-specific courses
+        java.util.Set<Long> seen = new java.util.HashSet<>();
+        java.util.List<Category> combined = new java.util.ArrayList<>();
+
+        if (program != null) {
+            List<Category> programCourses = (semester != null)
+                    ? categoryRepository.findByProgramAndLevelAndSemester(program, levelStr, semester)
+                    : categoryRepository.findByProgramAndLevel(program, levelStr);
+            programCourses.forEach(c -> { if (seen.add(c.getCid())) combined.add(c); });
+        }
+
+        // Always include global courses (program = null) at matching level + semester
+        categoryRepository.findAll().stream()
+                .filter(c -> c.getProgram() == null)
+                .filter(c -> norm.apply(c.getLevel()).equals(levelStr))
+                .filter(c -> semester == null || c.getSemester() == null || c.getSemester().equals(semester))
+                .forEach(c -> { if (seen.add(c.getCid())) combined.add(c); });
+
+        // If still empty, fall back to level-only scan (handles legacy/unlinked data)
+        if (combined.isEmpty()) {
+            categoryRepository.findAll().stream()
+                    .filter(c -> norm.apply(c.getLevel()).equals(levelStr))
+                    .filter(c -> semester == null || c.getSemester() == null || c.getSemester().equals(semester))
+                    .forEach(c -> { if (seen.add(c.getCid())) combined.add(c); });
+        }
+
+        return combined;
+    }
+
+    /**
+     * Returns all courses belonging to a given program (for admin enroll picker).
+     * Also includes global courses (program = null).
+     */
+    public List<Category> getCategoriesForProgram(Long programId) {
+        List<Category> all = categoryRepository.findAll();
+        return all.stream()
+                .filter(c -> c.getProgram() == null ||
+                        (c.getProgram().getId() != null && c.getProgram().getId().equals(programId)))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Admin/SuperAdmin enrolls a student in any course directly.
+     * Prevents duplicate registrations.
+     */
+    @Transactional
+    public List<Long> getEnrolledCourseIdsForStudent(Long studentId) {
+        return registeredCoursesRepository.findRegistrationsByUserId(studentId).stream()
+                .map(reg -> reg.getCategory().getCid())
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    @Transactional
+    public Map<String, String> unenrollStudentFromCourse(Long studentId, Long categoryId) {
+        registeredCoursesRepository.deleteByCategoryIdAndUserId(categoryId, studentId);
+        return Map.of("message", "Student unenrolled successfully.");
+    }
+
+    public Map<String, String> enrollStudentInCourse(Long studentId, Long categoryId) {
+        User student = userRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+        if (registeredCoursesRepository.countByCategoryAndUser(category, student) > 0) {
+            return Map.of("message", "Student is already enrolled in this course.");
+        }
+        Registered_courses reg = new Registered_courses();
+        reg.setCategory(category);
+        reg.setUser(student);
+        reg.setRegDate(new java.util.Date());
+        registeredCoursesRepository.save(reg);
+        return Map.of("message", "Student enrolled in " + category.getTitle() + " successfully.");
+    }
+
 }
+
+

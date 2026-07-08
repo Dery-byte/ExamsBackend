@@ -3,6 +3,7 @@ package com.exam.model.exam;
 import com.exam.model.User;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
 import java.util.LinkedHashSet;
@@ -20,6 +21,23 @@ public class Category {
 
     private String description;
     private String level;
+
+    /** Semester this course belongs to: 1 (first) or 2 (second). */
+    private Integer semester;
+
+    /** The academic program this course belongs to (e.g. Computer Science BS). */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "program_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Program program;
+
+    /**
+     * Transient helper field: frontend can send programId (a plain Long) and the
+     * service layer will resolve it to the Program entity before persisting.
+     * Never stored in the database column.
+     */
+    @Transient
+    private Long programId;
 
     @OneToMany(mappedBy = "category",cascade = CascadeType.ALL)
     @JsonIgnore
@@ -100,5 +118,29 @@ public class Category {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public Integer getSemester() {
+        return semester;
+    }
+
+    public void setSemester(Integer semester) {
+        this.semester = semester;
+    }
+
+    public Program getProgram() {
+        return program;
+    }
+
+    public void setProgram(Program program) {
+        this.program = program;
+    }
+
+    public Long getProgramId() {
+        return programId;
+    }
+
+    public void setProgramId(Long programId) {
+        this.programId = programId;
     }
 }

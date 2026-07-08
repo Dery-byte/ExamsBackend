@@ -17,4 +17,10 @@ public class RegisterRequest {
   private String password;
   private String phone;
   private String username;
+
+  /** For students: the program they belong to (e.g. Computer Science BS). */
+  private Long programId;
+
+  /** For students: their current academic level (100, 200, 300 …). */
+  private Integer currentLevel;
 }

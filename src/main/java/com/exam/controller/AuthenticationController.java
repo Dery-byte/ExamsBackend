@@ -137,6 +137,21 @@ public class AuthenticationController {
         return ResponseEntity.ok(service.registerAsAdmin(request));
     }
 
+    // SUPER ADMIN  (bootstrap — secured at network/infra level in production)
+    @PostMapping("/register/super-admin")
+    public ResponseEntity<?> registerSuperAdmin(
+            @RequestBody RegisterRequest request
+    ) {
+        try {
+            return ResponseEntity.ok(service.registerAsSuperAdmin(request));
+        } catch (UserFoundException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(java.util.Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(java.util.Map.of("message", "Registration failed."));
+        }
+    }
+
 
 
 

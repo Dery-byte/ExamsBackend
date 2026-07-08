@@ -19,6 +19,11 @@ public class LecturerDTO {
     private String email;
     private String username;
     private String fullName;
-private String Phone;
+private String phone;
+    private Integer currentLevel;
+    private Integer currentSemester;
+    private Long programId;
+    private String programName;
 
 }
+
