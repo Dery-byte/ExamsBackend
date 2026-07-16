@@ -59,8 +59,19 @@ public class CategoryController {
 
     //getCategory
     @GetMapping("/category/{categoryId}")
-    public Category getCategory(@PathVariable("categoryId") Long categoryId){
-        return this.categoryService.getCategory(categoryId);
+    public ResponseEntity<com.exam.DTO.CategoryDTO> getCategory(@PathVariable("categoryId") Long categoryId){
+        Category cat = this.categoryService.getCategory(categoryId);
+        if (cat == null) return ResponseEntity.notFound().build();
+        com.exam.DTO.CategoryDTO dto = new com.exam.DTO.CategoryDTO(cat);
+        // Map programIds and programNames
+        if (cat.getPrograms() != null) {
+            dto.setProgramIds(cat.getPrograms().stream().map(p -> p.getId()).collect(java.util.stream.Collectors.toList()));
+            dto.setProgramNames(cat.getPrograms().stream().map(p -> p.getName()).collect(java.util.stream.Collectors.toList()));
+        } else {
+            dto.setProgramIds(new java.util.ArrayList<>());
+            dto.setProgramNames(new java.util.ArrayList<>());
+        }
+        return ResponseEntity.ok(dto);
     }
 
 
@@ -338,7 +349,7 @@ private List<Quiz> itemList = new ArrayList<>();
     }
 
     /**
-     * Returns all courses for a given program + global courses — used by admin enroll picker.
+     * Returns all courses for a given program — used by admin enroll picker.
      */
     @GetMapping("/admin/courses-for-program/{programId}")
     public ResponseEntity<?> adminGetCoursesForProgram(@PathVariable Long programId) {
@@ -346,9 +357,25 @@ private List<Quiz> itemList = new ArrayList<>();
     }
 
     /**
+     * Filtered courses for sheet activation — Program + Level + Semester.
+     * Used by the Admin/SuperAdmin when activating a new semester sheet.
+     */
+    @GetMapping("/admin/courses-for-sheet")
+    public ResponseEntity<?> adminGetCoursesForSheet(
+            @RequestParam Long programId,
+            @RequestParam String level,
+            @RequestParam Integer semester) {
+        // Find all courses matching program+level+semester via categoryRepository
+        List<Category> courses = categoryRepository.findAll().stream()
+            .filter(c -> c.getPrograms() != null && c.getPrograms().stream().anyMatch(p -> p.getId().equals(programId)))
+            .filter(c -> c.getLevel() != null && (c.getLevel().equals(level) || c.getLevel().equals("Level " + level)))
+            .filter(c -> semester.equals(c.getSemester()))
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(courses);
+    }
+
+    /**
      * Rich student list for admin-initiated actions (enroll, promote).
-     * Returns the same fields as the Super Admin /students endpoint including programId,
-     * currentLevel, currentSemester — required by the EnrollStudent and Students pages.
      */
     @GetMapping("/admin/students")
     public ResponseEntity<List<Map<String, Object>>> adminGetAllStudents() {
@@ -371,5 +398,3 @@ private List<Quiz> itemList = new ArrayList<>();
     }
 
 }
-
-

@@ -25,19 +25,23 @@ public class Category {
     /** Semester this course belongs to: 1 (first) or 2 (second). */
     private Integer semester;
 
-    /** The academic program this course belongs to (e.g. Computer Science BS). */
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "program_id")
+    /** The academic programs this course belongs to. */
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "category_programs",
+        joinColumns = @JoinColumn(name = "category_id"),
+        inverseJoinColumns = @JoinColumn(name = "program_id")
+    )
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    private Program program;
+    private Set<Program> programs = new java.util.HashSet<>();
 
     /**
-     * Transient helper field: frontend can send programId (a plain Long) and the
-     * service layer will resolve it to the Program entity before persisting.
+     * Transient helper field: frontend can send programIds and the
+     * service layer will resolve them to the Program entities before persisting.
      * Never stored in the database column.
      */
     @Transient
-    private Long programId;
+    private java.util.List<Long> programIds = new java.util.ArrayList<>();
 
     @OneToMany(mappedBy = "category",cascade = CascadeType.ALL)
     @JsonIgnore
@@ -128,19 +132,19 @@ public class Category {
         this.semester = semester;
     }
 
-    public Program getProgram() {
-        return program;
+    public java.util.Set<Program> getPrograms() {
+        return programs;
     }
 
-    public void setProgram(Program program) {
-        this.program = program;
+    public void setPrograms(java.util.Set<Program> programs) {
+        this.programs = programs;
     }
 
-    public Long getProgramId() {
-        return programId;
+    public java.util.List<Long> getProgramIds() {
+        return programIds;
     }
 
-    public void setProgramId(Long programId) {
-        this.programId = programId;
+    public void setProgramIds(java.util.List<Long> programIds) {
+        this.programIds = programIds;
     }
 }

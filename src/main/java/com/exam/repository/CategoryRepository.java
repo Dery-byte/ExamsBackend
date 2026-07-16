@@ -18,13 +18,13 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     List<Category> findByUserIdAndLevel(Long userId, String level);
 
     // Filter courses for a student — program + level + semester
-    List<Category> findByProgramAndLevelAndSemester(Program program, String level, Integer semester);
+    List<Category> findByProgramsContainingAndLevelAndSemester(Program program, String level, Integer semester);
 
     // All courses for a given program
-    List<Category> findByProgram(Program program);
+    List<Category> findByProgramsContaining(Program program);
 
     // All courses for a given program and level
-    List<Category> findByProgramAndLevel(Program program, String level);
+    List<Category> findByProgramsContainingAndLevel(Program program, String level);
 
     // Find by level only (fallback for legacy / program-null courses)
     List<Category> findByLevel(String level);

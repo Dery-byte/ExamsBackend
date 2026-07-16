@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-
 @Repository
 public interface Registered_coursesRepository extends JpaRepository<Registered_courses, Long> {
 
@@ -21,7 +20,6 @@ public interface Registered_coursesRepository extends JpaRepository<Registered_c
     @Transactional
     @Query("DELETE FROM Registered_courses r WHERE r.category.cid = :categoryId")
     void deleteByCategory_cid(@Param("categoryId") Long categoryId);
-
 
     @Modifying
     @Transactional
@@ -46,5 +44,7 @@ public interface Registered_coursesRepository extends JpaRepository<Registered_c
     /** All registrations for a given student id */
     @Query("SELECT r FROM Registered_courses r WHERE r.user.id = :userId")
     List<Registered_courses> findRegistrationsByUserId(@Param("userId") Long userId);
-}
 
+    /** Find registrations by category */
+    List<Registered_courses> findByCategory(Category category);
+}

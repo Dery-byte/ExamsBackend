@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Semester Report Card</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 14mm 15mm 18mm 15mm;
+      @bottom-left  { content: "University of Cape Coast  |  Official Semester Report Card"; font-size: 6.5pt; color: #888; font-family: 'Times New Roman', serif; padding-top: 3pt; border-top: 0.5pt solid #ccc; }
+      @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 6.5pt; color: #888; font-family: 'Times New Roman', serif; padding-top: 3pt; border-top: 0.5pt solid #ccc; }
+    }
+
+    body { font-family: 'Times New Roman','Liberation Serif',Georgia,serif; font-size: 10.5pt; color: #1a1a1a; margin: 0; padding: 0; line-height: 1.35; }
+
+    .watermark { position: fixed; top: 0; left: 0; width: 100%; height: 100%; text-align: center; z-index: -1; }
+
+    table { border-collapse: collapse; width: 100%; }
+    td, th { vertical-align: top; }
+
+    .t-info td { border: 0.5pt solid #c5c9e8; padding: 4pt 7pt; font-size: 10pt; }
+    .t-info .lb { background: #edf0fb; font-weight: bold; color: #1a2744; width: 100pt; }
+
+    .t-marks thead th { background: #1a2744; color: #fff; padding: 5pt 8pt; font-size: 9.5pt; border: 0.5pt solid #0d1628; text-align: center; }
+    .t-marks thead th:first-child { text-align: left; }
+    .t-marks thead th:nth-child(2) { text-align: left; }
+    .t-marks tbody td { border: 0.5pt solid #c5c9e8; padding: 4pt 8pt; font-size: 10pt; }
+    .t-marks tbody tr:nth-child(even) td { background: #f6f7fd; }
+    .t-marks .tot td { background: #e8ecf8 !important; font-weight: bold; }
+
+    .s-title { background: #1a2744; color: #fff; padding: 4pt 9pt; font-size: 9.5pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.7pt; margin: 9pt 0 5pt 0; }
+
+    .badge { padding: 1.5pt 6pt; font-size: 8pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.4pt; }
+    .b-pass { background: #d0f0da; color: #0a5522; }
+    .b-fail { background: #fde8ea; color: #7a1820; }
+
+    .s-pass { color: #0a5522; font-weight: bold; }
+    .s-fail { color: #7a1820; font-weight: bold; }
+    .s-warn { color: #7a5600; font-weight: bold; }
+
+    .footer-box { margin-top: 16pt; border-top: 1pt solid #1a2744; padding-top: 6pt; }
+  </style>
+</head>
+<body>
+
+<!-- WATERMARK -->
+<div class="watermark">
+  <img th:if="${watermarkBase64 != null and !watermarkBase64.isEmpty()}" th:src="${watermarkBase64}" style="width: 100%; height: 100%; object-fit: contain;" alt="Watermark" />
+</div>
+
+<!-- HEADER -->
+<table style="border-bottom: 2pt solid #1a2744; margin-bottom: 8pt; padding-bottom: 7pt;">
+  <tr>
+    <td style="width: 56pt; text-align: center; vertical-align: middle;">
+      <div style="width: 48pt; height: 48pt; margin: 0 auto; text-align: center;">
+        <img th:if="${uccLogoBase64 != null and !uccLogoBase64.isEmpty()}" th:src="${uccLogoBase64}" style="width: 48pt; height: 48pt; object-fit: contain;" alt="UCC Logo" />
+        <table th:if="${uccLogoBase64 == null or uccLogoBase64.isEmpty()}" style="width: 48pt; height: 48pt; background: #1a2744; margin: 0 auto;">
+          <tr><td style="text-align:center; vertical-align:middle; color:#fff; font-size:14pt; font-weight:bold; font-family:Georgia,serif;">UCC</td></tr>
+        </table>
+      </div>
+    </td>
+    <td style="padding-left: 10pt; vertical-align: middle;">
+      <div style="font-size: 14.5pt; font-weight: bold; color: #1a2744; margin-bottom: 1pt;">University of Cape Coast</div>
+      <div style="font-size: 9pt; color: #4a4a9c; font-weight: bold; margin-bottom: 1pt;">School of Physical Sciences</div>
+      <div style="font-size: 9pt; color: #4a4a9c;">Department of Computer Science and Information Technology</div>
+      <div style="font-size: 7pt; color: #888; text-transform: uppercase; letter-spacing: 1pt; margin-top: 2pt;">Official Semester Academic Report Card</div>
+    </td>
+    <td style="text-align: right; vertical-align: top; width: 82pt;">
+      <div style="font-size: 7pt; color: #888;">Date Generated</div>
+      <div style="font-size: 7.5pt; color: #888; margin-top: 4pt;" th:text="${generatedDate}">01 Jan 2026</div>
+    </td>
+  </tr>
+</table>
+
+<!-- STUDENT INFO -->
+<div class="s-title">Student Information</div>
+<table class="t-info" style="margin-bottom: 7pt;">
+  <tr>
+    <td class="lb">Full Name</td>
+    <td th:text="${studentName}">John Doe</td>
+    <td class="lb">Student ID</td>
+    <td style="font-weight: bold; color: #1a2744;" th:text="${username}">STD001</td>
+  </tr>
+  <tr>
+    <td class="lb">Programme</td>
+    <td th:text="${programName}">BSc Computer Science</td>
+    <td class="lb">Academic Level</td>
+    <td th:text="${level}">200</td>
+  </tr>
+  <tr>
+    <td class="lb">Semester</td>
+    <td th:text="${semester == 1} ? 'First Semester' : 'Second Semester'">First Semester</td>
+    <td class="lb">Report Status</td>
+    <td class="s-pass">OFFICIAL</td>
+  </tr>
+</table>
+
+<!-- MARKS TABLE -->
+<div class="s-title">Course Performance Results</div>
+<table class="t-marks" style="margin-bottom: 7pt;">
+  <thead>
+    <tr>
+      <th style="text-align:left; width: 55pt;">Course Code</th>
+      <th style="text-align:left;">Course Title</th>
+      <th th:each="sec : ${sections}" th:text="${sec.sectionName} + ' (/' + ${sec.maxScore} + ')'" style="width: 60pt;">Section A (/50)</th>
+      <th style="width: 55pt;">Total Score</th>
+      <th style="width: 45pt;">Grade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr th:each="cm : ${courseMarks}">
+      <td style="font-weight: bold; color: #1a2744;" th:text="${cm.courseCode}">CS101</td>
+      <td th:text="${cm.courseTitle}">Introduction to Computing</td>
+      <td th:each="sec : ${sections}" style="text-align: center;">
+        <span th:with="sm=${cm.sectionMarks.^[sectionId == __${sec.id}__]}" th:text="${sm != null ? sm.scoreObtained : '-'}">-</span>
+      </td>
+      <td style="text-align: center; font-weight: bold;" th:text="${cm.totalScore != null ? cm.totalScore : '-'}">-</td>
+      <td style="text-align: center; font-weight: bold;"
+          th:text="${cm.grade}"
+          th:class="${cm.grade == 'F'} ? 's-fail' : 's-pass'">A</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- FOOTER -->
+<div class="footer-box">
+  <table>
+    <tr>
+      <td style="font-size: 8pt; color: #555;">This is an officially generated academic record by the University of Cape Coast Examination Portal. No physical signature is required.</td>
+      <td style="text-align: right; width: 120pt; font-size: 8pt; color: #888;" th:text="'Generated: ' + ${generatedDate}">Generated: 01 Jan 2026</td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>

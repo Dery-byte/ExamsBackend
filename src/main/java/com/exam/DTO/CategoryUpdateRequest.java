@@ -13,6 +13,7 @@ public class CategoryUpdateRequest {
     private String courseCode;
     private String description;
     private String level;
+    private java.util.List<Long> programIds;
     //private Long userId;
     // Constructors
 //    public CategoryUpdateRequest() {

@@ -65,10 +65,10 @@ ProgramRepository programRepository;
      * and level format ("Level 100" → "100"), then saves.
      */
     private void resolveAndNormalize(Category category) {
-        // 1. Resolve programId → Program
-        if (category.getProgram() == null && category.getProgramId() != null) {
-            programRepository.findById(category.getProgramId())
-                    .ifPresent(category::setProgram);
+        // 1. Resolve programIds → Programs
+        if (category.getProgramIds() != null && !category.getProgramIds().isEmpty()) {
+            java.util.List<Program> resolvedPrograms = programRepository.findAllById(category.getProgramIds());
+            category.setPrograms(new java.util.HashSet<>(resolvedPrograms));
         }
         // 2. Normalise level: strip leading "Level " so we always store "100", "200" etc.
         if (category.getLevel() != null) {
@@ -102,13 +102,17 @@ ProgramRepository programRepository;
 
     // Service
     @Transactional
-    public CategoryDTO adminUpdateCategory(Long categoryId, CategoryUpdateRequest request) throws Exception {
+    public com.exam.DTO.CategoryDTO adminUpdateCategory(Long categoryId, com.exam.DTO.CategoryUpdateRequest request) throws Exception {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new Exception("Category not found"));
         category.setTitle(request.getTitle());
         category.setDescription(request.getDescription());
         category.setLevel(request.getLevel());
         category.setCourseCode(request.getCourseCode());
+        if (request.getProgramIds() != null) {
+            java.util.List<Program> resolvedPrograms = programRepository.findAllById(request.getProgramIds());
+            category.setPrograms(new java.util.HashSet<>(resolvedPrograms));
+        }
         Category savedCategory = categoryRepository.save(category);
         return convertToDTO(savedCategory);
     }
@@ -116,20 +120,27 @@ ProgramRepository programRepository;
 
 
     // Helper method to convert Category entity to CategoryDTO
-    private CategoryDTO convertToDTO(Category category) {
-        CategoryDTO dto = new CategoryDTO();
+    private com.exam.DTO.CategoryDTO convertToDTO(Category category) {
+        com.exam.DTO.CategoryDTO dto = new com.exam.DTO.CategoryDTO();
         dto.setCid(category.getCid());
         dto.setLevel(String.valueOf(category.getLevel()));
         dto.setCourseCode(String.valueOf(category.getCourseCode()));
 //        dto.setId(category.getId());
         dto.setTitle(category.getTitle());
         dto.setDescription(category.getDescription());
+        if (category.getPrograms() != null) {
+            dto.setProgramIds(category.getPrograms().stream().map(Program::getId).collect(java.util.stream.Collectors.toList()));
+            dto.setProgramNames(category.getPrograms().stream().map(Program::getName).collect(java.util.stream.Collectors.toList()));
+        } else {
+            dto.setProgramIds(new java.util.ArrayList<>());
+            dto.setProgramNames(new java.util.ArrayList<>());
+        }
         // Map other fields...
         return dto;
     }
 
 
-    public CategoryDTO updateCategory(CategoryUpdateRequest request) {
+    public com.exam.DTO.CategoryDTO updateCategory(com.exam.DTO.CategoryUpdateRequest request) {
         Category category = categoryRepository.findById(request.getId())
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + request.getId()));
         // Update only the fields that should be changed
@@ -137,19 +148,29 @@ ProgramRepository programRepository;
         category.setDescription(request.getDescription());
         category.setLevel(request.getLevel());
         category.setCourseCode(request.getCourseCode());
+        if (request.getProgramIds() != null) {
+            java.util.List<Program> resolvedPrograms = programRepository.findAllById(request.getProgramIds());
+            category.setPrograms(new java.util.HashSet<>(resolvedPrograms));
+        }
         // User field is NOT touched, so it remains unchanged
         Category updated = categoryRepository.save(category);
-        return new CategoryDTO(updated);
+        return new com.exam.DTO.CategoryDTO(updated);
     }
 
-
-
-
-
-
-
-    public Set<Category> getCategories(){
-        return new LinkedHashSet<>(this.categoryRepository.findAll());
+    public java.util.List<com.exam.DTO.CategoryDTO> getCategories(){
+        return categoryRepository.findAll().stream()
+                .map(c -> {
+                    com.exam.DTO.CategoryDTO dto = new com.exam.DTO.CategoryDTO(c);
+                    if (c.getPrograms() != null) {
+                        dto.setProgramIds(c.getPrograms().stream().map(p -> p.getId()).collect(Collectors.toList()));
+                        dto.setProgramNames(c.getPrograms().stream().map(p -> p.getName()).collect(Collectors.toList()));
+                    } else {
+                        dto.setProgramIds(new java.util.ArrayList<>());
+                        dto.setProgramNames(new java.util.ArrayList<>());
+                    }
+                    return dto;
+                })
+                .collect(Collectors.toList());
     }
 
 
@@ -270,6 +291,13 @@ ProgramRepository programRepository;
             dto.setCourseCode(c.getCourseCode());
             dto.setDescription(c.getDescription());
             dto.setLevel(c.getLevel());
+            if (c.getPrograms() != null) {
+                dto.setProgramIds(c.getPrograms().stream().map(p -> p.getId()).collect(Collectors.toList()));
+                dto.setProgramNames(c.getPrograms().stream().map(p -> p.getName()).collect(Collectors.toList()));
+            } else {
+                dto.setProgramIds(new java.util.ArrayList<>());
+                dto.setProgramNames(new java.util.ArrayList<>());
+            }
             if (c.getQuizzes() != null) {
                 List<QuizDTO> quizDtos = c.getQuizzes().stream().map(QuizDTO::new).collect(Collectors.toList());
                 dto.setQuizzes(quizDtos);
@@ -291,6 +319,13 @@ ProgramRepository programRepository;
             dto.setCourseCode(c.getCourseCode());
             dto.setDescription(c.getDescription());
             dto.setLevel(c.getLevel());
+            if (c.getPrograms() != null) {
+                dto.setProgramIds(c.getPrograms().stream().map(p -> p.getId()).collect(Collectors.toList()));
+                dto.setProgramNames(c.getPrograms().stream().map(p -> p.getName()).collect(Collectors.toList()));
+            } else {
+                dto.setProgramIds(new java.util.ArrayList<>());
+                dto.setProgramNames(new java.util.ArrayList<>());
+            }
             if (c.getQuizzes() != null) {
                 List<QuizDTO> quizDtos = c.getQuizzes().stream().map(QuizDTO::new).collect(Collectors.toList());
                 dto.setQuizzes(quizDtos);
@@ -333,21 +368,20 @@ ProgramRepository programRepository;
             if (s.toLowerCase().startsWith("level ")) s = s.substring(6).trim();
             return s;
         };
-
-        // Collect program-specific courses
+        // Collect program-specific courses
         java.util.Set<Long> seen = new java.util.HashSet<>();
         java.util.List<Category> combined = new java.util.ArrayList<>();
 
         if (program != null) {
             List<Category> programCourses = (semester != null)
-                    ? categoryRepository.findByProgramAndLevelAndSemester(program, levelStr, semester)
-                    : categoryRepository.findByProgramAndLevel(program, levelStr);
+                    ? categoryRepository.findByProgramsContainingAndLevelAndSemester(program, levelStr, semester)
+                    : categoryRepository.findByProgramsContainingAndLevel(program, levelStr);
             programCourses.forEach(c -> { if (seen.add(c.getCid())) combined.add(c); });
         }
 
-        // Always include global courses (program = null) at matching level + semester
+        // Always include global courses (programs is empty) at matching level + semester
         categoryRepository.findAll().stream()
-                .filter(c -> c.getProgram() == null)
+                .filter(c -> c.getPrograms() == null || c.getPrograms().isEmpty())
                 .filter(c -> norm.apply(c.getLevel()).equals(levelStr))
                 .filter(c -> semester == null || c.getSemester() == null || c.getSemester().equals(semester))
                 .forEach(c -> { if (seen.add(c.getCid())) combined.add(c); });
@@ -365,20 +399,16 @@ ProgramRepository programRepository;
 
     /**
      * Returns all courses belonging to a given program (for admin enroll picker).
-     * Also includes global courses (program = null).
+     * Also includes global courses (programs is empty).
      */
     public List<Category> getCategoriesForProgram(Long programId) {
         List<Category> all = categoryRepository.findAll();
         return all.stream()
-                .filter(c -> c.getProgram() == null ||
-                        (c.getProgram().getId() != null && c.getProgram().getId().equals(programId)))
+                .filter(c -> c.getPrograms() == null || c.getPrograms().isEmpty() ||
+                        c.getPrograms().stream().anyMatch(p -> p.getId() != null && p.getId().equals(programId)))
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Admin/SuperAdmin enrolls a student in any course directly.
-     * Prevents duplicate registrations.
-     */
     @Transactional
     public List<Long> getEnrolledCourseIdsForStudent(Long studentId) {
         return registeredCoursesRepository.findRegistrationsByUserId(studentId).stream()

@@ -15,5 +15,7 @@ public class CategoryWithQuizzesDTO {
     private String courseCode;
     private String description;
     private String level;
+    private List<Long> programIds;
+    private List<String> programNames;
     private List<QuizDTO> quizzes;
 }

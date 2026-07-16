@@ -25,6 +25,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     long countByRole(Role role);
 
+    List<User> findByProgramAndCurrentLevel(com.exam.model.exam.Program program, Integer currentLevel);
+
     // Or for multiple roles at once
     List<User> findByRoleIn(List<String> roles);
 
