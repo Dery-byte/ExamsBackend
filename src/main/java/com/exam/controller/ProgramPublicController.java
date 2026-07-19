@@ -37,4 +37,12 @@ public class ProgramPublicController {
     public ResponseEntity<ProgramDTO> getProgram(@PathVariable Long id) {
         return ResponseEntity.ok(programService.getProgramById(id));
     }
+
+    @Autowired
+    private com.exam.service.DepartmentService departmentService;
+
+    @GetMapping("/departments")
+    public ResponseEntity<List<com.exam.DTO.DepartmentDTO>> getAllDepartments() {
+        return ResponseEntity.ok(departmentService.getAllDepartments());
+    }
 }

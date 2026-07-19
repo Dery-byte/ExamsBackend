@@ -144,6 +144,18 @@ public class MarksEntryController {
         return ResponseEntity.ok(java.util.Map.of("enrolled", count));
     }
 
+    @PostMapping("/{sheetId}/sync-marks/{studentId}")
+    public ResponseEntity<?> syncMarksForStudent(@PathVariable Long sheetId, @PathVariable Long studentId) {
+        marksEntryService.syncSystemMarksForStudent(sheetId, studentId);
+        return ResponseEntity.ok(java.util.Map.of("message", "Marks synced successfully for student"));
+    }
+
+    @PostMapping("/{sheetId}/sync-marks/bulk")
+    public ResponseEntity<?> syncMarksBulk(@PathVariable Long sheetId) {
+        marksEntryService.syncSystemMarksBulk(sheetId);
+        return ResponseEntity.ok(java.util.Map.of("message", "Marks synced successfully for all students"));
+    }
+
     /**
      * Returns the marks for the currently logged-in student.
      * Matches by USERNAME (from JWT principal) against the full sheet data.

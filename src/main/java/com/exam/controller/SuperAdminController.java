@@ -10,6 +10,7 @@ import com.exam.repository.UserRepository;
 import com.exam.service.AuthenticationService;
 import com.exam.service.DepartmentService;
 import com.exam.service.ProgramService;
+import com.exam.service.SystemSettingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -44,6 +45,9 @@ public class SuperAdminController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private com.exam.repository.DepartmentRepository departmentRepository;
 
     @Autowired
     private com.exam.service.CategoryService categoryService;
@@ -169,6 +173,9 @@ public class SuperAdminController {
             dto.setEmail(u.getEmail());
             dto.setUsername(u.getUsername());
             dto.setPhone(u.getPhone());
+            if (u.getDepartment() != null) {
+                dto.setDepartmentId(u.getDepartment().getId());
+            }
             return dto;
         }).collect(Collectors.toList());
         return ResponseEntity.ok(dtos);
@@ -209,6 +216,27 @@ public class SuperAdminController {
         if (newPass != null && !newPass.isBlank()) {
             user.setPassword(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(newPass));
         }
+
+        if (body.containsKey("departmentId")) {
+            Object rawDeptId = body.get("departmentId");
+            if (rawDeptId != null) {
+                Long deptId = null;
+                if (rawDeptId instanceof Number) {
+                    deptId = ((Number) rawDeptId).longValue();
+                } else if (rawDeptId instanceof String && !((String) rawDeptId).isBlank()) {
+                    try {
+                        deptId = Long.parseLong((String) rawDeptId);
+                    } catch (NumberFormatException e) { }
+                }
+                if (deptId != null) {
+                    com.exam.model.exam.Department dept = departmentRepository.findById(deptId).orElse(null);
+                    if (dept != null) {
+                        user.setDepartment(dept);
+                    }
+                }
+            }
+        }
+
         userRepository.save(user);
         return ResponseEntity.ok(Map.of("message", "HOD updated successfully.",
                 "id", user.getId(), "firstname", user.getFirstname(), "lastname", user.getLastname()));
@@ -376,6 +404,21 @@ public class SuperAdminController {
     public ResponseEntity<?> getCoursesForProgram(@PathVariable Long programId) {
         return ResponseEntity.ok(categoryService.getCategoriesForProgram(programId));
     }
-}
+    // ─────────────────────────────────────────────────────────────────────────
+    // SYSTEM SETTINGS (Super Admin Only)
+    // ─────────────────────────────────────────────────────────────────────────
+    @Autowired
+    private SystemSettingService systemSettingService;
 
+    @GetMapping("/settings")
+    public ResponseEntity<Map<String, String>> getAllSettings() {
+        return ResponseEntity.ok(systemSettingService.getAllSettings());
+    }
+
+    @PutMapping("/settings")
+    public ResponseEntity<Map<String, String>> updateSettings(@RequestBody Map<String, String> payload) {
+        payload.forEach((key, value) -> systemSettingService.updateSetting(key, value));
+        return ResponseEntity.ok(Map.of("message", "Settings updated successfully."));
+    }
+}
 

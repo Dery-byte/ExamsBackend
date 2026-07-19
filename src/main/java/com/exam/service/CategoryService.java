@@ -16,6 +16,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.Principal;
@@ -26,6 +27,9 @@ import java.util.stream.Collectors;
 public class CategoryService  {
 @Autowired
 private CategoryRepository categoryRepository;
+
+@Autowired
+private SystemSettingService systemSettingService;
 
     /** One-time data migration: ensure all stored levels are plain numbers (e.g. "100" not "Level 100"). */
     @PostConstruct
@@ -360,7 +364,6 @@ ProgramRepository programRepository;
         }
 
         String levelStr = String.valueOf(level);
-
         // Helper: normalise stored level string
         java.util.function.Function<String, String> norm = raw -> {
             if (raw == null) return "";
@@ -368,29 +371,58 @@ ProgramRepository programRepository;
             if (s.toLowerCase().startsWith("level ")) s = s.substring(6).trim();
             return s;
         };
-        // Collect program-specific courses
+
+        boolean allowCarryOver = systemSettingService.getBooleanSetting(SystemSettingService.ALLOW_CARRYOVER_REGISTRATION, false);
+
+        // Helper: check if course is available (no future courses, and optionally no past courses)
+        java.util.function.Predicate<Category> isAvailable = c -> {
+            String courseLevelStr = norm.apply(c.getLevel());
+            if (courseLevelStr.isEmpty()) return true;
+            
+            int cLevel;
+            try {
+                cLevel = Integer.parseInt(courseLevelStr);
+            } catch (NumberFormatException e) {
+                if (!courseLevelStr.equals(levelStr)) return false;
+                cLevel = level;
+            }
+
+            if (cLevel > level) return false;
+            
+            if (!allowCarryOver) {
+                if (cLevel < level) return false;
+            }
+
+            if (cLevel == level) {
+                if (semester != null && c.getSemester() != null) {
+                    if (c.getSemester() > semester) return false;
+                    if (!allowCarryOver && c.getSemester() < semester) return false;
+                }
+            }
+            return true;
+        };
+
+        // Collect program-specific courses
         java.util.Set<Long> seen = new java.util.HashSet<>();
         java.util.List<Category> combined = new java.util.ArrayList<>();
 
         if (program != null) {
-            List<Category> programCourses = (semester != null)
-                    ? categoryRepository.findByProgramsContainingAndLevelAndSemester(program, levelStr, semester)
-                    : categoryRepository.findByProgramsContainingAndLevel(program, levelStr);
-            programCourses.forEach(c -> { if (seen.add(c.getCid())) combined.add(c); });
+            List<Category> programCourses = categoryRepository.findByProgramsContaining(program);
+            programCourses.stream()
+                    .filter(isAvailable)
+                    .forEach(c -> { if (seen.add(c.getCid())) combined.add(c); });
         }
 
-        // Always include global courses (programs is empty) at matching level + semester
+        // Always include global courses (programs is empty) at available level/semester
         categoryRepository.findAll().stream()
                 .filter(c -> c.getPrograms() == null || c.getPrograms().isEmpty())
-                .filter(c -> norm.apply(c.getLevel()).equals(levelStr))
-                .filter(c -> semester == null || c.getSemester() == null || c.getSemester().equals(semester))
+                .filter(isAvailable)
                 .forEach(c -> { if (seen.add(c.getCid())) combined.add(c); });
 
-        // If still empty, fall back to level-only scan (handles legacy/unlinked data)
-        if (combined.isEmpty()) {
+        // If NO program is assigned to the student, they will see global courses only.
+        if (program == null && combined.isEmpty()) {
             categoryRepository.findAll().stream()
-                    .filter(c -> norm.apply(c.getLevel()).equals(levelStr))
-                    .filter(c -> semester == null || c.getSemester() == null || c.getSemester().equals(semester))
+                    .filter(isAvailable)
                     .forEach(c -> { if (seen.add(c.getCid())) combined.add(c); });
         }
 

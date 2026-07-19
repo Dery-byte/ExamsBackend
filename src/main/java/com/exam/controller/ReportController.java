@@ -55,6 +55,26 @@ private ReportService reportService;
        return this.reportService.getUserIdAndQuizId();
     }
 
+    // get department reports for HOD
+    @GetMapping("/admin/department-reports")
+    public ResponseEntity<List<Report>> getAdminDepartmentReports(Principal principal) {
+        User hod = (User) userDetailsService.loadUserByUsername(principal.getName());
+        com.exam.model.exam.Department dept = hod.getDepartment();
+        if (dept == null) {
+            return ResponseEntity.ok(java.util.Collections.emptyList());
+        }
+        
+        List<Report> allReports = this.reportRepository.findAll();
+        List<Report> deptReports = allReports.stream().filter(r -> {
+            Quiz q = r.getQuiz();
+            if (q == null || q.getCategory() == null) return false;
+            return q.getCategory().getPrograms().stream()
+                .anyMatch(p -> p.getDepartment() != null && p.getDepartment().getId().equals(dept.getId()));
+        }).collect(java.util.stream.Collectors.toList());
+        
+        return ResponseEntity.ok(deptReports);
+    }
+
 
 //    get report by report id
     @GetMapping("/getReport/{rid}")

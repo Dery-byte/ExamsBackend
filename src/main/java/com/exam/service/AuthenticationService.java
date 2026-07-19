@@ -36,6 +36,7 @@ import java.io.UnsupportedEncodingException;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -120,6 +121,11 @@ public class AuthenticationService {
             throw new UserFoundException("An account with this email address already exists.");
         }
 
+        Department department = null;
+        if (request.getDepartmentId() != null) {
+            department = departmentRepository.findById(request.getDepartmentId()).orElse(null);
+        }
+
         var user = User.builder()
                 .firstname(request.getFirstname())
                 .lastname(request.getLastname())
@@ -129,6 +135,7 @@ public class AuthenticationService {
                 .enabled(true)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.LECTURER)
+                .department(department)
                 .build();
         var savedUser = userRepository.save(user);
         var jwtToken = jwtService.generateToken(user);
@@ -487,12 +494,29 @@ public class AuthenticationService {
             dto.setProgramId(user.getProgram().getId());
             dto.setProgramName(user.getProgram().getName());
         }
+        if (user.getDepartment() != null) {
+            dto.setDepartmentId(user.getDepartment().getId());
+        }
         return dto;
     }
 
+    private List<User> filterByDepartmentIfAdmin(List<User> users, String username) {
+        if (username == null) return users;
+        User currentUser = userRepository.findByUsername(username).orElse(null);
+        if (currentUser != null && currentUser.getRole() == Role.ADMIN && currentUser.getDepartment() != null) {
+            Long deptId = currentUser.getDepartment().getId();
+            return users.stream().filter(u -> {
+                if (u.getDepartment() != null && u.getDepartment().getId().equals(deptId)) return true;
+                if (u.getProgram() != null && u.getProgram().getDepartment() != null && u.getProgram().getDepartment().getId().equals(deptId)) return true;
+                return false;
+            }).collect(Collectors.toList());
+        }
+        return users;
+    }
+
     // Get all lecturers as DTOs
-    public List<LecturerDTO> getAllLecturers() {
-        return userRepository.findByRole(Role.LECTURER)
+    public List<LecturerDTO> getAllLecturers(String username) {
+        return filterByDepartmentIfAdmin(userRepository.findByRole(Role.LECTURER), username)
                 .stream()
                 .map(this::toDTO)
                 .toList();
@@ -500,8 +524,8 @@ public class AuthenticationService {
 
 
     // Get all lecturers as DTOs
-    public List<LecturerDTO> getAllStudents() {
-        return userRepository.findByRole(Role.NORMAL)
+    public List<LecturerDTO> getAllStudents(String username) {
+        return filterByDepartmentIfAdmin(userRepository.findByRole(Role.NORMAL), username)
                 .stream()
                 .map(this::toDTO)
                 .toList();
@@ -565,6 +589,9 @@ public class AuthenticationService {
                     existing.setEmail(newEmail);
                     existing.setPhone(newPhone);
                     existing.setUsername(username);
+                    if (updateDTO.getDepartmentId() != null) {
+                        existing.setDepartment(departmentRepository.findById(updateDTO.getDepartmentId()).orElse(null));
+                    }
 
 
 //                    System.out.println("After update: " + existing.getFirstname());
@@ -656,13 +683,13 @@ public class AuthenticationService {
 
 //    CONTROLLER FOR GETTING LECTURER, ADMIN,STUDENT
 
-    public StudentResponse getStudents() {
-        List<User> students = userRepository.findByRole(Role.NORMAL);
+    public StudentResponse getStudents(String username) {
+        List<User> students = filterByDepartmentIfAdmin(userRepository.findByRole(Role.NORMAL), username);
         return new StudentResponse(students);
     }
 
-    public LecturerResponse getLecturers() {
-        List<User> lecturers = userRepository.findByRole(Role.LECTURER);
+    public LecturerResponse getLecturers(String username) {
+        List<User> lecturers = filterByDepartmentIfAdmin(userRepository.findByRole(Role.LECTURER), username);
         return new LecturerResponse(lecturers);
     }
 

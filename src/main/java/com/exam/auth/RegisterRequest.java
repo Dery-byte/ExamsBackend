@@ -23,4 +23,7 @@ public class RegisterRequest {
 
   /** For students: their current academic level (100, 200, 300 …). */
   private Integer currentLevel;
+
+  /** For lecturers and HODs: the department they belong to. */
+  private Long departmentId;
 }

@@ -1,6 +1,5 @@
 package com.exam.DTO;
 
-
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
@@ -19,11 +18,11 @@ public class LecturerDTO {
     private String email;
     private String username;
     private String fullName;
-private String phone;
+    private String phone;
     private Integer currentLevel;
     private Integer currentSemester;
     private Long programId;
     private String programName;
-
+    private Long departmentId;
 }
 

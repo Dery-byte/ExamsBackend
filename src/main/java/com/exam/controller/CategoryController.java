@@ -378,8 +378,19 @@ private List<Quiz> itemList = new ArrayList<>();
      * Rich student list for admin-initiated actions (enroll, promote).
      */
     @GetMapping("/admin/students")
-    public ResponseEntity<List<Map<String, Object>>> adminGetAllStudents() {
+    public ResponseEntity<List<Map<String, Object>>> adminGetAllStudents(Principal principal) {
         List<User> students = userRepository.findByRole(com.exam.model.Role.NORMAL);
+        if (principal != null) {
+            User currentUser = userRepository.findByUsername(principal.getName()).orElse(null);
+            if (currentUser != null && currentUser.getRole() == com.exam.model.Role.ADMIN && currentUser.getDepartment() != null) {
+                Long deptId = currentUser.getDepartment().getId();
+                students = students.stream().filter(u -> {
+                    if (u.getDepartment() != null && u.getDepartment().getId().equals(deptId)) return true;
+                    if (u.getProgram() != null && u.getProgram().getDepartment() != null && u.getProgram().getDepartment().getId().equals(deptId)) return true;
+                    return false;
+                }).collect(Collectors.toList());
+            }
+        }
         List<Map<String, Object>> result = students.stream().map(s -> {
             Map<String, Object> m = new java.util.LinkedHashMap<>();
             m.put("id",              s.getId());

@@ -36,6 +36,9 @@ public class MarksEntryService {
     @Autowired
     private StudentSectionMarkRepository studentSectionMarkRepository;
 
+    @Autowired
+    private ReportRepository reportRepository;
+
     @Transactional
     public SemesterSheet activateSheet(Long programId, String level, Integer semester,
                                        Long classTeacherId, boolean restrictLecturer,
@@ -450,6 +453,78 @@ public class MarksEntryService {
         }
         return count;
     }
+
+    /**
+     * Sync system assessment marks for a specific student into the active sheet.
+     */
+    @Transactional
+    public void syncSystemMarksForStudent(Long sheetId, Long studentId) {
+        SemesterSheet sheet = getSheetById(sheetId);
+        if (sheet == null || "SUBMITTED".equals(sheet.getStatus()) || "PUBLISHED".equals(sheet.getStatus())) {
+            return;
+        }
+
+        List<Report> reports = reportRepository.findByUser_Id(studentId);
+        if (reports == null || reports.isEmpty()) return;
+
+        List<StudentCourseMark> scms = studentCourseMarkRepository.findBySemesterSheetId(sheetId)
+                .stream().filter(s -> s.getStudent().getId().equals(studentId))
+                .collect(java.util.stream.Collectors.toList());
+
+        for (StudentCourseMark scm : scms) {
+            Long courseId = scm.getCourse().getCid();
+            
+            // Sum all marks + marksB for this course
+            BigDecimal courseTotalFromSystem = BigDecimal.ZERO;
+            for (Report r : reports) {
+                if (r.getQuiz() != null && r.getQuiz().getCategory() != null 
+                    && r.getQuiz().getCategory().getCid().equals(courseId)) {
+                    if (r.getMarks() != null) courseTotalFromSystem = courseTotalFromSystem.add(r.getMarks());
+                    if (r.getMarksB() != null) courseTotalFromSystem = courseTotalFromSystem.add(r.getMarksB());
+                }
+            }
+
+            if (courseTotalFromSystem.compareTo(BigDecimal.ZERO) > 0 && scm.getSectionMarks() != null && !scm.getSectionMarks().isEmpty()) {
+                // inject into first section
+                StudentSectionMark firstSection = scm.getSectionMarks().get(0);
+                // ensure it doesn't exceed maxScore
+                if (courseTotalFromSystem.compareTo(firstSection.getSection().getMaxScore()) > 0) {
+                    firstSection.setScoreObtained(firstSection.getSection().getMaxScore());
+                } else {
+                    firstSection.setScoreObtained(courseTotalFromSystem);
+                }
+                studentSectionMarkRepository.save(firstSection);
+
+                // recalculate scm total and grade
+                BigDecimal total = BigDecimal.ZERO;
+                for (StudentSectionMark ssm : scm.getSectionMarks()) {
+                    total = total.add(ssm.getScoreObtained() != null ? ssm.getScoreObtained() : BigDecimal.ZERO);
+                }
+                scm.setTotalScore(total);
+                scm.setGrade(calculateGrade(total));
+                studentCourseMarkRepository.save(scm);
+            }
+        }
+    }
+
+    /**
+     * Bulk sync system assessment marks for all students in the sheet.
+     */
+    @Transactional
+    public void syncSystemMarksBulk(Long sheetId) {
+        SemesterSheet sheet = getSheetById(sheetId);
+        if (sheet == null || "SUBMITTED".equals(sheet.getStatus()) || "PUBLISHED".equals(sheet.getStatus())) {
+            return;
+        }
+        List<Long> studentIds = studentCourseMarkRepository.findBySemesterSheetId(sheetId).stream()
+                .map(s -> s.getStudent().getId())
+                .distinct()
+                .collect(java.util.stream.Collectors.toList());
+        for (Long sId : studentIds) {
+            syncSystemMarksForStudent(sheetId, sId);
+        }
+    }
+
 
     /**
      * Returns marks for the given student from the given sheet.

@@ -8,6 +8,10 @@ public class LecturerUpdateDTO {
     private Integer currentLevel;
     private Integer currentSemester;
     private Long programId;
+    private Long departmentId;
+
+    public Long getDepartmentId() { return departmentId; }
+    public void setDepartmentId(Long departmentId) { this.departmentId = departmentId; }
 
     public Long getProgramId() { return programId; }
     public void setProgramId(Long programId) { this.programId = programId; }

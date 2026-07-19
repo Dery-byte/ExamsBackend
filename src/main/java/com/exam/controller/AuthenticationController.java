@@ -6,6 +6,7 @@ import com.exam.auth.AuthenticationResponse;
 import com.exam.auth.RegisterRequest;
 import com.exam.helper.UserFoundException;
 import com.exam.helper.UserNotFoundException;
+import com.exam.model.Role;
 import com.exam.model.User;
 import com.exam.repository.UserRepository;
 import com.exam.service.AuthenticationService;
@@ -60,6 +61,9 @@ public class AuthenticationController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private com.exam.repository.CategoryRepository categoryRepository;
 
 //    @Autowired
 //    private QuestionsService questionsService;
@@ -230,7 +234,8 @@ public ResponseEntity<?> logout(
                 user.getPhone(),
                 user.isAccountNonExpired(),
                 user.isCredentialsNonExpired(),
-                user.isAccountNonLocked()
+                user.isAccountNonLocked(),
+                user.getDepartment()
         );
         return ResponseEntity.ok(response);
     }
@@ -282,7 +287,8 @@ public ResponseEntity<?> logout(
                 user.getPhone(),
                 user.isAccountNonExpired(),
                 user.isCredentialsNonExpired(),
-                user.isAccountNonLocked()
+                user.isAccountNonLocked(),
+                user.getDepartment()
         );
         return ResponseEntity.ok(response);
     }
@@ -402,16 +408,18 @@ public ResponseEntity<?> logout(
 
     // Get all lecturers
     @GetMapping("/all/lecturers")
-    public ResponseEntity<List<LecturerDTO>> getAllLecturers() {
-        List<LecturerDTO> lecturers = service.getAllLecturers();
+    public ResponseEntity<List<LecturerDTO>> getAllLecturers(Principal principal) {
+        String username = principal != null ? principal.getName() : null;
+        List<LecturerDTO> lecturers = service.getAllLecturers(username);
         return ResponseEntity.ok(lecturers);
     }
 
 
-    // Get all lecturers
+    // Get all students
     @GetMapping("/all/students")
-    public ResponseEntity<List<LecturerDTO>> getAllStudents() {
-        List<LecturerDTO> lecturers = service.getAllStudents();
+    public ResponseEntity<List<LecturerDTO>> getAllStudents(Principal principal) {
+        String username = principal != null ? principal.getName() : null;
+        List<LecturerDTO> lecturers = service.getAllStudents(username);
         return ResponseEntity.ok(lecturers);
     }
 
@@ -494,13 +502,15 @@ public ResponseEntity<?> logout(
 //CONTROLLER FOR GETTING LECTURER, ADMIN,STUDENT
 
     @GetMapping("/students/counts")
-    public StudentResponse getStudents() {
-        return service.getStudents();
+    public StudentResponse getStudents(Principal principal) {
+        String username = principal != null ? principal.getName() : null;
+        return service.getStudents(username);
     }
 
     @GetMapping("/lecturers/counts")
-    public LecturerResponse getLecturers() {
-        return service.getLecturers();
+    public LecturerResponse getLecturers(Principal principal) {
+        String username = principal != null ? principal.getName() : null;
+        return service.getLecturers(username);
     }
 
     @GetMapping("/admins/counts")
@@ -508,10 +518,42 @@ public ResponseEntity<?> logout(
         return service.getAdmins();
     }
 
-
-
-
-
+    @GetMapping("/admin/dashboard-stats")
+    public ResponseEntity<?> getAdminDashboardStats(Principal principal) {
+        User user = (User) userDetailsService.loadUserByUsername(principal.getName());
+        com.exam.model.exam.Department dept = user.getDepartment();
+        
+        if (dept == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "No department assigned to this HOD."));
+        }
+        
+        long candidatesCount = userRepository.findByRole(Role.NORMAL).stream()
+            .filter(u -> u.getDepartment() != null && u.getDepartment().getId().equals(dept.getId()))
+            .count();
+            
+        long personnelCount = userRepository.findByRole(Role.LECTURER).stream()
+            .filter(u -> u.getDepartment() != null && u.getDepartment().getId().equals(dept.getId()))
+            .count();
+            
+        List<com.exam.model.exam.Category> allCats = categoryRepository.findAll();
+        List<com.exam.model.exam.Category> deptCats = allCats.stream()
+            .filter(c -> c.getPrograms().stream().anyMatch(p -> p.getDepartment() != null && p.getDepartment().getId().equals(dept.getId())))
+            .collect(Collectors.toList());
+            
+        long modulesCount = deptCats.size();
+        
+        long assessmentsCount = deptCats.stream()
+            .mapToLong(c -> c.getQuizzes().size())
+            .sum();
+            
+        Map<String, Object> stats = new java.util.HashMap<>();
+        stats.put("candidates", candidatesCount);
+        stats.put("personnel", personnelCount);
+        stats.put("modules", modulesCount);
+        stats.put("assessments", assessmentsCount);
+        
+        return ResponseEntity.ok(stats);
+    }
 
         }
 

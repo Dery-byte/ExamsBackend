@@ -18,5 +18,6 @@ public class UserResponse {
     private boolean accountNonExpired;
     private boolean credentialsNonExpired;
     private boolean accountNonLocked;
+    private com.exam.model.exam.Department department;
     // Only include fields you want to expose
 }
