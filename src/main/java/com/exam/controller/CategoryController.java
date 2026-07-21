@@ -53,8 +53,9 @@ public class CategoryController {
 
 
     @GetMapping("/getCategories")
-    public ResponseEntity<?> getCategories(){
-        return ResponseEntity.ok(this.categoryService.getCategories());
+    public ResponseEntity<?> getCategories(Principal principal){
+        String username = principal != null ? principal.getName() : null;
+        return ResponseEntity.ok(this.categoryService.getCategories(username));
     }
 
     //getCategory

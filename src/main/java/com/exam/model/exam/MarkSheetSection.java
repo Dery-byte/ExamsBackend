@@ -23,6 +23,13 @@ public class MarkSheetSection {
     @Column(precision = 10, scale = 2)
     private BigDecimal maxScore;
 
+    @Column(nullable= false)
+    private boolean deletable = true;
+
+    @OneToMany(mappedBy = "section", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private java.util.List<StudentSectionMark> studentMarks = new java.util.ArrayList<>();
+
     public MarkSheetSection() {
     }
 
@@ -56,5 +63,21 @@ public class MarkSheetSection {
 
     public void setMaxScore(BigDecimal maxScore) {
         this.maxScore = maxScore;
+    }
+
+    public boolean isDeletable() {
+        return deletable;
+    }
+
+    public void setDeletable(boolean deletable) {
+        this.deletable = deletable;
+    }
+
+    public java.util.List<StudentSectionMark> getStudentMarks() {
+        return studentMarks;
+    }
+
+    public void setStudentMarks(java.util.List<StudentSectionMark> studentMarks) {
+        this.studentMarks = studentMarks;
     }
 }

@@ -39,26 +39,24 @@ public class MarksEntryService {
     @Autowired
     private ReportRepository reportRepository;
 
+    @Autowired
+    private MarkSheetSectionRepository markSheetSectionRepository;
+
     @Transactional
     public SemesterSheet activateSheet(Long programId, String level, Integer semester,
                                        Long classTeacherId, boolean restrictLecturer,
-                                       List<MarkSheetSection> sections, List<Long> courseIds) {
+                                       List<MarkSheetSection> sections, Long courseId) {
 
-        // Resolve the courses to include — if courseIds provided, use exactly those
-        List<Category> selectedCourses;
-        if (courseIds != null && !courseIds.isEmpty()) {
-            selectedCourses = categoryRepository.findAllById(courseIds);
-        } else {
-            // Fallback: all courses for the program+level+semester
-            selectedCourses = categoryRepository.findAll().stream()
-                .filter(c -> c.getPrograms() != null && c.getPrograms().stream().anyMatch(p -> p.getId().equals(programId)))
-                .filter(c -> level.equals(c.getLevel()))
-                .filter(c -> semester.equals(c.getSemester()))
-                .collect(java.util.stream.Collectors.toList());
+        if (sections == null || sections.isEmpty()) {
+            throw new RuntimeException("At least one section must be provided.");
         }
-
-        if (selectedCourses.isEmpty()) {
-            throw new RuntimeException("No courses found for the selected filters. Please add courses first.");
+        
+        BigDecimal totalScore = sections.stream()
+            .map(MarkSheetSection::getMaxScore)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+        if (totalScore.compareTo(new BigDecimal("100")) != 0) {
+            throw new RuntimeException("The total marks for all sections must sum to exactly 100. Current sum: " + totalScore);
         }
 
         // The sheet belongs to the program specified in the request
@@ -69,19 +67,29 @@ public class MarksEntryService {
         List<SemesterSheet> existing = semesterSheetRepository.findByProgramIdAndLevelAndSemester(
                 program.getId(), level, semester);
         if (existing != null && !existing.isEmpty()) {
-            // Check if any of the selected courses already have marks in an existing sheet
+            // Check if this course already has a sheet for this program+level+semester
             for (SemesterSheet ex : existing) {
                 List<StudentCourseMark> overlapping = studentCourseMarkRepository
                     .findBySemesterSheetId(ex.getId());
                 boolean conflict = overlapping.stream()
-                    .anyMatch(scm -> courseIds != null && courseIds.contains(scm.getCourse().getCid()));
+                    .anyMatch(scm -> courseId != null && courseId.equals(scm.getCourse().getCid()));
                 if (conflict) {
                     throw new RuntimeException(
-                        "One or more selected courses already have an active sheet for this Level and Semester.");
+                        "This course already has an active sheet for this Level and Semester.");
                 }
             }
         }
 
+        // Fetch the single course
+        Category course = null;
+        if (courseId != null) {
+            course = categoryRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+        }
+        
+        List<Category> selectedCourses = new ArrayList<>();
+        if (course != null) selectedCourses.add(course);
+        
         User classTeacher = null;
         if (classTeacherId != null) {
             classTeacher = userRepository.findById(classTeacherId).orElse(null);
@@ -110,11 +118,11 @@ public class MarksEntryService {
 
         // Generate blank marks for each student × each selected course
         for (User student : students) {
-            for (Category course : selectedCourses) {
+            for (Category c : selectedCourses) {
                 StudentCourseMark scm = new StudentCourseMark();
                 scm.setSemesterSheet(savedSheet);
                 scm.setStudent(student);
-                scm.setCourse(course);
+                scm.setCourse(c);
                 scm.setTotalScore(BigDecimal.ZERO);
                 scm.setGrade("N/A");
 
@@ -128,13 +136,169 @@ public class MarksEntryService {
                 studentCourseMarkRepository.save(scm);
             }
         }
-
         return savedSheet;
     }
 
 
+    public void deleteSheet(Long sheetId) {
+        SemesterSheet sheet = semesterSheetRepository.findById(sheetId)
+            .orElseThrow(() -> new RuntimeException("Sheet not found"));
+            
+        if (!"DRAFT".equals(sheet.getStatus()) && !"ACTIVE".equals(sheet.getStatus())) {
+            throw new RuntimeException("Only DRAFT and ACTIVE sheets can be deleted.");
+        }
+        
+        semesterSheetRepository.delete(sheet);
+    }
+
+    @Transactional
+    public SemesterSheet updateSheet(Long sheetId, Long programId, String level, Integer semester,
+                                     Long classTeacherId, boolean restrictLecturer,
+                                     List<MarkSheetSection> newSections, Long courseId) {
+        SemesterSheet sheet = semesterSheetRepository.findById(sheetId)
+            .orElseThrow(() -> new RuntimeException("Sheet not found"));
+            
+        if (!"DRAFT".equals(sheet.getStatus()) && !"ACTIVE".equals(sheet.getStatus())) {
+            throw new RuntimeException("Only DRAFT and ACTIVE sheets can be edited.");
+        }
+
+        boolean cohortChanged = false;
+        boolean courseChanged = false;
+        
+        Program newProgram = programRepository.findById(programId)
+                .orElseThrow(() -> new RuntimeException("Program not found"));
+
+        if (!sheet.getProgram().getId().equals(programId) || 
+            !sheet.getLevel().equals(level) || 
+            !sheet.getSemester().equals(semester)) {
+            cohortChanged = true;
+        }
+
+        Long oldCourseId = sheet.getCourses().isEmpty() ? null : sheet.getCourses().get(0).getCid();
+        if (courseId != null && !courseId.equals(oldCourseId)) {
+            courseChanged = true;
+        }
+
+        // Apply basic updates
+        sheet.setProgram(newProgram);
+        sheet.setLevel(level);
+        sheet.setSemester(semester);
+        sheet.setRestrictLecturerToAssignedCourses(restrictLecturer);
+
+        User classTeacher = null;
+        if (classTeacherId != null) {
+            classTeacher = userRepository.findById(classTeacherId).orElse(null);
+        }
+        sheet.setClassTeacher(classTeacher);
+
+        if (courseChanged) {
+            Category newCourse = categoryRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Course not found"));
+            List<Category> courses = new ArrayList<>();
+            courses.add(newCourse);
+            sheet.setCourses(courses);
+        }
+
+        // Sync sections
+        // Remove sections not in new list
+        List<Long> newSectionIds = newSections.stream().map(MarkSheetSection::getId).filter(id -> id != null).collect(java.util.stream.Collectors.toList());
+        sheet.getSections().removeIf(s -> !newSectionIds.contains(s.getId()) && s.getId() != null);
+        
+        for (MarkSheetSection newSec : newSections) {
+            if (newSec.getId() == null) {
+                newSec.setSemesterSheet(sheet);
+                sheet.getSections().add(newSec);
+            } else {
+                MarkSheetSection existingSec = sheet.getSections().stream()
+                    .filter(s -> s.getId().equals(newSec.getId())).findFirst().orElse(null);
+                if (existingSec != null) {
+                    existingSec.setSectionName(newSec.getSectionName());
+                    existingSec.setMaxScore(newSec.getMaxScore());
+                    existingSec.setDeletable(newSec.isDeletable());
+                }
+            }
+        }
+
+        // Validate max score
+        BigDecimal totalScore = sheet.getSections().stream()
+            .map(MarkSheetSection::getMaxScore)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (totalScore.compareTo(new BigDecimal("100")) != 0) {
+            throw new RuntimeException("The total marks for all sections must sum to exactly 100.");
+        }
+
+        SemesterSheet savedSheet = semesterSheetRepository.save(sheet);
+
+        if (cohortChanged || courseChanged) {
+            // Drop old marks
+            studentCourseMarkRepository.deleteAll(sheet.getCourseMarks());
+            sheet.getCourseMarks().clear();
+            
+            // Generate new marks
+            int levelInt = 100;
+            try { levelInt = Integer.parseInt(level); } catch (NumberFormatException ignored) {}
+            List<User> students = userRepository.findByProgramAndCurrentLevel(newProgram, levelInt);
+            
+            Category currentCourse = sheet.getCourses().isEmpty() ? null : sheet.getCourses().get(0);
+
+            if (currentCourse != null) {
+                for (User student : students) {
+                    StudentCourseMark scm = new StudentCourseMark();
+                    scm.setSemesterSheet(savedSheet);
+                    scm.setStudent(student);
+                    scm.setCourse(currentCourse);
+                    scm.setTotalScore(BigDecimal.ZERO);
+                    scm.setGrade("N/A");
+
+                    for (MarkSheetSection sec : savedSheet.getSections()) {
+                        StudentSectionMark ssm = new StudentSectionMark();
+                        ssm.setStudentCourseMark(scm);
+                        ssm.setSection(sec);
+                        ssm.setScoreObtained(BigDecimal.ZERO);
+                        scm.getSectionMarks().add(ssm);
+                    }
+                    studentCourseMarkRepository.save(scm);
+                }
+            }
+        } else {
+            // Re-enroll any new students just in case, this is non-destructive
+            enrollStudentsIntoSheet(sheetId);
+        }
+
+        return savedSheet;
+    }
+
     public List<SemesterSheet> getAllSheets() {
         return semesterSheetRepository.findAll();
+    }
+
+    /**
+     * Returns only the sheets that contain at least one course assigned to
+     * the given lecturer (Category.user == lecturer).
+     * If the lecturer has no assigned courses, returns all sheets (fallback).
+     */
+    public List<SemesterSheet> getSheetsForLecturer(String username) {
+        User lecturer = userRepository.findByUsername(username).orElse(null);
+        if (lecturer == null) return new java.util.ArrayList<>();
+
+        List<SemesterSheet> allSheets = semesterSheetRepository.findAll();
+
+        // Get all course IDs assigned to this lecturer
+        java.util.Set<Long> assignedCourseIds = categoryRepository.findAll().stream()
+            .filter(c -> c.getUser() != null && c.getUser().getId().equals(lecturer.getId()))
+            .map(c -> c.getCid())
+            .collect(java.util.stream.Collectors.toSet());
+
+        if (assignedCourseIds.isEmpty()) {
+            // No assigned courses → lecturer sees no sheets (don't expose all)
+            return new java.util.ArrayList<>();
+        }
+
+        // Keep only sheets that have at least one of this lecturer's courses
+        return allSheets.stream()
+            .filter(sheet -> sheet.getCourses().stream()
+                .anyMatch(c -> assignedCourseIds.contains(c.getCid())))
+            .collect(java.util.stream.Collectors.toList());
     }
 
     public SemesterSheet getSheetById(Long sheetId) {
@@ -251,12 +415,18 @@ public class MarksEntryService {
         dto.setClassTeacherId(sheet.getClassTeacher() != null ? sheet.getClassTeacher().getId() : null);
         dto.setRestrictLecturerToAssignedCourses(sheet.isRestrictLecturerToAssignedCourses());
 
+        if (sheet.getCourses() != null && !sheet.getCourses().isEmpty()) {
+            dto.setCourseId(sheet.getCourses().get(0).getCid());
+            dto.setCourseName(sheet.getCourses().get(0).getTitle());
+        }
+
         List<com.exam.DTO.SemesterSheetDTO.SectionDTO> sectionDTOs = new ArrayList<>();
         for (MarkSheetSection sec : sheet.getSections()) {
             com.exam.DTO.SemesterSheetDTO.SectionDTO secDto = new com.exam.DTO.SemesterSheetDTO.SectionDTO();
             secDto.setId(sec.getId());
             secDto.setSectionName(sec.getSectionName());
             secDto.setMaxScore(sec.getMaxScore());
+            secDto.setDeletable(sec.isDeletable());
             sectionDTOs.add(secDto);
         }
         dto.setSections(sectionDTOs);
@@ -458,7 +628,7 @@ public class MarksEntryService {
      * Sync system assessment marks for a specific student into the active sheet.
      */
     @Transactional
-    public void syncSystemMarksForStudent(Long sheetId, Long studentId) {
+    public void syncSystemMarksForStudent(Long sheetId, Long studentId, Long targetSectionId) {
         SemesterSheet sheet = getSheetById(sheetId);
         if (sheet == null || "SUBMITTED".equals(sheet.getStatus()) || "PUBLISHED".equals(sheet.getStatus())) {
             return;
@@ -484,16 +654,22 @@ public class MarksEntryService {
                 }
             }
 
-            if (courseTotalFromSystem.compareTo(BigDecimal.ZERO) > 0 && scm.getSectionMarks() != null && !scm.getSectionMarks().isEmpty()) {
-                // inject into first section
-                StudentSectionMark firstSection = scm.getSectionMarks().get(0);
-                // ensure it doesn't exceed maxScore
-                if (courseTotalFromSystem.compareTo(firstSection.getSection().getMaxScore()) > 0) {
-                    firstSection.setScoreObtained(firstSection.getSection().getMaxScore());
-                } else {
-                    firstSection.setScoreObtained(courseTotalFromSystem);
+            if (courseTotalFromSystem.compareTo(BigDecimal.ZERO) >= 0 && scm.getSectionMarks() != null) {
+                // Find the target section
+                StudentSectionMark targetSection = scm.getSectionMarks().stream()
+                        .filter(ssm -> ssm.getSection().getId().equals(targetSectionId))
+                        .findFirst()
+                        .orElse(null);
+                
+                if (targetSection != null) {
+                    // ensure it doesn't exceed maxScore
+                    if (courseTotalFromSystem.compareTo(targetSection.getSection().getMaxScore()) > 0) {
+                        targetSection.setScoreObtained(targetSection.getSection().getMaxScore());
+                    } else {
+                        targetSection.setScoreObtained(courseTotalFromSystem);
+                    }
+                    studentSectionMarkRepository.save(targetSection);
                 }
-                studentSectionMarkRepository.save(firstSection);
 
                 // recalculate scm total and grade
                 BigDecimal total = BigDecimal.ZERO;
@@ -511,7 +687,7 @@ public class MarksEntryService {
      * Bulk sync system assessment marks for all students in the sheet.
      */
     @Transactional
-    public void syncSystemMarksBulk(Long sheetId) {
+    public void syncSystemMarksBulk(Long sheetId, Long targetSectionId) {
         SemesterSheet sheet = getSheetById(sheetId);
         if (sheet == null || "SUBMITTED".equals(sheet.getStatus()) || "PUBLISHED".equals(sheet.getStatus())) {
             return;
@@ -521,8 +697,89 @@ public class MarksEntryService {
                 .distinct()
                 .collect(java.util.stream.Collectors.toList());
         for (Long sId : studentIds) {
-            syncSystemMarksForStudent(sheetId, sId);
+            syncSystemMarksForStudent(sheetId, sId, targetSectionId);
         }
+    }
+
+    @Transactional
+    public MarkSheetSection addSection(Long sheetId, String sectionName, BigDecimal maxScore) {
+        SemesterSheet sheet = getSheetById(sheetId);
+        if (sheet == null || "SUBMITTED".equals(sheet.getStatus()) || "PUBLISHED".equals(sheet.getStatus())) {
+            throw new RuntimeException("Cannot modify this sheet. It is not active or draft.");
+        }
+
+        BigDecimal currentTotal = sheet.getSections().stream()
+            .map(MarkSheetSection::getMaxScore)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+        if (currentTotal.add(maxScore).compareTo(new BigDecimal("100")) > 0) {
+            throw new RuntimeException("Adding this section exceeds the maximum 100 total marks. Please delete or modify an existing section first.");
+        }
+
+        MarkSheetSection newSection = new MarkSheetSection();
+        newSection.setSemesterSheet(sheet);
+        newSection.setSectionName(sectionName);
+        newSection.setMaxScore(maxScore);
+        newSection.setDeletable(true);
+        MarkSheetSection savedSection = markSheetSectionRepository.save(newSection);
+        
+        sheet.getSections().add(savedSection);
+        semesterSheetRepository.save(sheet);
+
+        // Inject new section into all existing student marks
+        List<StudentCourseMark> scms = studentCourseMarkRepository.findBySemesterSheetId(sheetId);
+        for (StudentCourseMark scm : scms) {
+            StudentSectionMark ssm = new StudentSectionMark();
+            ssm.setStudentCourseMark(scm);
+            ssm.setSection(savedSection);
+            ssm.setScoreObtained(BigDecimal.ZERO);
+            studentSectionMarkRepository.save(ssm);
+        }
+
+        return savedSection;
+    }
+
+    @Transactional
+    public void deleteSection(Long sheetId, Long sectionId) {
+        SemesterSheet sheet = getSheetById(sheetId);
+        if (sheet == null || "SUBMITTED".equals(sheet.getStatus()) || "PUBLISHED".equals(sheet.getStatus())) {
+            throw new RuntimeException("Cannot modify this sheet. It is not active or draft.");
+        }
+
+        MarkSheetSection sectionToRemove = markSheetSectionRepository.findById(sectionId).orElse(null);
+        if (sectionToRemove == null || !sectionToRemove.getSemesterSheet().getId().equals(sheetId)) {
+            return; // invalid
+        }
+
+        if (!sectionToRemove.isDeletable()) {
+            throw new RuntimeException("This section is marked as required and cannot be deleted.");
+        }
+
+        // Remove all StudentSectionMarks linked to this section
+        List<StudentCourseMark> scms = studentCourseMarkRepository.findBySemesterSheetId(sheetId);
+        for (StudentCourseMark scm : scms) {
+            List<StudentSectionMark> marksToRemove = scm.getSectionMarks().stream()
+                .filter(ssm -> ssm.getSection().getId().equals(sectionId))
+                .collect(java.util.stream.Collectors.toList());
+            
+            for (StudentSectionMark ssm : marksToRemove) {
+                scm.getSectionMarks().remove(ssm);
+                studentSectionMarkRepository.delete(ssm);
+            }
+
+            // Recalculate totals
+            BigDecimal total = BigDecimal.ZERO;
+            for (StudentSectionMark ssm : scm.getSectionMarks()) {
+                total = total.add(ssm.getScoreObtained() != null ? ssm.getScoreObtained() : BigDecimal.ZERO);
+            }
+            scm.setTotalScore(total);
+            scm.setGrade(calculateGrade(total));
+            studentCourseMarkRepository.save(scm);
+        }
+
+        sheet.getSections().remove(sectionToRemove);
+        semesterSheetRepository.save(sheet);
+        markSheetSectionRepository.delete(sectionToRemove);
     }
 
 

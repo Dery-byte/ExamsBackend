@@ -35,12 +35,14 @@ public class MarksEntryController {
         public Integer semester;
         public Long classTeacherId;
         public boolean restrictLecturerToAssignedCourses;
-        public List<Long> courseIds;      // IDs of courses selected for this sheet
+        public Long courseId;      // ID of the course selected for this sheet
         public List<SectionRequest> sections;
 
         public static class SectionRequest {
+            public Long id;
             public String sectionName;
             public BigDecimal maxScore;
+            public Boolean deletable;
         }
     }
 
@@ -53,6 +55,9 @@ public class MarksEntryController {
                     MarkSheetSection sec = new MarkSheetSection();
                     sec.setSectionName(secReq.sectionName);
                     sec.setMaxScore(secReq.maxScore);
+                    if (secReq.deletable != null) {
+                        sec.setDeletable(secReq.deletable);
+                    }
                     sections.add(sec);
                 }
             }
@@ -64,10 +69,54 @@ public class MarksEntryController {
                     request.classTeacherId,
                     request.restrictLecturerToAssignedCourses,
                     sections,
-                    request.courseIds
+                    request.courseId
             );
 
             return ResponseEntity.ok(sheet.getId());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{sheetId}")
+    public ResponseEntity<?> updateSheet(@PathVariable Long sheetId, @RequestBody ActivateSheetRequest request) {
+        try {
+            List<com.exam.model.exam.MarkSheetSection> sections = new ArrayList<>();
+            if (request.sections != null) {
+                for (ActivateSheetRequest.SectionRequest secReq : request.sections) {
+                    com.exam.model.exam.MarkSheetSection sec = new com.exam.model.exam.MarkSheetSection();
+                    sec.setId(secReq.id);
+                    sec.setSectionName(secReq.sectionName);
+                    sec.setMaxScore(secReq.maxScore);
+                    if (secReq.deletable != null) {
+                        sec.setDeletable(secReq.deletable);
+                    }
+                    sections.add(sec);
+                }
+            }
+
+            marksEntryService.updateSheet(
+                    sheetId,
+                    request.programId,
+                    request.level,
+                    request.semester,
+                    request.classTeacherId,
+                    request.restrictLecturerToAssignedCourses,
+                    sections,
+                    request.courseId
+            );
+
+            return ResponseEntity.ok(java.util.Map.of("message", "Sheet updated successfully"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{sheetId}")
+    public ResponseEntity<?> deleteSheet(@PathVariable Long sheetId) {
+        try {
+            marksEntryService.deleteSheet(sheetId);
+            return ResponseEntity.ok(java.util.Map.of("message", "Sheet deleted successfully"));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
         }
@@ -90,7 +139,38 @@ public class MarksEntryController {
                 ? sheet.getClassTeacher().getFirstname() + " " + sheet.getClassTeacher().getLastname()
                 : "Not Assigned");
             dto.setEnrolledStudentCount(marksEntryService.getEnrolledStudentCount(sheet.getId()));
-            dto.setCourseNames(marksEntryService.getCourseNamesForSheet(sheet.getId()));
+            if (sheet.getCourses() != null && !sheet.getCourses().isEmpty()) {
+                dto.setCourseId(sheet.getCourses().get(0).getCid());
+                dto.setCourseName(sheet.getCourses().get(0).getTitle());
+            }
+            response.add(dto);
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    /** Lecturer: returns only the sheets that contain courses assigned to this lecturer */
+    @GetMapping("/my-sheets")
+    public ResponseEntity<?> getMySheetsForLecturer(java.security.Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).build();
+        List<SemesterSheet> sheets = marksEntryService.getSheetsForLecturer(principal.getName());
+        List<SemesterSheetDTO> response = new ArrayList<>();
+        for (SemesterSheet sheet : sheets) {
+            SemesterSheetDTO dto = new SemesterSheetDTO();
+            dto.setId(sheet.getId());
+            dto.setProgramId(sheet.getProgram() != null ? sheet.getProgram().getId() : null);
+            dto.setProgramName(sheet.getProgram() != null ? sheet.getProgram().getName() : "N/A");
+            dto.setLevel(sheet.getLevel());
+            dto.setSemester(sheet.getSemester());
+            dto.setStatus(sheet.getStatus());
+            dto.setClassTeacherId(sheet.getClassTeacher() != null ? sheet.getClassTeacher().getId() : null);
+            dto.setClassTeacherName(sheet.getClassTeacher() != null
+                ? sheet.getClassTeacher().getFirstname() + " " + sheet.getClassTeacher().getLastname()
+                : "Not Assigned");
+            dto.setEnrolledStudentCount(marksEntryService.getEnrolledStudentCount(sheet.getId()));
+            if (sheet.getCourses() != null && !sheet.getCourses().isEmpty()) {
+                dto.setCourseId(sheet.getCourses().get(0).getCid());
+                dto.setCourseName(sheet.getCourses().get(0).getTitle());
+            }
             response.add(dto);
         }
         return ResponseEntity.ok(response);
@@ -145,15 +225,37 @@ public class MarksEntryController {
     }
 
     @PostMapping("/{sheetId}/sync-marks/{studentId}")
-    public ResponseEntity<?> syncMarksForStudent(@PathVariable Long sheetId, @PathVariable Long studentId) {
-        marksEntryService.syncSystemMarksForStudent(sheetId, studentId);
+    public ResponseEntity<?> syncMarksForStudent(@PathVariable Long sheetId, @PathVariable Long studentId, @RequestParam Long sectionId) {
+        marksEntryService.syncSystemMarksForStudent(sheetId, studentId, sectionId);
         return ResponseEntity.ok(java.util.Map.of("message", "Marks synced successfully for student"));
     }
 
     @PostMapping("/{sheetId}/sync-marks/bulk")
-    public ResponseEntity<?> syncMarksBulk(@PathVariable Long sheetId) {
-        marksEntryService.syncSystemMarksBulk(sheetId);
+    public ResponseEntity<?> syncMarksBulk(@PathVariable Long sheetId, @RequestParam Long sectionId) {
+        marksEntryService.syncSystemMarksBulk(sheetId, sectionId);
         return ResponseEntity.ok(java.util.Map.of("message", "Marks synced successfully for all students"));
+    }
+
+    @PostMapping("/{sheetId}/sections")
+    public ResponseEntity<?> addSection(@PathVariable Long sheetId, @RequestBody java.util.Map<String, Object> payload) {
+        try {
+            String sectionName = (String) payload.get("sectionName");
+            BigDecimal maxScore = new BigDecimal(payload.get("maxScore").toString());
+            MarkSheetSection newSection = marksEntryService.addSection(sheetId, sectionName, maxScore);
+            return ResponseEntity.ok(newSection);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{sheetId}/sections/{sectionId}")
+    public ResponseEntity<?> deleteSection(@PathVariable Long sheetId, @PathVariable Long sectionId) {
+        try {
+            marksEntryService.deleteSection(sheetId, sectionId);
+            return ResponseEntity.ok(java.util.Map.of("message", "Section deleted"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
     }
 
     /**

@@ -46,6 +46,18 @@ public class ProgramService {
                 .stream().map(this::toDTO).collect(Collectors.toList());
     }
 
+    @Autowired
+    private com.exam.repository.UserRepository userRepository;
+
+    public List<ProgramDTO> getMyDepartmentPrograms(String username) {
+        if (username == null) return getAllPrograms();
+        com.exam.model.User user = userRepository.findByUsername(username).orElse(null);
+        if (user == null || user.getDepartment() == null) {
+            return getAllPrograms();
+        }
+        return getProgramsByDepartment(user.getDepartment().getId());
+    }
+
     public ProgramDTO getProgramById(Long id) {
         return toDTO(programRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Program not found: " + id)));

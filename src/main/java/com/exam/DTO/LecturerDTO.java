@@ -24,5 +24,6 @@ public class LecturerDTO {
     private Long programId;
     private String programName;
     private Long departmentId;
+    private java.util.List<Long> secondaryDepartmentIds;
 }
 

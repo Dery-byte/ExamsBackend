@@ -9,9 +9,13 @@ public class LecturerUpdateDTO {
     private Integer currentSemester;
     private Long programId;
     private Long departmentId;
+    private java.util.List<Long> secondaryDepartmentIds;
 
     public Long getDepartmentId() { return departmentId; }
     public void setDepartmentId(Long departmentId) { this.departmentId = departmentId; }
+
+    public java.util.List<Long> getSecondaryDepartmentIds() { return secondaryDepartmentIds; }
+    public void setSecondaryDepartmentIds(java.util.List<Long> secondaryDepartmentIds) { this.secondaryDepartmentIds = secondaryDepartmentIds; }
 
     public Long getProgramId() { return programId; }
     public void setProgramId(Long programId) { this.programId = programId; }

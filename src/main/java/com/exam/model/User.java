@@ -5,6 +5,10 @@ import com.exam.model.exam.Department;
 import com.exam.model.exam.Program;
 import com.exam.model.exam.Providers;
 import com.exam.model.exam.Quiz;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.List;
+import java.util.ArrayList;
 import com.exam.model.exam.Report;
 import com.exam.token.Token;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -60,6 +64,18 @@ public class User implements UserDetails {
   @JoinColumn(name = "department_id")
   @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
   private Department department;
+
+  @ManyToMany(fetch = FetchType.EAGER)
+  @JoinTable(
+      name = "user_secondary_departments",
+      joinColumns = @JoinColumn(name = "user_id"),
+      inverseJoinColumns = @JoinColumn(name = "department_id")
+  )
+  @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+  private Set<Department> secondaryDepartments = new HashSet<>();
+
+  @Transient
+  private List<Long> secondaryDepartmentIds = new ArrayList<>();
 
   @ManyToOne(fetch = FetchType.EAGER)
   @JoinColumn(name = "program_id")
@@ -165,6 +181,30 @@ public class User implements UserDetails {
 
   public void setProviderUserId(String providerUserId) {
     this.providerUserId = providerUserId;
+  }
+
+  public Department getDepartment() {
+    return department;
+  }
+
+  public void setDepartment(Department department) {
+    this.department = department;
+  }
+
+  public Set<Department> getSecondaryDepartments() {
+    return secondaryDepartments;
+  }
+
+  public void setSecondaryDepartments(Set<Department> secondaryDepartments) {
+    this.secondaryDepartments = secondaryDepartments;
+  }
+
+  public List<Long> getSecondaryDepartmentIds() {
+    return secondaryDepartmentIds;
+  }
+
+  public void setSecondaryDepartmentIds(List<Long> secondaryDepartmentIds) {
+    this.secondaryDepartmentIds = secondaryDepartmentIds;
   }
 
   public String getAbout() {

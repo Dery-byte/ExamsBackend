@@ -161,8 +161,23 @@ ProgramRepository programRepository;
         return new com.exam.DTO.CategoryDTO(updated);
     }
 
-    public java.util.List<com.exam.DTO.CategoryDTO> getCategories(){
-        return categoryRepository.findAll().stream()
+    public java.util.List<com.exam.DTO.CategoryDTO> getCategories(String username){
+        java.util.List<Category> allCategories = categoryRepository.findAll();
+
+        if (username != null) {
+            User currentUser = userRepository.findByUsername(username).orElse(null);
+            if (currentUser != null && currentUser.getRole() == com.exam.model.Role.ADMIN && currentUser.getDepartment() != null) {
+                Long deptId = currentUser.getDepartment().getId();
+                allCategories = allCategories.stream().filter(c -> {
+                    if (c.getPrograms() == null || c.getPrograms().isEmpty()) {
+                        return false;
+                    }
+                    return c.getPrograms().stream().anyMatch(p -> p.getDepartment() != null && p.getDepartment().getId().equals(deptId));
+                }).collect(Collectors.toList());
+            }
+        }
+
+        return allCategories.stream()
                 .map(c -> {
                     com.exam.DTO.CategoryDTO dto = new com.exam.DTO.CategoryDTO(c);
                     if (c.getPrograms() != null) {

@@ -405,12 +405,19 @@ public ResponseEntity<?> logout(
 
 
 
-
-    // Get all lecturers
+    // Get all lecturers (unfiltered) - for general management screens
     @GetMapping("/all/lecturers")
     public ResponseEntity<List<LecturerDTO>> getAllLecturers(Principal principal) {
         String username = principal != null ? principal.getName() : null;
         List<LecturerDTO> lecturers = service.getAllLecturers(username);
+        return ResponseEntity.ok(lecturers);
+    }
+
+    // Get lecturers filtered to the calling admin/HOD's department - used for sheet creation
+    @GetMapping("/lecturers/by-department")
+    public ResponseEntity<List<LecturerDTO>> getLecturersByDepartment(Principal principal) {
+        String username = principal != null ? principal.getName() : null;
+        List<LecturerDTO> lecturers = service.getLecturersByDepartment(username);
         return ResponseEntity.ok(lecturers);
     }
 

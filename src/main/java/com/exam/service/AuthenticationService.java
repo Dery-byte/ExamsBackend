@@ -497,6 +497,13 @@ public class AuthenticationService {
         if (user.getDepartment() != null) {
             dto.setDepartmentId(user.getDepartment().getId());
         }
+        if (user.getSecondaryDepartments() != null && !user.getSecondaryDepartments().isEmpty()) {
+            dto.setSecondaryDepartmentIds(
+                user.getSecondaryDepartments().stream()
+                    .map(d -> d.getId())
+                    .collect(java.util.stream.Collectors.toList())
+            );
+        }
         return dto;
     }
 
@@ -514,12 +521,40 @@ public class AuthenticationService {
         return users;
     }
 
-    // Get all lecturers as DTOs
+    // Get all lecturers as DTOs (no department filter - needed for sheet class teacher assignment)
     public List<LecturerDTO> getAllLecturers(String username) {
-        return filterByDepartmentIfAdmin(userRepository.findByRole(Role.LECTURER), username)
+        return userRepository.findByRole(Role.LECTURER)
                 .stream()
                 .map(this::toDTO)
                 .toList();
+    }
+
+    // Get lecturers filtered to the admin/HOD's own department - for the sheet creation dropdown
+    public List<LecturerDTO> getLecturersByDepartment(String username) {
+        List<User> allLecturers = userRepository.findByRole(Role.LECTURER);
+        if (username == null) return allLecturers.stream().map(this::toDTO).toList();
+
+        User currentUser = userRepository.findByUsername(username).orElse(null);
+        if (currentUser == null || currentUser.getDepartment() == null) {
+            // No department scoping — return all lecturers
+            return allLecturers.stream().map(this::toDTO).toList();
+        }
+
+        Long deptId = currentUser.getDepartment().getId();
+        return allLecturers.stream()
+            .filter(u -> {
+                // Direct primary department assignment
+                if (u.getDepartment() != null && u.getDepartment().getId().equals(deptId)) return true;
+                // Department via program
+                if (u.getProgram() != null && u.getProgram().getDepartment() != null
+                        && u.getProgram().getDepartment().getId().equals(deptId)) return true;
+                // Secondary departments
+                if (u.getSecondaryDepartments() != null &&
+                        u.getSecondaryDepartments().stream().anyMatch(d -> d.getId().equals(deptId))) return true;
+                return false;
+            })
+            .map(this::toDTO)
+            .toList();
     }
 
 
@@ -552,6 +587,14 @@ public class AuthenticationService {
     // Create or update lecturer and return DTO
     public LecturerDTO saveOrUpdateLecturer(User lecturer) {
         lecturer.setRole(Role.LECTURER); // Ensure role is LECTURER
+        // Resolve any secondaryDepartmentIds supplied from frontend
+        if (lecturer.getSecondaryDepartmentIds() != null && !lecturer.getSecondaryDepartmentIds().isEmpty()) {
+            java.util.Set<com.exam.model.exam.Department> secondaryDepts = new java.util.HashSet<>();
+            for (Long deptId : lecturer.getSecondaryDepartmentIds()) {
+                departmentRepository.findById(deptId).ifPresent(secondaryDepts::add);
+            }
+            lecturer.setSecondaryDepartments(secondaryDepts);
+        }
         User saved = userRepository.save(lecturer);
         return toDTO(saved);
     }
@@ -591,6 +634,14 @@ public class AuthenticationService {
                     existing.setUsername(username);
                     if (updateDTO.getDepartmentId() != null) {
                         existing.setDepartment(departmentRepository.findById(updateDTO.getDepartmentId()).orElse(null));
+                    }
+                    // Update secondary departments if provided
+                    if (updateDTO.getSecondaryDepartmentIds() != null) {
+                        java.util.Set<com.exam.model.exam.Department> secondaryDepts = new java.util.HashSet<>();
+                        for (Long deptId : updateDTO.getSecondaryDepartmentIds()) {
+                            departmentRepository.findById(deptId).ifPresent(secondaryDepts::add);
+                        }
+                        existing.setSecondaryDepartments(secondaryDepts);
                     }
 
 

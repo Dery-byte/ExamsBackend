@@ -26,6 +26,13 @@ public class ProgramPublicController {
         return ResponseEntity.ok(programService.getAllPrograms());
     }
 
+    /** Programs for the current admin/HOD's department */
+    @GetMapping("/programs/my-department")
+    public ResponseEntity<List<ProgramDTO>> getMyDepartmentPrograms(java.security.Principal principal) {
+        String username = principal != null ? principal.getName() : null;
+        return ResponseEntity.ok(programService.getMyDepartmentPrograms(username));
+    }
+
     /** Programs filtered by department (used by admin/add-course page) */
     @GetMapping("/programs/department/{deptId}")
     public ResponseEntity<List<ProgramDTO>> getProgramsByDept(@PathVariable Long deptId) {

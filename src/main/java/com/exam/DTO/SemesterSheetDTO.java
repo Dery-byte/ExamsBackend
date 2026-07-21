@@ -15,7 +15,8 @@ public class SemesterSheetDTO {
     private String classTeacherName;
     private boolean restrictLecturerToAssignedCourses;
     private int enrolledStudentCount;
-    private String courseNames; // Comma separated course names for this sheet
+    private Long courseId;
+    private String courseName;
     private List<SectionDTO> sections;
     private List<StudentMarkDTO> studentMarks;
 
@@ -23,6 +24,7 @@ public class SemesterSheetDTO {
         private Long id;
         private String sectionName;
         private BigDecimal maxScore;
+        private boolean deletable = true;
 
         public Long getId() { return id; }
         public void setId(Long id) { this.id = id; }
@@ -30,6 +32,8 @@ public class SemesterSheetDTO {
         public void setSectionName(String sectionName) { this.sectionName = sectionName; }
         public BigDecimal getMaxScore() { return maxScore; }
         public void setMaxScore(BigDecimal maxScore) { this.maxScore = maxScore; }
+        public boolean isDeletable() { return deletable; }
+        public void setDeletable(boolean deletable) { this.deletable = deletable; }
     }
 
     public static class StudentMarkDTO {
@@ -112,6 +116,8 @@ public class SemesterSheetDTO {
     public void setSections(List<SectionDTO> sections) { this.sections = sections; }
     public List<StudentMarkDTO> getStudentMarks() { return studentMarks; }
     public void setStudentMarks(List<StudentMarkDTO> studentMarks) { this.studentMarks = studentMarks; }
-    public String getCourseNames() { return courseNames; }
-    public void setCourseNames(String courseNames) { this.courseNames = courseNames; }
+    public Long getCourseId() { return courseId; }
+    public void setCourseId(Long courseId) { this.courseId = courseId; }
+    public String getCourseName() { return courseName; }
+    public void setCourseName(String courseName) { this.courseName = courseName; }
 }
