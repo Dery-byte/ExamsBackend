@@ -391,5 +391,38 @@ public class PdfReportService {
         renderer.createPDF(out);
         return out.toByteArray();
     }
+
+    /**
+     * Generates a combined PDF for all the student's semester report cards.
+     */
+    public byte[] generateCombinedSemesterReportCardPdf(
+            List<java.util.Map<String, Object>> allData, String candidateId) throws Exception {
+
+        Context ctx = new Context();
+        ctx.setVariable("allReports", allData);
+        ctx.setVariable("generatedDate", java.time.LocalDate.now().format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
+        ctx.setVariable("watermarkBase64", generateDiagonalWatermarkBase64(candidateId != null ? candidateId : "UCC"));
+
+        try {
+            ClassPathResource imgFile = new ClassPathResource("static/images/ucc-logo.png");
+            byte[] bytes = org.springframework.util.StreamUtils.copyToByteArray(imgFile.getInputStream());
+            ctx.setVariable("uccLogoBase64", "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes));
+        } catch (Exception e) {
+            ctx.setVariable("uccLogoBase64", "");
+        }
+
+        String html  = templateEngine.process("combined-semester-report-card", ctx);
+        Document doc = Jsoup.parse(html);
+        doc.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
+        doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
+        String xhtml = doc.html();
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ITextRenderer renderer = new ITextRenderer();
+        renderer.setDocumentFromString(xhtml);
+        renderer.layout();
+        renderer.createPDF(out);
+        return out.toByteArray();
+    }
 }
 

@@ -289,15 +289,14 @@ public class MarksEntryService {
             .map(c -> c.getCid())
             .collect(java.util.stream.Collectors.toSet());
 
-        if (assignedCourseIds.isEmpty()) {
-            // No assigned courses → lecturer sees no sheets (don't expose all)
-            return new java.util.ArrayList<>();
-        }
-
         // Keep only sheets that have at least one of this lecturer's courses
+        // OR where this lecturer is the classTeacher
         return allSheets.stream()
-            .filter(sheet -> sheet.getCourses().stream()
-                .anyMatch(c -> assignedCourseIds.contains(c.getCid())))
+            .filter(sheet -> {
+                boolean isClassTeacher = sheet.getClassTeacher() != null && sheet.getClassTeacher().getId().equals(lecturer.getId());
+                boolean hasCourse = sheet.getCourses().stream().anyMatch(c -> assignedCourseIds.contains(c.getCid()));
+                return isClassTeacher || hasCourse;
+            })
             .collect(java.util.stream.Collectors.toList());
     }
 
@@ -376,6 +375,100 @@ public class MarksEntryService {
         return data;
     }
 
+    /**
+     * Gathers report card data for all PUBLISHED sheets for a student,
+     * sorted by level and semester. Courses from the same level and semester
+     * across different sheets are merged into a single entry.
+     */
+    public List<java.util.Map<String, Object>> getAllStudentReportCards(Long userId) {
+        List<SemesterSheet> allSheets = semesterSheetRepository.findAll().stream()
+                .filter(s -> "PUBLISHED".equals(s.getStatus()))
+                .collect(java.util.stream.Collectors.toList());
+
+        java.util.Map<String, java.util.Map<String, Object>> groupedReports = new java.util.HashMap<>();
+
+        for (SemesterSheet sheet : allSheets) {
+            java.util.Map<String, Object> data = getStudentReportCardData(sheet.getId(), userId);
+            if (data != null && data.get("courseMarks") != null) {
+                List<?> marks = (List<?>) data.get("courseMarks");
+                if (!marks.isEmpty()) {
+                    String key = data.get("level") + "-" + data.get("semester");
+                    if (!groupedReports.containsKey(key)) {
+                        groupedReports.put(key, new java.util.HashMap<>(data));
+                    } else {
+                        // Merge course marks
+                        java.util.Map<String, Object> existingData = groupedReports.get(key);
+                        
+                        List<com.exam.DTO.SemesterSheetDTO.SectionDTO> existingSections = 
+                            (List<com.exam.DTO.SemesterSheetDTO.SectionDTO>) existingData.get("sections");
+                        List<com.exam.DTO.SemesterSheetDTO.SectionDTO> newSections = 
+                            (List<com.exam.DTO.SemesterSheetDTO.SectionDTO>) data.get("sections");
+                            
+                        // Map new section IDs to existing section IDs by index to align them
+                        java.util.Map<Long, Long> sectionIdMap = new java.util.HashMap<>();
+                        if (existingSections != null && newSections != null) {
+                            for (int i = 0; i < Math.min(existingSections.size(), newSections.size()); i++) {
+                                sectionIdMap.put(newSections.get(i).getId(), existingSections.get(i).getId());
+                            }
+                        }
+
+                        List<com.exam.DTO.SemesterSheetDTO.CourseMarkDTO> newMarks = 
+                            (List<com.exam.DTO.SemesterSheetDTO.CourseMarkDTO>) marks;
+                            
+                        for (com.exam.DTO.SemesterSheetDTO.CourseMarkDTO cm : newMarks) {
+                            if (cm.getSectionMarks() != null) {
+                                for (com.exam.DTO.SemesterSheetDTO.SectionMarkDTO sm : cm.getSectionMarks()) {
+                                    if (sectionIdMap.containsKey(sm.getSectionId())) {
+                                        sm.setSectionId(sectionIdMap.get(sm.getSectionId()));
+                                    }
+                                }
+                            }
+                        }
+
+                        List<Object> existingMarks = new ArrayList<>((List<Object>) existingData.get("courseMarks"));
+                        existingMarks.addAll(newMarks);
+                        existingData.put("courseMarks", existingMarks);
+                    }
+                }
+            }
+        }
+
+        List<java.util.Map<String, Object>> allReports = new ArrayList<>(groupedReports.values());
+
+        allReports.sort((r1, r2) -> {
+            String l1 = String.valueOf(r1.get("level")).replace("Level", "").trim();
+            String l2 = String.valueOf(r2.get("level")).replace("Level", "").trim();
+            int cmpLevel = 0;
+            try {
+                cmpLevel = Integer.compare(Integer.parseInt(l1), Integer.parseInt(l2));
+            } catch (Exception e) {
+                cmpLevel = l1.compareTo(l2);
+            }
+            if (cmpLevel != 0) return cmpLevel;
+
+            int s1 = Integer.parseInt(String.valueOf(r1.get("semester")));
+            int s2 = Integer.parseInt(String.valueOf(r2.get("semester")));
+            return Integer.compare(s1, s2);
+        });
+
+        return allReports;
+    }
+
+    /**
+     * Gathers and merges report card data for all PUBLISHED sheets for a student
+     * matching the specified level and semester.
+     */
+    public java.util.Map<String, Object> getStudentReportCardDataByLevelAndSemester(String level, Integer semester, Long userId) {
+        List<java.util.Map<String, Object>> all = getAllStudentReportCards(userId);
+        for (java.util.Map<String, Object> report : all) {
+            if (level.equals(String.valueOf(report.get("level"))) &&
+                semester.equals(Integer.parseInt(String.valueOf(report.get("semester"))))) {
+                return report;
+            }
+        }
+        return null;
+    }
+
 
     /** Returns the number of distinct students enrolled in the given sheet. */
     public int getEnrolledStudentCount(Long sheetId) {
@@ -408,7 +501,10 @@ public class MarksEntryService {
 
         com.exam.DTO.SemesterSheetDTO dto = new com.exam.DTO.SemesterSheetDTO();
         dto.setId(sheet.getId());
-        dto.setProgramId(sheet.getProgram() != null ? sheet.getProgram().getId() : null);
+        if (sheet.getProgram() != null) {
+            dto.setProgramId(sheet.getProgram().getId());
+            dto.setProgramName(sheet.getProgram().getName());
+        }
         dto.setLevel(sheet.getLevel());
         dto.setSemester(sheet.getSemester());
         dto.setStatus(sheet.getStatus());

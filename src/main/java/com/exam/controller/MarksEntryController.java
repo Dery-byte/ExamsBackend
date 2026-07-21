@@ -353,4 +353,84 @@ public class MarksEntryController {
             return org.springframework.http.ResponseEntity.status(500).body("Failed to generate report card: " + e.getMessage());
         }
     }
+
+    /**
+     * GET /api/marks/sheet/my-marks/all
+     * Returns all published report cards for the logged-in student,
+     * grouped by level and semester.
+     */
+    @GetMapping("/my-marks/all")
+    public ResponseEntity<?> getAllMyMarks(Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).build();
+        User user = (User) userDetailsService.loadUserByUsername(principal.getName());
+        List<java.util.Map<String, Object>> data = marksEntryService.getAllStudentReportCards(user.getId());
+        return ResponseEntity.ok(data);
+    }
+
+    /**
+     * GET /api/marks/sheet/report-card/all/pdf
+     * Downloads a combined PDF of all the student's semester report cards.
+     */
+    @GetMapping("/report-card/all/pdf")
+    public org.springframework.http.ResponseEntity<?> downloadCombinedSemesterReportCard(Principal principal) {
+        if (principal == null) return org.springframework.http.ResponseEntity.status(401).body("Not authenticated.");
+        try {
+            User user = (User) userDetailsService.loadUserByUsername(principal.getName());
+            List<java.util.Map<String, Object>> data = marksEntryService.getAllStudentReportCards(user.getId());
+            if (data == null || data.isEmpty()) {
+                return org.springframework.http.ResponseEntity.status(404).body("No marks found for this student.");
+            }
+
+            byte[] pdf = pdfReportService.generateCombinedSemesterReportCardPdf(data, user.getUsername().toUpperCase());
+
+            String filename = "CombinedReportCard_" + user.getUsername() + ".pdf";
+            filename = filename.replaceAll("[^a-zA-Z0-9_.\\-]", "_");
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_PDF);
+            headers.setContentDisposition(
+                org.springframework.http.ContentDisposition.attachment().filename(filename).build());
+            headers.setContentLength(pdf.length);
+
+            return new org.springframework.http.ResponseEntity<>(pdf, headers, org.springframework.http.HttpStatus.OK);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return org.springframework.http.ResponseEntity.status(500).body("Failed to generate report card: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/marks/sheet/report-card/level/{level}/semester/{semester}/pdf
+     * Downloads a merged PDF for a specific level and semester.
+     */
+    @GetMapping("/report-card/level/{level}/semester/{semester}/pdf")
+    public org.springframework.http.ResponseEntity<?> downloadMergedSemesterReportCard(
+            @PathVariable("level") String level,
+            @PathVariable("semester") Integer semester,
+            Principal principal) {
+        if (principal == null) return org.springframework.http.ResponseEntity.status(401).body("Not authenticated.");
+        try {
+            User user = (User) userDetailsService.loadUserByUsername(principal.getName());
+            java.util.Map<String, Object> data = marksEntryService.getStudentReportCardDataByLevelAndSemester(level, semester, user.getId());
+            if (data == null) {
+                return org.springframework.http.ResponseEntity.status(404).body("No marks found for this level and semester.");
+            }
+
+            byte[] pdf = pdfReportService.generateSemesterReportCardPdf(data, user.getUsername().toUpperCase());
+
+            String filename = "SemesterReportCard_Level" + level + "_Sem" + semester + "_" + user.getUsername() + ".pdf";
+            filename = filename.replaceAll("[^a-zA-Z0-9_.\\-]", "_");
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_PDF);
+            headers.setContentDisposition(
+                org.springframework.http.ContentDisposition.attachment().filename(filename).build());
+            headers.setContentLength(pdf.length);
+
+            return new org.springframework.http.ResponseEntity<>(pdf, headers, org.springframework.http.HttpStatus.OK);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return org.springframework.http.ResponseEntity.status(500).body("Failed to generate report card: " + e.getMessage());
+        }
+    }
 }
