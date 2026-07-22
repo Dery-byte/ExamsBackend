@@ -404,11 +404,27 @@ public class MarksEntryService {
                         List<com.exam.DTO.SemesterSheetDTO.SectionDTO> newSections = 
                             (List<com.exam.DTO.SemesterSheetDTO.SectionDTO>) data.get("sections");
                             
-                        // Map new section IDs to existing section IDs by index to align them
+                        // Map new section IDs to existing section IDs by matching name and maxScore.
+                        // If a section is unique, add it as a new column.
                         java.util.Map<Long, Long> sectionIdMap = new java.util.HashMap<>();
                         if (existingSections != null && newSections != null) {
-                            for (int i = 0; i < Math.min(existingSections.size(), newSections.size()); i++) {
-                                sectionIdMap.put(newSections.get(i).getId(), existingSections.get(i).getId());
+                            for (com.exam.DTO.SemesterSheetDTO.SectionDTO newSec : newSections) {
+                                boolean found = false;
+                                for (com.exam.DTO.SemesterSheetDTO.SectionDTO exSec : existingSections) {
+                                    if (exSec.getSectionName() != null && newSec.getSectionName() != null &&
+                                        exSec.getSectionName().trim().equalsIgnoreCase(newSec.getSectionName().trim()) &&
+                                        exSec.getMaxScore() != null && newSec.getMaxScore() != null &&
+                                        exSec.getMaxScore().compareTo(newSec.getMaxScore()) == 0) {
+                                        
+                                        sectionIdMap.put(newSec.getId(), exSec.getId());
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                                if (!found) {
+                                    existingSections.add(newSec);
+                                    sectionIdMap.put(newSec.getId(), newSec.getId());
+                                }
                             }
                         }
 
@@ -527,12 +543,26 @@ public class MarksEntryService {
         }
         dto.setSections(sectionDTOs);
 
-        // Group course marks by student
+        // Group course marks by student — only for courses explicitly linked to this sheet
+        java.util.Set<Long> linkedCourseIds = sheet.getCourses() != null
+            ? sheet.getCourses().stream()
+                .map(c -> c.getCid())
+                .collect(java.util.stream.Collectors.toSet())
+            : java.util.Collections.emptySet();
+
         List<StudentCourseMark> courseMarks = studentCourseMarkRepository.findBySemesterSheetId(sheetId);
-        System.out.println("[getSheetData] sheetId=" + sheetId + " | total SCM rows=" + courseMarks.size());
+        System.out.println("[getSheetData] sheetId=" + sheetId + " | total SCM rows=" + courseMarks.size()
+            + " | linkedCourseIds=" + linkedCourseIds);
         java.util.Map<Long, com.exam.DTO.SemesterSheetDTO.StudentMarkDTO> studentMap = new java.util.HashMap<>();
 
         for (StudentCourseMark scm : courseMarks) {
+            // Skip rows that belong to courses not linked to this sheet
+            if (!linkedCourseIds.isEmpty() && !linkedCourseIds.contains(scm.getCourse().getCid())) {
+                System.out.println("[getSheetData]   SKIP SCM id=" + scm.getId()
+                    + " | course=" + scm.getCourse().getCourseCode() + " (not linked to sheet)");
+                continue;
+            }
+
             User student = scm.getStudent();
             System.out.println("[getSheetData]   SCM id=" + scm.getId()
                 + " | student=" + student.getUsername()
@@ -665,17 +695,12 @@ public class MarksEntryService {
 
         Program program = sheet.getProgram();
         String level = sheet.getLevel();
-        Integer semester = sheet.getSemester();
 
-        // Resolve courses (try multiple level formats)
-        List<Category> courses = categoryRepository.findByProgramsContainingAndLevelAndSemester(program, level, semester);
-        if (courses.isEmpty()) {
-            courses = categoryRepository.findByProgramsContainingAndLevelAndSemester(program, "Level " + level, semester);
-        }
-        if (courses.isEmpty()) {
-            courses = categoryRepository.findByProgramsContaining(program).stream()
-                .filter(c -> semester != null && semester.equals(c.getSemester()))
-                .collect(java.util.stream.Collectors.toList());
+        // Use ONLY the courses explicitly linked to this sheet — do not add extra courses
+        List<Category> courses = sheet.getCourses();
+        if (courses == null || courses.isEmpty()) {
+            System.out.println("[enrollStudentsIntoSheet] sheetId=" + sheetId + " has no linked courses — skipping enrollment");
+            return 0;
         }
 
         // Resolve students (try matching by program+level, fallback to all students of the program)
@@ -693,7 +718,7 @@ public class MarksEntryService {
         int count = 0;
         for (User student : students) {
             for (Category course : courses) {
-                // Skip if row already exists
+                // Skip if row already exists for this student+course in this sheet
                 boolean exists = !studentCourseMarkRepository
                     .findBySemesterSheetIdAndStudentId(sheetId, student.getId()).stream()
                     .filter(scm -> scm.getCourse().getCid().equals(course.getCid()))
@@ -898,31 +923,16 @@ public class MarksEntryService {
         User student = userRepository.findById(studentId).orElse(null);
         if (student == null) return null;
 
-        // If no rows exist, try to auto-create them
+        // If no rows exist, try to auto-create them using ONLY the sheet's linked courses
         if (courseMarks.isEmpty()) {
-            Program program = sheet.getProgram();
-            String level = sheet.getLevel();
-            Integer semester = sheet.getSemester();
-
-            // Try to find courses with multiple level-format fallbacks
-            List<Category> courses = new ArrayList<>();
-            if (program != null) {
-                courses = categoryRepository.findByProgramsContainingAndLevelAndSemester(program, level, semester);
-                if (courses.isEmpty() && level != null) {
-                    courses = categoryRepository.findByProgramsContainingAndLevelAndSemester(program, "Level " + level, semester);
-                }
-                if (courses.isEmpty()) {
-                    courses = categoryRepository.findByProgramsContaining(program).stream()
-                        .filter(c -> semester != null && semester.equals(c.getSemester()))
-                        .collect(java.util.stream.Collectors.toList());
-                }
-                if (courses.isEmpty()) {
-                    // Final fallback: all courses for this program, any semester
-                    courses = categoryRepository.findByProgramsContaining(program);
-                }
+            // Use only the courses explicitly linked to this sheet
+            List<Category> courses = sheet.getCourses();
+            if (courses == null || courses.isEmpty()) {
+                // No courses linked — return empty DTO, do not auto-assign extra courses
+                courses = new ArrayList<>();
             }
 
-            // Create blank mark rows for each course
+            // Create blank mark rows for each linked course only
             for (Category course : courses) {
                 StudentCourseMark scm = new StudentCourseMark();
                 scm.setSemesterSheet(sheet);
@@ -944,7 +954,14 @@ public class MarksEntryService {
             courseMarks = studentCourseMarkRepository.findBySemesterSheetIdAndStudentId(sheetId, studentId);
         }
 
-        // Build the DTO — always succeed even if courseMarks is still empty
+        // Build the DTO — filter to only the courses explicitly linked to this sheet
+        // This prevents stale rows from other courses appearing after revert
+        java.util.Set<Long> linkedCourseIds = sheet.getCourses() != null
+            ? sheet.getCourses().stream()
+                .map(c -> c.getCid())
+                .collect(java.util.stream.Collectors.toSet())
+            : java.util.Collections.emptySet();
+
         com.exam.DTO.SemesterSheetDTO.StudentMarkDTO dto = new com.exam.DTO.SemesterSheetDTO.StudentMarkDTO();
         dto.setStudentId(student.getId());
         dto.setStudentName(student.getFirstname() + " " + student.getLastname());
@@ -952,6 +969,11 @@ public class MarksEntryService {
         dto.setCourseMarks(new ArrayList<>());
 
         for (StudentCourseMark scm : courseMarks) {
+            // Skip courses not linked to this sheet (guards against stale data)
+            if (!linkedCourseIds.isEmpty() && !linkedCourseIds.contains(scm.getCourse().getCid())) {
+                continue;
+            }
+
             com.exam.DTO.SemesterSheetDTO.CourseMarkDTO cmDto = new com.exam.DTO.SemesterSheetDTO.CourseMarkDTO();
             cmDto.setCourseMarkId(scm.getId());
             cmDto.setCourseId(scm.getCourse().getCid());
