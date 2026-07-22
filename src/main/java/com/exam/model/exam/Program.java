@@ -35,6 +35,13 @@ public class Program {
     private Department department;
 
     /**
+     * Whether this program is active across the entire system.
+     * When false, the program is hidden from all roles except Super Admin.
+     */
+    @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
+    private boolean enabled = true;
+
+    /**
      * Derives the configured academic levels based on durationYears.
      * E.g. durationYears=4 → [100, 200, 300, 400]
      */

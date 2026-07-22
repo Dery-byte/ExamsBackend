@@ -10,4 +10,8 @@ import java.util.List;
 public interface ProgramRepository extends JpaRepository<Program, Long> {
     List<Program> findByDepartment_Id(Long departmentId);
     boolean existsByCode(String code);
+
+    // Used by non-SA routes to hide disabled programs
+    List<Program> findByEnabledTrue();
+    List<Program> findByDepartment_IdAndEnabledTrue(Long departmentId);
 }

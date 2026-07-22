@@ -20,10 +20,11 @@ public class ProgramPublicController {
     @Autowired
     private ProgramService programService;
 
-    /** All programs (used by signup page to populate Program dropdown) */
+    /** All ENABLED programs (used by signup page to populate Program dropdown).
+     *  Disabled programs are hidden from all non-SA users. */
     @GetMapping("/programs")
     public ResponseEntity<List<ProgramDTO>> getAllPrograms() {
-        return ResponseEntity.ok(programService.getAllPrograms());
+        return ResponseEntity.ok(programService.getEnabledPrograms());
     }
 
     /** Programs for the current admin/HOD's department */
@@ -33,10 +34,10 @@ public class ProgramPublicController {
         return ResponseEntity.ok(programService.getMyDepartmentPrograms(username));
     }
 
-    /** Programs filtered by department (used by admin/add-course page) */
+    /** Enabled programs filtered by department (used by admin/add-course page) */
     @GetMapping("/programs/department/{deptId}")
     public ResponseEntity<List<ProgramDTO>> getProgramsByDept(@PathVariable Long deptId) {
-        return ResponseEntity.ok(programService.getProgramsByDepartment(deptId));
+        return ResponseEntity.ok(programService.getEnabledProgramsByDepartment(deptId));
     }
 
     /** Single program with its configured levels */

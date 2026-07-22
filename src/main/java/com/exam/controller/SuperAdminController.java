@@ -141,6 +141,19 @@ public class SuperAdminController {
         }
     }
 
+    /**
+     * Toggle the enabled/disabled state of a program.
+     * Super Admin only. When disabled, the program is hidden from all other roles.
+     */
+    @PatchMapping("/programs/{id}/toggle")
+    public ResponseEntity<?> toggleProgram(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(programService.toggleProgram(id));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // HOD MANAGEMENT
     // ─────────────────────────────────────────────────────────────────────────

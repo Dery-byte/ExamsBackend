@@ -417,11 +417,11 @@ ProgramRepository programRepository;
             return true;
         };
 
-        // Collect program-specific courses
+        // Collect program-specific courses — skip if student's program is disabled
         java.util.Set<Long> seen = new java.util.HashSet<>();
         java.util.List<Category> combined = new java.util.ArrayList<>();
 
-        if (program != null) {
+        if (program != null && program.isEnabled()) {
             List<Category> programCourses = categoryRepository.findByProgramsContaining(program);
             programCourses.stream()
                     .filter(isAvailable)
@@ -445,10 +445,15 @@ ProgramRepository programRepository;
     }
 
     /**
-     * Returns all courses belonging to a given program (for admin enroll picker).
+     * Returns all courses belonging to a given ENABLED program (for admin enroll picker).
      * Also includes global courses (programs is empty).
+     * Returns empty if the program is disabled — no enrollments should occur in disabled programs.
      */
     public List<Category> getCategoriesForProgram(Long programId) {
+        Program prog = programRepository.findById(programId).orElse(null);
+        if (prog == null || !prog.isEnabled()) {
+            return java.util.Collections.emptyList();
+        }
         List<Category> all = categoryRepository.findAll();
         return all.stream()
                 .filter(c -> c.getPrograms() == null || c.getPrograms().isEmpty() ||

@@ -19,4 +19,5 @@ public class ProgramDTO {
     private Long departmentId;
     private String departmentName;
     private List<Integer> configuredLevels; // e.g. [100, 200, 300, 400]
+    private boolean enabled;               // true = active; false = hidden system-wide
 }

@@ -32,12 +32,26 @@ public class ProgramService {
                 .code(dto.getCode().toUpperCase())
                 .durationYears(dto.getDurationYears())
                 .department(dept)
+                .enabled(true)  // new programs are enabled by default
                 .build();
         return toDTO(programRepository.save(program));
     }
 
+    /** Returns ALL programs — used by Super Admin (sees disabled ones too). */
     public List<ProgramDTO> getAllPrograms() {
         return programRepository.findAll()
+                .stream().map(this::toDTO).collect(Collectors.toList());
+    }
+
+    /** Returns only ENABLED programs — used by all non-SA consumers. */
+    public List<ProgramDTO> getEnabledPrograms() {
+        return programRepository.findByEnabledTrue()
+                .stream().map(this::toDTO).collect(Collectors.toList());
+    }
+
+    /** Returns only ENABLED programs for a given department — used by non-SA consumers. */
+    public List<ProgramDTO> getEnabledProgramsByDepartment(Long departmentId) {
+        return programRepository.findByDepartment_IdAndEnabledTrue(departmentId)
                 .stream().map(this::toDTO).collect(Collectors.toList());
     }
 
@@ -50,12 +64,12 @@ public class ProgramService {
     private com.exam.repository.UserRepository userRepository;
 
     public List<ProgramDTO> getMyDepartmentPrograms(String username) {
-        if (username == null) return getAllPrograms();
+        if (username == null) return getEnabledPrograms();
         com.exam.model.User user = userRepository.findByUsername(username).orElse(null);
         if (user == null || user.getDepartment() == null) {
-            return getAllPrograms();
+            return getEnabledPrograms();
         }
-        return getProgramsByDepartment(user.getDepartment().getId());
+        return getEnabledProgramsByDepartment(user.getDepartment().getId());
     }
 
     public ProgramDTO getProgramById(Long id) {
@@ -74,6 +88,17 @@ public class ProgramService {
                     .orElseThrow(() -> new EntityNotFoundException("Department not found: " + dto.getDepartmentId()));
             program.setDepartment(dept);
         }
+        return toDTO(programRepository.save(program));
+    }
+
+    /**
+     * Toggles the enabled/disabled state of a program.
+     * Super Admin only — called via PATCH /super-admin/programs/{id}/toggle.
+     */
+    public ProgramDTO toggleProgram(Long id) {
+        Program program = programRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Program not found: " + id));
+        program.setEnabled(!program.isEnabled());
         return toDTO(programRepository.save(program));
     }
 
@@ -97,6 +122,7 @@ public class ProgramService {
                 .departmentId(p.getDepartment().getId())
                 .departmentName(p.getDepartment().getName())
                 .configuredLevels(p.getConfiguredLevels())
+                .enabled(p.isEnabled())
                 .build();
     }
 }
