@@ -405,6 +405,8 @@ public class SecurityConfiguration {
                 "http://localhost:4200",
                 "http://localhost:4201",
                 "https://assessmentapp-e1d04.web.app",
+                "https://examsfrontend.onrender.com",
+                "https://examsd.netlify.app/",
                 "https://exams-frontend-blond.vercel.app/"
         ));
 
