@@ -15,7 +15,6 @@ import com.exam.service.CategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -23,11 +22,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
-//@RequestMapping("/category")
 @CrossOrigin(origins = "*")
 @RequestMapping("/api/v1/auth")
 public class CategoryController {
-    //add category
+
     @Autowired
     private CategoryService categoryService;
 
@@ -37,238 +35,134 @@ public class CategoryController {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private com.exam.service.ProgramService programService;
+
+    // ── CATEGORY CRUD ─────────────────────────────────────────────────────────
 
     @PostMapping("/add")
-    public ResponseEntity<Category> addCategory(@RequestBody Category category){
-        Category category1 = this.categoryService.addCategory(category);
-        return ResponseEntity.ok(category1);
+    public ResponseEntity<Category> addCategory(@RequestBody Category category) {
+        return ResponseEntity.ok(this.categoryService.addCategory(category));
     }
 
     @PostMapping("/lecturer/addCategory")
-    public ResponseEntity<Category> lecturerAddCategory(@RequestBody Category category){
-        Category category1 = this.categoryService.lecturerAddCategory(category);
-        return ResponseEntity.ok(category1);
+    public ResponseEntity<Category> lecturerAddCategory(@RequestBody Category category) {
+        return ResponseEntity.ok(this.categoryService.lecturerAddCategory(category));
     }
 
-
-
     @GetMapping("/getCategories")
-    public ResponseEntity<?> getCategories(Principal principal){
+    public ResponseEntity<?> getCategories(Principal principal) {
         String username = principal != null ? principal.getName() : null;
         return ResponseEntity.ok(this.categoryService.getCategories(username));
     }
 
-    //getCategory
     @GetMapping("/category/{categoryId}")
-    public ResponseEntity<com.exam.DTO.CategoryDTO> getCategory(@PathVariable("categoryId") Long categoryId){
+    public ResponseEntity<CategoryDTO> getCategory(@PathVariable("categoryId") Long categoryId) {
         Category cat = this.categoryService.getCategory(categoryId);
         if (cat == null) return ResponseEntity.notFound().build();
-        com.exam.DTO.CategoryDTO dto = new com.exam.DTO.CategoryDTO(cat);
-        // Map programIds and programNames
+        CategoryDTO dto = new CategoryDTO(cat);
         if (cat.getPrograms() != null) {
-            dto.setProgramIds(cat.getPrograms().stream().map(p -> p.getId()).collect(java.util.stream.Collectors.toList()));
-            dto.setProgramNames(cat.getPrograms().stream().map(p -> p.getName()).collect(java.util.stream.Collectors.toList()));
+            dto.setProgramIds(cat.getPrograms().stream().map(p -> p.getId()).collect(Collectors.toList()));
+            dto.setProgramNames(cat.getPrograms().stream().map(p -> p.getName()).collect(Collectors.toList()));
         } else {
-            dto.setProgramIds(new java.util.ArrayList<>());
-            dto.setProgramNames(new java.util.ArrayList<>());
+            dto.setProgramIds(new ArrayList<>());
+            dto.setProgramNames(new ArrayList<>());
         }
         return ResponseEntity.ok(dto);
     }
 
-
-
-
-
-
-
-
-
-    //update Categories
     @PutMapping("/category/admin/updateCategory/{id}")
-    public ResponseEntity<?> adminUpdateCategory(
-            @PathVariable Long id,
-            @RequestBody CategoryUpdateRequest request) {
+    public ResponseEntity<?> adminUpdateCategory(@PathVariable Long id, @RequestBody CategoryUpdateRequest request) {
         try {
-            CategoryDTO updatedCategory = this.categoryService.adminUpdateCategory(id, request);
-            return ResponseEntity.ok(updatedCategory);
+            return ResponseEntity.ok(this.categoryService.adminUpdateCategory(id, request));
         } catch (Exception e) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(new ErrorMessage(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorMessage(e.getMessage()));
         }
     }
 
-//    @PutMapping("/category/updateCategory")
-//    public CategoryDTO updateCategory(@RequestBody Category category){
-//        return categoryService.updateCategory(category);
-//    }
-
-
     @PutMapping("/category/updateCategory")
     public ResponseEntity<CategoryDTO> updateCategory(@RequestBody CategoryUpdateRequest request) {
-        CategoryDTO updated = categoryService.updateCategory(request);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(categoryService.updateCategory(request));
     }
 
-
-
-
-
-
-
-
-
-    //delete category
     @DeleteMapping("/category/{categoryId}")
-    public void deleteCategory(@PathVariable("categoryId") Long categoryId){
+    public void deleteCategory(@PathVariable("categoryId") Long categoryId) {
         this.categoryService.deleteCategory(categoryId);
     }
 
+    // ── MISC CATEGORY LOOKUPS ─────────────────────────────────────────────────
 
-//Get element by Course Name
-private List<Quiz> itemList = new ArrayList<>();
+    private List<Quiz> itemList = new ArrayList<>();
+
     @GetMapping("/byCourse/{cid}")
     public List<Quiz> getItemsByCourse(@PathVariable Long cid) {
-        List<Quiz> itemsByCourse = itemList.stream()
-                .filter(item -> item.getCategory().getCid()!= null && item.getCategory().getCid().equals(cid))
+        return itemList.stream()
+                .filter(item -> item.getCategory().getCid() != null && item.getCategory().getCid().equals(cid))
                 .collect(Collectors.toList());
-        System.out.println(itemsByCourse);
-        return itemsByCourse;
     }
-
-
-
-
-
-    // ✅ GET CATEGORIES BY USER
 
     @GetMapping("/categoriesForUser")
     public List<Category> getCategoriesForLoggedInUser(Principal principal) {
         return categoryService.getCategoriesForLoggedInUser(principal);
     }
 
-    // ✅ GET CATEGORIES AND QUIZZES BY LECTURER ID
     @GetMapping("/category/lecturer/{lecturerId}/with-quizzes")
-    public ResponseEntity<List<CategoryWithQuizzesDTO>> getCategoriesWithQuizzesForLecturer(@PathVariable("lecturerId") Long lecturerId) {
+    public ResponseEntity<List<CategoryWithQuizzesDTO>> getCategoriesWithQuizzesForLecturer(
+            @PathVariable("lecturerId") Long lecturerId) {
         return ResponseEntity.ok(categoryService.getCategoriesWithQuizzesByLecturerId(lecturerId));
     }
 
-    // ✅ GET CATEGORIES AND QUIZZES FOR THE LOGGED-IN LECTURER (via Principal)
     @GetMapping("/category/my-courses-with-quizzes")
     public ResponseEntity<List<CategoryWithQuizzesDTO>> getMyCoursesWithQuizzes(Principal principal) {
         return ResponseEntity.ok(categoryService.getCategoriesWithQuizzesForLoggedInUser(principal));
     }
 
-
-
-
-
-
-
-
-    // ✅ ASSIGN CATEGORY TO USER
     @PostMapping("/user/addCategory")
-    public Category addCategoryForLoggedInUser(
-            @RequestBody CategoryRequest category,
-            Principal principal) {
+    public Category addCategoryForLoggedInUser(@RequestBody CategoryRequest category, Principal principal) {
         return categoryService.addCategoryForUser(category, principal);
     }
-
-
-
-
-
 
     @PutMapping("/courses/{categoryId}/assign/{lecturerId}")
     public ResponseEntity<?> assignCourseToLecturer(
             @PathVariable("categoryId") Long categoryId,
             @PathVariable("lecturerId") Long lecturerId) {
         try {
-            Category updatedCategory = categoryService.assignCourseToLecturer(categoryId, lecturerId);
-            return ResponseEntity.ok(updatedCategory);
+            return ResponseEntity.ok(categoryService.assignCourseToLecturer(categoryId, lecturerId));
         } catch (Exception e) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(new ErrorMessage(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorMessage(e.getMessage()));
         }
-
     }
 
     @PutMapping("/{categoryId}/unassign")
-    public ResponseEntity<?> unassignCourseFromLecturer(
-            @PathVariable("categoryId") Long categoryId) {
+    public ResponseEntity<?> unassignCourseFromLecturer(@PathVariable("categoryId") Long categoryId) {
         try {
-            Category updatedCategory = categoryService.unassignCourseFromLecturer(categoryId);
-            return ResponseEntity.ok(updatedCategory);
+            return ResponseEntity.ok(categoryService.unassignCourseFromLecturer(categoryId));
         } catch (Exception e) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(new ErrorMessage(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorMessage(e.getMessage()));
         }
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    /**
-     * GET /api/v1/auth/categories/for-student
-     * Returns courses visible to the logged-in student based on their program, level and semester.
-     */
     @GetMapping("/categories/for-student")
-    public ResponseEntity<List<Category>> getCoursesForStudent(java.security.Principal principal) {
-        List<Category> courses = categoryService.getCoursesForStudent(principal);
-        return ResponseEntity.ok(courses);
+    public ResponseEntity<List<Category>> getCoursesForStudent(Principal principal) {
+        return ResponseEntity.ok(categoryService.getCoursesForStudent(principal));
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // HOD (ADMIN) — STUDENT PROMOTION  (forward-only)
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── HOD (ADMIN) — STUDENT PROMOTION ──────────────────────────────────────
 
-    /**
-     * HOD promotes a single student forward to the next level only.
-     * Requires: targetLevel > currentLevel.
-     */
     @PutMapping("/admin/student/{id}/promote")
-    public ResponseEntity<?> hodPromoteStudent(
-            @PathVariable Long id,
-            @RequestBody Map<String, Integer> body) {
+    public ResponseEntity<?> hodPromoteStudent(@PathVariable Long id, @RequestBody Map<String, Integer> body) {
         User student = userRepository.findById(id).orElse(null);
         if (student == null)
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Student not found."));
         if (student.getRole() != Role.NORMAL)
             return ResponseEntity.badRequest().body(Map.of("message", "User is not a student."));
-
         Integer targetLevel = body.get("targetLevel");
         if (targetLevel == null)
             return ResponseEntity.badRequest().body(Map.of("message", "targetLevel is required."));
-
         Integer current = student.getCurrentLevel() != null ? student.getCurrentLevel() : 0;
         if (targetLevel <= current)
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", "HOD can only promote students forward. Target level must be higher than current level."));
-
         student.setCurrentLevel(targetLevel);
         student.setCurrentSemester(1);
         userRepository.save(student);
@@ -276,13 +170,9 @@ private List<Quiz> itemList = new ArrayList<>();
                 "currentLevel", targetLevel, "currentSemester", 1));
     }
 
-    /**
-     * HOD promotes ALL students at a given level within a specific program forward (forward-only).
-     */
     @PutMapping("/admin/students/promote-all/{programId}/{level}")
     public ResponseEntity<?> hodPromoteAllAtLevel(
-            @PathVariable Long programId,
-            @PathVariable Integer level,
+            @PathVariable Long programId, @PathVariable Integer level,
             @RequestBody Map<String, Integer> body) {
         Integer targetLevel = body.get("targetLevel");
         if (targetLevel == null)
@@ -290,42 +180,64 @@ private List<Quiz> itemList = new ArrayList<>();
         if (targetLevel <= level)
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", "HOD can only promote forward. targetLevel must exceed current level."));
-
         List<User> students = userRepository.findByRole(Role.NORMAL).stream()
                 .filter(s -> s.getProgram() != null && s.getProgram().getId().equals(programId))
                 .filter(s -> level.equals(s.getCurrentLevel()))
                 .collect(Collectors.toList());
-
         students.forEach(s -> { s.setCurrentLevel(targetLevel); s.setCurrentSemester(1); });
         userRepository.saveAll(students);
-        return ResponseEntity.ok(Map.of("message", "Promoted " + students.size() + " students in program from Level "
+        return ResponseEntity.ok(Map.of("message", "Promoted " + students.size() + " students from Level "
                 + level + " to Level " + targetLevel, "count", students.size()));
     }
 
-    /**
-     * HOD promotes ALL students at a given level within a specific program to the next semester.
-     */
     @PutMapping("/admin/students/promote-semester-all/{programId}/{level}")
     public ResponseEntity<?> hodPromoteSemesterAllAtLevel(
-            @PathVariable Long programId,
-            @PathVariable Integer level) {
-        
+            @PathVariable Long programId, @PathVariable Integer level) {
+        int maxSemesters = 2;
+        try {
+            com.exam.model.exam.Program program = programService.getEntityById(programId);
+            maxSemesters = program.getSemestersForLevel(level);
+        } catch (Exception ignored) { }
         List<User> students = userRepository.findByRole(Role.NORMAL).stream()
                 .filter(s -> s.getProgram() != null && s.getProgram().getId().equals(programId))
                 .filter(s -> level.equals(s.getCurrentLevel()))
                 .collect(Collectors.toList());
-
+        final int maxSem = maxSemesters;
+        long alreadyAtMax = students.stream()
+                .filter(s -> s.getCurrentSemester() != null && s.getCurrentSemester() >= maxSem).count();
         students.forEach(s -> {
-            int currentSem = s.getCurrentSemester() != null ? s.getCurrentSemester() : 1;
-            s.setCurrentSemester(currentSem + 1);
+            int cur = s.getCurrentSemester() != null ? s.getCurrentSemester() : 1;
+            if (cur < maxSem) s.setCurrentSemester(cur + 1);
         });
         userRepository.saveAll(students);
-        return ResponseEntity.ok(Map.of("message", "Promoted " + students.size() + " students in program to the next semester.", "count", students.size()));
+        return ResponseEntity.ok(Map.of(
+                "message", "Promoted " + (students.size() - alreadyAtMax) + " students to next semester. "
+                        + alreadyAtMax + " already at max semester (" + maxSem + ").",
+                "count", students.size(), "promoted", students.size() - alreadyAtMax, "skipped", alreadyAtMax));
     }
 
-    /**
-     * HOD/Admin enrolls a student in any course (bypasses semester/level restriction).
-     */
+    @PutMapping("/admin/students/demote-semester-all/{programId}/{level}")
+    public ResponseEntity<?> hodDemoteSemesterAllAtLevel(
+            @PathVariable Long programId, @PathVariable Integer level) {
+        List<User> students = userRepository.findByRole(Role.NORMAL).stream()
+                .filter(s -> s.getProgram() != null && s.getProgram().getId().equals(programId))
+                .filter(s -> level.equals(s.getCurrentLevel()))
+                .collect(Collectors.toList());
+        long alreadyAtMin = students.stream()
+                .filter(s -> s.getCurrentSemester() == null || s.getCurrentSemester() <= 1).count();
+        students.forEach(s -> {
+            int cur = s.getCurrentSemester() != null ? s.getCurrentSemester() : 1;
+            if (cur > 1) s.setCurrentSemester(cur - 1);
+        });
+        userRepository.saveAll(students);
+        return ResponseEntity.ok(Map.of(
+                "message", "Demoted " + (students.size() - alreadyAtMin) + " students to previous semester. "
+                        + alreadyAtMin + " already at semester 1.",
+                "count", students.size(), "demoted", students.size() - alreadyAtMin, "skipped", alreadyAtMin));
+    }
+
+    // ── HOD (ADMIN) — COURSE ENROLLMENT ──────────────────────────────────────
+
     @GetMapping("/admin/student/{studentId}/enrolled-courses")
     public ResponseEntity<?> adminGetEnrolledCourseIds(@PathVariable Long studentId) {
         return ResponseEntity.ok(categoryService.getEnrolledCourseIdsForStudent(studentId));
@@ -349,24 +261,14 @@ private List<Quiz> itemList = new ArrayList<>();
         }
     }
 
-    /**
-     * Returns all courses for a given program — used by admin enroll picker.
-     */
     @GetMapping("/admin/courses-for-program/{programId}")
     public ResponseEntity<?> adminGetCoursesForProgram(@PathVariable Long programId) {
         return ResponseEntity.ok(categoryService.getCategoriesForProgram(programId));
     }
 
-    /**
-     * Filtered courses for sheet activation — Program + Level + Semester.
-     * Used by the Admin/SuperAdmin when activating a new semester sheet.
-     */
     @GetMapping("/admin/courses-for-sheet")
     public ResponseEntity<?> adminGetCoursesForSheet(
-            @RequestParam Long programId,
-            @RequestParam String level,
-            @RequestParam Integer semester) {
-        // Find all courses matching program+level+semester via categoryRepository
+            @RequestParam Long programId, @RequestParam String level, @RequestParam Integer semester) {
         List<Category> courses = categoryRepository.findAll().stream()
             .filter(c -> c.getPrograms() != null && c.getPrograms().stream().anyMatch(p -> p.getId().equals(programId)))
             .filter(c -> c.getLevel() != null && (c.getLevel().equals(level) || c.getLevel().equals("Level " + level)))
@@ -375,9 +277,6 @@ private List<Quiz> itemList = new ArrayList<>();
         return ResponseEntity.ok(courses);
     }
 
-    /**
-     * Rich student list for admin-initiated actions (enroll, promote).
-     */
     @GetMapping("/admin/students")
     public ResponseEntity<List<Map<String, Object>>> adminGetAllStudents(Principal principal) {
         List<User> students = userRepository.findByRole(com.exam.model.Role.NORMAL);
@@ -387,7 +286,8 @@ private List<Quiz> itemList = new ArrayList<>();
                 Long deptId = currentUser.getDepartment().getId();
                 students = students.stream().filter(u -> {
                     if (u.getDepartment() != null && u.getDepartment().getId().equals(deptId)) return true;
-                    if (u.getProgram() != null && u.getProgram().getDepartment() != null && u.getProgram().getDepartment().getId().equals(deptId)) return true;
+                    if (u.getProgram() != null && u.getProgram().getDepartment() != null
+                            && u.getProgram().getDepartment().getId().equals(deptId)) return true;
                     return false;
                 }).collect(Collectors.toList());
             }
@@ -408,5 +308,4 @@ private List<Quiz> itemList = new ArrayList<>();
         }).collect(Collectors.toList());
         return ResponseEntity.ok(result);
     }
-
 }

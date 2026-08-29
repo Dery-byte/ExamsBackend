@@ -34,6 +34,9 @@ public class ProgramService {
                 .department(dept)
                 .enabled(true)  // new programs are enabled by default
                 .build();
+        if (dto.getSemestersPerLevel() != null) {
+            program.setSemestersPerLevelMap(dto.getSemestersPerLevel());
+        }
         return toDTO(programRepository.save(program));
     }
 
@@ -88,6 +91,9 @@ public class ProgramService {
                     .orElseThrow(() -> new EntityNotFoundException("Department not found: " + dto.getDepartmentId()));
             program.setDepartment(dept);
         }
+        if (dto.getSemestersPerLevel() != null) {
+            program.setSemestersPerLevelMap(dto.getSemestersPerLevel());
+        }
         return toDTO(programRepository.save(program));
     }
 
@@ -114,6 +120,11 @@ public class ProgramService {
     }
 
     private ProgramDTO toDTO(Program p) {
+        // Build full semestersPerLevel: for every configured level, include its semester count (default 2)
+        java.util.Map<Integer, Integer> splMap = new java.util.LinkedHashMap<>();
+        for (int level : p.getConfiguredLevels()) {
+            splMap.put(level, p.getSemestersForLevel(level));
+        }
         return ProgramDTO.builder()
                 .id(p.getId())
                 .name(p.getName())
@@ -123,6 +134,7 @@ public class ProgramService {
                 .departmentName(p.getDepartment().getName())
                 .configuredLevels(p.getConfiguredLevels())
                 .enabled(p.isEnabled())
+                .semestersPerLevel(splMap)
                 .build();
     }
 }

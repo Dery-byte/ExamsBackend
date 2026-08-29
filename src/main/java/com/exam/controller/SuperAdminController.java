@@ -359,24 +359,71 @@ public class SuperAdminController {
 
     /**
      * Promote ALL students currently at a given level within a specific program to the next semester.
-     * Super Admin only.
+     * Capped at the configured max semesters for that level. Super Admin only.
      */
     @PutMapping("/students/promote-semester-all/{programId}/{level}")
     public ResponseEntity<?> promoteSemesterAllAtLevel(
             @PathVariable Long programId,
             @PathVariable Integer level) {
-        
+
+        com.exam.model.exam.Program program = programService.getEntityById(programId);
+        int maxSemesters = program.getSemestersForLevel(level);
+
         List<User> students = userRepository.findByRole(Role.NORMAL).stream()
                 .filter(s -> s.getProgram() != null && s.getProgram().getId().equals(programId))
                 .filter(s -> level.equals(s.getCurrentLevel()))
                 .collect(Collectors.toList());
 
+        long alreadyAtMax = students.stream()
+                .filter(s -> s.getCurrentSemester() != null && s.getCurrentSemester() >= maxSemesters)
+                .count();
+
         students.forEach(s -> {
             int currentSem = s.getCurrentSemester() != null ? s.getCurrentSemester() : 1;
-            s.setCurrentSemester(currentSem + 1);
+            if (currentSem < maxSemesters) {
+                s.setCurrentSemester(currentSem + 1);
+            }
         });
         userRepository.saveAll(students);
-        return ResponseEntity.ok(Map.of("message", "Promoted " + students.size() + " students in program to the next semester.", "count", students.size()));
+        return ResponseEntity.ok(Map.of(
+                "message", "Promoted " + (students.size() - alreadyAtMax) + " students to the next semester. "
+                        + alreadyAtMax + " already at max semester (" + maxSemesters + ").",
+                "count", students.size(),
+                "promoted", students.size() - alreadyAtMax,
+                "skipped", alreadyAtMax));
+    }
+
+    /**
+     * Demote ALL students currently at a given level within a specific program to the previous semester.
+     * Stops at semester 1. Super Admin only.
+     */
+    @PutMapping("/students/demote-semester-all/{programId}/{level}")
+    public ResponseEntity<?> demoteSemesterAllAtLevel(
+            @PathVariable Long programId,
+            @PathVariable Integer level) {
+
+        List<User> students = userRepository.findByRole(Role.NORMAL).stream()
+                .filter(s -> s.getProgram() != null && s.getProgram().getId().equals(programId))
+                .filter(s -> level.equals(s.getCurrentLevel()))
+                .collect(Collectors.toList());
+
+        long alreadyAtMin = students.stream()
+                .filter(s -> s.getCurrentSemester() == null || s.getCurrentSemester() <= 1)
+                .count();
+
+        students.forEach(s -> {
+            int currentSem = s.getCurrentSemester() != null ? s.getCurrentSemester() : 1;
+            if (currentSem > 1) {
+                s.setCurrentSemester(currentSem - 1);
+            }
+        });
+        userRepository.saveAll(students);
+        return ResponseEntity.ok(Map.of(
+                "message", "Demoted " + (students.size() - alreadyAtMin) + " students to the previous semester. "
+                        + alreadyAtMin + " already at semester 1.",
+                "count", students.size(),
+                "demoted", students.size() - alreadyAtMin,
+                "skipped", alreadyAtMin));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
