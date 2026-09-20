@@ -26,6 +26,11 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
     // ✅ Find by Report (all answers for a report)
     List<Answer> findByReport(Report report);
 
+    /** Removes a student's earlier theory answers for a quiz so a new attempt replaces them. */
+    @Modifying
+    @Query("DELETE FROM Answer a WHERE a.user.id = :studentId AND a.quiz.qId = :quizId")
+    void deleteByStudentAndQuiz(@Param("studentId") Long studentId, @Param("quizId") Long quizId);
+
     @Modifying
     @Transactional
     @Query("DELETE FROM Answer a WHERE a.theoryQuestion.TqId = :questionId")

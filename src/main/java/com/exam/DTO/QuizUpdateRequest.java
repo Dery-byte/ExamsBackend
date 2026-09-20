@@ -51,6 +51,12 @@ public class QuizUpdateRequest {
     /** LLM provider to use for subjective evaluation. Null means no change. */
     private LlmProvider llmProvider;
 
+    /** Programs allowed to take the quiz. Null means no change. */
+    private java.util.List<Long> programIds;
+
+    /** How many times each student may take the quiz. Null means no change. */
+    private Integer maxAttempts;
+
 
 
 
@@ -267,5 +273,21 @@ public class QuizUpdateRequest {
 
     public void setLlmProvider(LlmProvider llmProvider) {
         this.llmProvider = llmProvider;
+    }
+
+    public Integer getMaxAttempts() {
+        return maxAttempts;
+    }
+
+    public void setMaxAttempts(Integer maxAttempts) {
+        this.maxAttempts = maxAttempts;
+    }
+
+    public java.util.List<Long> getProgramIds() {
+        return programIds;
+    }
+
+    public void setProgramIds(java.util.List<Long> programIds) {
+        this.programIds = programIds;
     }
 }

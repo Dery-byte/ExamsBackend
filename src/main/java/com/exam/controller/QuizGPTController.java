@@ -100,6 +100,8 @@ public class QuizGPTController {
 //            logger.info("=== CALLING SERVICE ===");
             QuizEvaluationResponse response = subjectiveEvaluationService.evaluate(request, currentUser);
             return ResponseEntity.ok(response);
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            throw e;   // e.g. 409 attempt limit — let ApiExceptionHandler return it with its message
         } catch (IllegalArgumentException e) {
 //            logger.error("=== ILLEGAL ARGUMENT EXCEPTION ===");
 //            logger.error("User: {}", currentUser.getUsername());
@@ -150,6 +152,8 @@ public class QuizGPTController {
 
             return ResponseEntity.ok(response);
 
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            throw e;
         } catch (Exception e) {
 //            logger.error("Error evaluating single question for user {}: {}",
 //                    currentUser.getUsername(), e.getMessage(), e);

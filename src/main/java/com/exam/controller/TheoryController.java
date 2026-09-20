@@ -7,6 +7,8 @@ import com.exam.model.exam.Questions;
 import com.exam.model.exam.Quiz;
 import com.exam.model.exam.TheoryQuestions;
 import com.exam.repository.QuizRepository;
+import com.exam.service.AttemptService;
+import com.exam.service.QuizService;
 import com.exam.service.TheoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -14,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.*;
 
 
@@ -29,6 +32,12 @@ public class TheoryController {
 
     @Autowired
     QuizRepository quizRepository;
+
+    @Autowired
+    private QuizService quizService;
+
+    @Autowired
+    private AttemptService attemptService;
 
 
     @PostMapping("theoryquestion/add")
@@ -90,7 +99,9 @@ public class TheoryController {
      */
     @GetMapping("/theoryquestion/quiz/all/{qid}")
     public ResponseEntity<List<TheoryQuestionResponseDTO>> getTheoryQuestionsForStudent(
-            @PathVariable("qid") Long qid) {
+            @PathVariable("qid") Long qid, Principal principal) {
+        quizService.assertStudentMayAccess(qid, principal);
+        attemptService.beginIfStudent(principal, qid);   // 409 if the student has no attempts left
         List<TheoryQuestionResponseDTO> questions = theoryService.getTheoryQuestionsForStudent(qid);
         return ResponseEntity.ok(questions);
     }

@@ -7,6 +7,7 @@ import com.exam.model.User;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.api.client.util.DateTime;
@@ -15,9 +16,11 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -36,6 +39,10 @@ public class Quiz {
     private Integer numberOfQuestions;
     private  boolean active = false;
     private boolean attempted=false;
+
+    /** How many times each student may take this quiz. Null/absent (older quizzes) means 1. */
+    @Column(name = "max_attempts")
+    private Integer maxAttempts = 1;
 
 
 // ================= PROCTORING POLICY =================
@@ -147,6 +154,24 @@ public class Quiz {
 
     @ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
     private Category category;
+
+    /** Programs whose students are allowed to take this quiz. */
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "quiz_programs",
+        joinColumns = @JoinColumn(name = "quiz_id"),
+        inverseJoinColumns = @JoinColumn(name = "program_id")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Set<Program> programs = new HashSet<>();
+
+    /**
+     * Transient helper: the frontend sends programIds and QuizService resolves
+     * them (and validates them against the caller's department) into {@link #programs}.
+     */
+    @Transient
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private List<Long> programIds = new ArrayList<>();
 
      @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
      @JsonIgnore
@@ -290,6 +315,22 @@ public class Quiz {
         this.category = category;
     }
 
+    public Set<Program> getPrograms() {
+        return programs;
+    }
+
+    public void setPrograms(Set<Program> programs) {
+        this.programs = programs;
+    }
+
+    public List<Long> getProgramIds() {
+        return programIds;
+    }
+
+    public void setProgramIds(List<Long> programIds) {
+        this.programIds = programIds;
+    }
+
     public Set<Questions> getQuestions() {
         return questions;
     }
@@ -403,6 +444,14 @@ public class Quiz {
     public String getStartTime24H() {
         if (startTime == null) return null;
         return startTime.toString(); // "12:34:00"
+    }
+
+    public Integer getMaxAttempts() {
+        return maxAttempts;
+    }
+
+    public void setMaxAttempts(Integer maxAttempts) {
+        this.maxAttempts = maxAttempts;
     }
 
     public LlmProvider getLlmProvider() {

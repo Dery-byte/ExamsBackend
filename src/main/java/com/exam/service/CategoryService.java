@@ -62,6 +62,9 @@ UserRepository userRepository;
 @Autowired
 ProgramRepository programRepository;
 
+@Autowired
+com.exam.repository.QuizAttemptRepository quizAttemptRepository;
+
 
 
     /**
@@ -211,6 +214,7 @@ ProgramRepository programRepository;
         List<Quiz> quizzes = quizRepository.findByCategory_cid(categoryId);
 
         for (Quiz quiz : quizzes) {
+            quizAttemptRepository.deleteByQuizId(quiz.getqId());
             reportRepository.deleteByQuizId(quiz.getqId());
             theoryQuestionsRepository.deleteByQuizId(quiz.getqId());
             numberOfTheoryToAnswerRepository.deleteByQuiz_Id(quiz.getqId());

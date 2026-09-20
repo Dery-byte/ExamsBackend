@@ -585,6 +585,7 @@ public class QuestionsController {
 
     @Autowired @Lazy private QuestionsService       questionsService;
     @Autowired @Lazy private ReportRepository       reportRepository;
+    @Autowired           private com.exam.service.AttemptService attemptService;
     @Autowired @Lazy private ReportService          reportService;
     @Autowired @Lazy private QuizRepository         quizRepository;
     @Autowired           private QuizService         quizService;
@@ -609,7 +610,9 @@ public class QuestionsController {
     /** Student: shuffled questions as DTOs (no correct answers exposed) */
     @GetMapping("/question/quiz/all/{qid}")
     public ResponseEntity<List<QuestionResponseDTO>> getQuestionsForStudent(
-            @PathVariable Long qid) {
+            @PathVariable Long qid, Principal principal) {
+        quizService.assertStudentMayAccess(qid, principal);
+        attemptService.beginIfStudent(principal, qid);   // 409 if the student has no attempts left
         return ResponseEntity.ok(questionsService.getShuffledQuestionsForStudent(qid));
     }
 
@@ -951,6 +954,9 @@ public class QuestionsController {
         int    correctAnswers = 0;
         int    attempted      = 0;
 
+        // A new attempt replaces the previous attempt's answers (the ledger keeps every attempt's marks).
+        studentAnswerRepository.deleteByStudentAndQuiz(user.getId(), quiz.getqId());
+
         List<Map<String, Object>> resultList = new ArrayList<>();
 
         for (QuestionEvalRequest req : questions) {
@@ -1087,6 +1093,9 @@ public class QuestionsController {
         }
 
         // Save / update report
+        // Rejects (and rolls this whole submission back) if no attempt is available or it was already submitted.
+        attemptService.recordObjective(user, quiz, BigDecimal.valueOf(marksGot));
+
         Report report = reportRepository.findByUserAndQuiz(user, quiz).orElse(new Report());
         report.setQuiz(quiz);
         report.setUser(user);

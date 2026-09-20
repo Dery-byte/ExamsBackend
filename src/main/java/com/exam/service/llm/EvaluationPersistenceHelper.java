@@ -31,6 +31,7 @@ public class EvaluationPersistenceHelper {
     @Autowired private QuizRepository             quizRepository;
     @Autowired private ReportRepository           reportRepository;
     @Autowired private UserRepository             userRepository;
+    @Autowired private com.exam.service.AttemptService attemptService;
 
     /**
      * Persists scores / answers to the database and assembles the full API response.
@@ -65,6 +66,12 @@ public class EvaluationPersistenceHelper {
                            .orElseThrow(() -> new RuntimeException("Quiz not found: " + quizId));
         User managedUser = userRepository.findById(user.getId())
                            .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // ── 2b. Attempt ledger + replace previous answers ─────────────────────
+        // Rejects (and rolls this whole submission back) if no attempt is available or it was already submitted.
+        attemptService.recordTheory(managedUser, quiz, BigDecimal.valueOf(totalScore));
+        // A new attempt replaces the previous attempt's theory answers (the ledger keeps every attempt's marks).
+        answerRepository.deleteByStudentAndQuiz(managedUser.getId(), quiz.getqId());
 
         // ── 3. Upsert Report ──────────────────────────────────────────────────
         Report report = reportRepository.findByUserAndQuiz(managedUser, quiz).orElse(new Report());

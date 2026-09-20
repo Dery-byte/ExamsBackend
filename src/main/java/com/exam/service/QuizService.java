@@ -287,19 +287,23 @@ package com.exam.service;
 
 import com.exam.DTO.QuizDTO;
 import com.exam.DTO.QuizUpdateRequest;
+import com.exam.model.Role;
 import com.exam.model.User;
 import com.exam.model.exam.*;
 import com.exam.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class QuizService {
@@ -312,6 +316,8 @@ public class QuizService {
     @Autowired private UserRepository                     userRepository;
     @Autowired private CategoryRepository                 categoryRepository;
     @Autowired private QuestionsRepository                questionsRepository;
+    @Autowired private ProgramRepository                  programRepository;
+    @Autowired private QuizAttemptRepository              quizAttemptRepository;
 
     // ── Create ────────────────────────────────────────────────────────────────
 
@@ -324,6 +330,8 @@ public class QuizService {
 
 
     public Quiz addQuiz(Quiz quiz) {
+        quiz.setPrograms(resolveAllowedPrograms(quiz.getProgramIds(), categoryOf(quiz), true));
+        quiz.setMaxAttempts(validMaxAttempts(quiz.getMaxAttempts()));
         return quizRepository.save(quiz);
     }
 
@@ -337,6 +345,8 @@ public class QuizService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         quiz.setUser(currentUser);
+        quiz.setPrograms(resolveAllowedPrograms(quiz.getProgramIds(), categoryOf(quiz), true));
+        quiz.setMaxAttempts(validMaxAttempts(quiz.getMaxAttempts()));
         return quizRepository.save(quiz);
     }
 
@@ -353,6 +363,8 @@ public class QuizService {
     public Quiz addQuizForLoggedInUser(Quiz quiz, Principal principal) {
         User user = resolveUser(principal);
         quiz.setUser(user);
+        quiz.setPrograms(resolveAllowedPrograms(quiz.getProgramIds(), categoryOf(quiz), false));
+        quiz.setMaxAttempts(validMaxAttempts(quiz.getMaxAttempts()));
         return quizRepository.save(quiz);
     }
 
@@ -457,6 +469,16 @@ public class QuizService {
             quiz.setCategory(category);
         }
 
+        if (req.getMaxAttempts() != null) quiz.setMaxAttempts(validMaxAttempts(req.getMaxAttempts()));
+
+        // ── Allowed programs (null = leave unchanged) ─────────────────────────
+        // Emptying the list is only rejected when the quiz already has programs,
+        // so legacy quizzes (no programs) stay editable.
+        if (req.getProgramIds() != null) {
+            boolean requireSelection = !quiz.getPrograms().isEmpty();
+            quiz.setPrograms(resolveAllowedPrograms(req.getProgramIds(), quiz.getCategory(), requireSelection));
+        }
+
         return new QuizDTO(quizRepository.save(quiz));
     }
 
@@ -478,11 +500,109 @@ public class QuizService {
         // 2. Delete OBJ questions (matchingPairs are cascade-deleted via orphanRemoval)
         questionsRepository.deleteByQuiz_Id(quizId);
 
-        // 3. Delete reports
+        // 3. Delete attempts, then reports
+        quizAttemptRepository.deleteByQuizId(quizId);
         reportRepository.deleteByQuiz(quiz);
 
         // 4. Finally delete the quiz itself
         quizRepository.delete(quiz);
+    }
+
+    /** Attempts allowed per student: 1..MAX_ATTEMPTS_LIMIT; null (not supplied) means 1. */
+    private Integer validMaxAttempts(Integer requested) {
+        if (requested == null) return 1;
+        if (requested < 1 || requested > AttemptService.MAX_ATTEMPTS_LIMIT) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Attempts allowed must be between 1 and " + AttemptService.MAX_ATTEMPTS_LIMIT);
+        }
+        return requested;
+    }
+
+    // ── Allowed programs ──────────────────────────────────────────────────────
+
+    private Category categoryOf(Quiz quiz) {
+        if (quiz.getCategory() == null || quiz.getCategory().getCid() == null) return null;
+        return categoryRepository.findById(quiz.getCategory().getCid()).orElse(null);
+    }
+
+    private User currentUser() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+    }
+
+    /**
+     * Resolves program ids into Program entities (client-supplied Program objects are
+     * never trusted), enforcing who may assign what:
+     *  - ADMIN (HOD):  only programs of their own department.
+     *  - LECTURER:     only programs attached to the quiz's course (category).
+     *  - SUPER_ADMIN:  any program.
+     * When requireSelection is true, an ADMIN must pick at least one program, and so
+     * must a LECTURER whose course has programs.
+     */
+    private Set<Program> resolveAllowedPrograms(List<Long> rawIds, Category category, boolean requireSelection) {
+        List<Long> ids = rawIds == null ? List.of() : rawIds.stream().distinct().toList();
+        Set<Program> programs = new HashSet<>(programRepository.findAllById(ids));
+        if (programs.size() != ids.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "One or more selected programs do not exist");
+        }
+
+        User caller = currentUser();
+        if (caller.getRole() == Role.ADMIN) {
+            if (requireSelection && programs.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select at least one program for this quiz");
+            }
+            Long deptId = caller.getDepartment() == null ? null : caller.getDepartment().getId();
+            boolean allInDept = deptId != null && programs.stream()
+                    .allMatch(p -> p.getDepartment() != null && deptId.equals(p.getDepartment().getId()));
+            if (!programs.isEmpty() && !allInDept) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only assign programs from your own department");
+            }
+        } else if (caller.getRole() == Role.LECTURER) {
+            Set<Long> courseProgramIds = category == null || category.getPrograms() == null
+                    ? Set.of()
+                    : category.getPrograms().stream().map(Program::getId).collect(Collectors.toSet());
+            if (requireSelection && !courseProgramIds.isEmpty() && programs.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select at least one program for this quiz");
+            }
+            if (!programs.stream().allMatch(p -> courseProgramIds.contains(p.getId()))) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only assign programs attached to the selected course");
+            }
+        }
+        return programs;
+    }
+
+    // ── Student access (program restriction) ──────────────────────────────────
+
+    /** A quiz with no programs is open to everyone; otherwise the student's program must be listed. */
+    private boolean isOpenToStudent(Quiz quiz, User student) {
+        if (quiz.getPrograms() == null || quiz.getPrograms().isEmpty()) return true;
+        if (student.getProgram() == null) return false;
+        Long programId = student.getProgram().getId();
+        return quiz.getPrograms().stream().anyMatch(p -> p.getId().equals(programId));
+    }
+
+    private User studentOrNull(Principal principal) {
+        if (principal == null) return null;
+        return userRepository.findByUsername(principal.getName())
+                .filter(u -> u.getRole() == Role.NORMAL)
+                .orElse(null);
+    }
+
+    /** Hides quizzes the calling student's program isn't allowed to take. Non-students see everything. */
+    public List<Quiz> filterForCaller(List<Quiz> quizzes, Principal principal) {
+        User student = studentOrNull(principal);
+        if (student == null) return quizzes;
+        return quizzes.stream().filter(q -> isOpenToStudent(q, student)).toList();
+    }
+
+    /** Throws 403 if the caller is a student whose program isn't allowed to take this quiz. */
+    public void assertStudentMayAccess(Long quizId, Principal principal) {
+        User student = studentOrNull(principal);
+        if (student == null) return;
+        if (!isOpenToStudent(getQuiz(quizId), student)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This quiz is not available for your program");
+        }
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────

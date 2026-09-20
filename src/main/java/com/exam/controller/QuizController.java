@@ -76,13 +76,15 @@ public class QuizController {
 
     //get Single quiz
     @GetMapping("singleQuiz/{qid}")
-    public Quiz quiz (@PathVariable("qid") Long qid){
+    public Quiz quiz (@PathVariable("qid") Long qid, Principal principal){
+        this.quizService.assertStudentMayAccess(qid, principal);
         return this.quizService.getQuiz(qid);
     }
 
     // get questions of any quiz
     @GetMapping("question/quiz/{qid}")
-    public  ResponseEntity<?> getQuestionsOfQuiz(@PathVariable("qid") Long qid){
+    public  ResponseEntity<?> getQuestionsOfQuiz(@PathVariable("qid") Long qid, Principal principal){
+        this.quizService.assertStudentMayAccess(qid, principal);
         Quiz quiz = this.quizService.getQuiz(qid);
         Set<Questions> questions = quiz.getQuestions();
         List<Questions> list = new ArrayList<>(questions);
@@ -109,17 +111,17 @@ public class QuizController {
 
     //get Active quizzes
     @GetMapping("/active/quizzes")
-    public List<Quiz> activeQuizzes(){
-        return this.quizService.getActiveQuizzes();
+    public List<Quiz> activeQuizzes(Principal principal){
+        return this.quizService.filterForCaller(this.quizService.getActiveQuizzes(), principal);
     }
 
     /// Active quizzes of category
 
     @GetMapping("/category/active/{cid}")
-    public List<Quiz> activeQuizzesOfCategory(@PathVariable("cid") Long cid){
+    public List<Quiz> activeQuizzesOfCategory(@PathVariable("cid") Long cid, Principal principal){
         Category category =new Category();
         category.setCid(cid);
-        return this.quizService.getActiveQuizzesofCategory(category);
+        return this.quizService.filterForCaller(this.quizService.getActiveQuizzesofCategory(category), principal);
     }
 
 //    QUIZZES TAKEN BY STUDENTS

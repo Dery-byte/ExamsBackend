@@ -39,6 +39,8 @@ private ReportService reportService;
     @Autowired
     private QuizService quizService;
     @Autowired
+    private com.exam.service.AttemptService attemptService;
+    @Autowired
     private final UserDetailsService userDetailsService;
     @Autowired
     private AuthenticationService authenticationService;
@@ -116,6 +118,7 @@ private ReportService reportService;
             existingReport.setMarksB(report.getMarksB());
         }
         Report updatedReport = reportRepository.save(existingReport);
+        attemptService.syncOfficialMarks(updatedReport);
         return ResponseEntity.ok(updatedReport);
     }
 
@@ -200,6 +203,7 @@ public ResponseEntity<List<Report>> getQuizIds(@PathVariable("quiz_Id") Long qui
         }
 
         Report updatedReport = reportRepository.save(existingReport);
+        attemptService.syncOfficialMarks(updatedReport);
         return ResponseEntity.ok(updatedReport);
     }
 

@@ -1,6 +1,8 @@
 com\exam\controller\CategoryController.class
 com\exam\service\llm\ClaudeEvaluationStrategy$ContentBlock.class
 com\exam\controller\QuizController.class
+com\exam\model\exam\QuizAttempt.class
+com\exam\controller\QuizAttemptController.class
 com\exam\auth\AuthenticationRequest.class
 com\exam\service\QuestionsService.class
 com\exam\auth\RegisterRequest$RegisterRequestBuilder.class
@@ -9,6 +11,7 @@ com\exam\service\llm\ClaudeEvaluationStrategy.class
 com\exam\helper\UserFoundException.class
 com\exam\SecurityApplication.class
 com\exam\model\exam\Category.class
+com\exam\service\AttemptService$1.class
 com\exam\auth\AuthenticationRequest$AuthenticationRequestBuilder.class
 com\exam\token\Token$TokenBuilder.class
 com\exam\config\ApplicationConfig.class
@@ -17,15 +20,20 @@ com\exam\service\QuizService.class
 com\exam\model\User$UserBuilder.class
 com\exam\auth\AuthenticationResponse.class
 com\exam\model\exam\Report.class
+com\exam\model\exam\AttemptStatus.class
 com\exam\model\exam\Questions.class
 com\exam\controller\AuthenticationController.class
 com\exam\model\exam\Quiz.class
 com\exam\controller\ReportController.class
+com\exam\repository\QuizAttemptRepository.class
+com\exam\helper\ApiExceptionHandler.class
 com\exam\service\llm\EvaluationPersistenceHelper.class
 com\exam\service\SubjectiveEvaluationService.class
 com\exam\controller\DemoController.class
 com\exam\auth\AuthenticationResponse$AuthenticationResponseBuilder.class
 com\exam\service\llm\GPTEvaluationStrategy.class
+com\exam\service\AttemptService.class
+com\exam\DTO\AttemptStatusDTO.class
 com\exam\service\llm\GeminiEvaluationStrategy.class
 com\exam\service\LogoutService.class
 com\exam\service\CategoryService.class
@@ -38,6 +46,7 @@ com\exam\service\AuthenticationService.class
 com\exam\repository\CategoryRepository.class
 com\exam\service\llm\DeepSeekEvaluationStrategy.class
 com\exam\config\JwtAuthenticationFilter.class
+com\exam\DTO\AttemptDTO.class
 com\exam\model\User.class
 com\exam\helper\UserNotFoundException.class
 com\exam\service\llm\LLMEvaluationStrategyFactory.class

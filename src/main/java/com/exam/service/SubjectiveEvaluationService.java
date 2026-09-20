@@ -34,6 +34,7 @@ public class SubjectiveEvaluationService {
     @Autowired private LLMEvaluationStrategyFactory factory;
     @Autowired private EvaluationPersistenceHelper  helper;
     @Autowired private QuizRepository               quizRepository;
+    @Autowired private AttemptService               attemptService;
 
     /**
      * Evaluate subjective answers using whatever LLM provider is configured on the quiz.
@@ -52,6 +53,9 @@ public class SubjectiveEvaluationService {
         Long quizId = Long.valueOf(submissions.get(0).getQuizId());
         Quiz quiz   = quizRepository.findById(quizId)
                       .orElseThrow(() -> new RuntimeException("Quiz not found: " + quizId));
+
+        // Reject a submission that will be refused anyway before spending an LLM call on it.
+        attemptService.assertTheoryMaySubmit(user, quiz);
 
         LlmProvider provider = quiz.getLlmProvider() != null ? quiz.getLlmProvider() : LlmProvider.GPT;
         log.info("Subjective evaluation — quizId={}, provider={}, user={}",

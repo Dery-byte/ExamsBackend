@@ -44,6 +44,8 @@ public class QuizDTO {
     /** LLM provider selected for subjective evaluation of this quiz. */
     private LlmProvider llmProvider = LlmProvider.GPT;
 
+    private Integer maxAttempts = 1;
+
 
     // Constructors
     public QuizDTO() {
@@ -76,6 +78,7 @@ public class QuizDTO {
         this.enableScreenshotBlocking = quiz.getEnableScreenshotBlocking();
         this.enableDevToolsBlocking = quiz.getEnableDevToolsBlocking();
         this.llmProvider = quiz.getLlmProvider();
+        this.maxAttempts = quiz.getMaxAttempts() == null ? 1 : quiz.getMaxAttempts();
 
         // Convert category to DTO (avoid sending user info)
         if (quiz.getCategory() != null) {
@@ -283,6 +286,14 @@ public class QuizDTO {
 
     public void setEnableDevToolsBlocking(Boolean enableDevToolsBlocking) {
         this.enableDevToolsBlocking = enableDevToolsBlocking;
+    }
+
+    public Integer getMaxAttempts() {
+        return maxAttempts;
+    }
+
+    public void setMaxAttempts(Integer maxAttempts) {
+        this.maxAttempts = maxAttempts;
     }
 
     public LlmProvider getLlmProvider() {

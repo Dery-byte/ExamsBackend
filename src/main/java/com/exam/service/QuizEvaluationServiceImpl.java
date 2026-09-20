@@ -155,7 +155,11 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
     @Autowired
     private StudentAnswerRepository studentAnswerRepository;
 
+    @Autowired
+    private AttemptService attemptService;
+
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public QuizEvaluationResult evaluateQuiz(List<Questions> questions, String username, Long quizId) {
         if (questions == null || questions.isEmpty()) {
             throw new IllegalArgumentException("No questions provided");
@@ -175,6 +179,9 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
         int    correctAnswers  = 0;   // fully-correct question count (MCQ/TF)
         // for MATCHING: counts as 1 only if ALL pairs correct
         int    attempted       = 0;
+
+        // A new attempt replaces the previous attempt's answers (the ledger keeps every attempt's marks).
+        studentAnswerRepository.deleteByStudentAndQuiz(user.getId(), quiz.getqId());
 
         // Mark per question = maxMarks / totalQs
         // MATCHING distributes that per-question mark across its pairs
@@ -249,6 +256,9 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
         }
 
         // ── Save / update report ──────────────────────────────────────────────
+        // Rejects (and rolls this whole submission back) if no attempt is available or it was already submitted.
+        attemptService.recordObjective(user, quiz, BigDecimal.valueOf(marksGot));
+
         Report report = reportRepository.findByUserAndQuiz(user, quiz).orElse(new Report());
         report.setQuiz(quiz);
         report.setUser(user);
