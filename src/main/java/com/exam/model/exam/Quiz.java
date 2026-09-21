@@ -14,6 +14,7 @@ import com.google.api.client.util.DateTime;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -43,6 +44,37 @@ public class Quiz {
     /** How many times each student may take this quiz. Null/absent (older quizzes) means 1. */
     @Column(name = "max_attempts")
     private Integer maxAttempts = 1;
+
+    /**
+     * When true, the quiz is published (active) and opened (status OPEN) automatically once
+     * quizDate + startTime is reached — no manual "go live" action needed. See {@code QuizService
+     * #ensureAutoOpened}. When false (default), publishing/opening stays manual, as before.
+     */
+    @Column(name = "auto_open", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0")
+    private boolean autoOpen = false;
+
+    /**
+     * When this quiz most recently became active (published) — set the moment it goes live,
+     * whether that's a manual "go live" or an auto-open. Cleared back to null when unpublished
+     * (set to draft), so it always reflects the *current* live period, not the first time ever.
+     * Always computed server-side; the client's write to this field, if any, is ignored.
+     */
+    @Column(name = "published_at")
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)   // server-computed; a client-sent value is ignored
+    private LocalDateTime publishedAt;
+
+    /**
+     * When true, the quiz closes itself once {@link #autoCloseFraction} of its total duration
+     * (objective minutes + theory minutes — see {@code QuizService#resolveDurationMinutes}) has
+     * elapsed since it was published. When false (default), closing stays manual, as before.
+     */
+    @Column(name = "auto_close", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0")
+    private boolean autoClose = false;
+
+    /** How much of the duration a student gets before an auto-close quiz shuts. Defaults to HALF if unset. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auto_close_fraction", length = 20)
+    private AutoCloseFraction autoCloseFraction;
 
 
 // ================= PROCTORING POLICY =================
@@ -452,6 +484,38 @@ public class Quiz {
 
     public void setMaxAttempts(Integer maxAttempts) {
         this.maxAttempts = maxAttempts;
+    }
+
+    public boolean isAutoOpen() {
+        return autoOpen;
+    }
+
+    public void setAutoOpen(boolean autoOpen) {
+        this.autoOpen = autoOpen;
+    }
+
+    public LocalDateTime getPublishedAt() {
+        return publishedAt;
+    }
+
+    public void setPublishedAt(LocalDateTime publishedAt) {
+        this.publishedAt = publishedAt;
+    }
+
+    public boolean isAutoClose() {
+        return autoClose;
+    }
+
+    public void setAutoClose(boolean autoClose) {
+        this.autoClose = autoClose;
+    }
+
+    public AutoCloseFraction getAutoCloseFraction() {
+        return autoCloseFraction;
+    }
+
+    public void setAutoCloseFraction(AutoCloseFraction autoCloseFraction) {
+        this.autoCloseFraction = autoCloseFraction;
     }
 
     public LlmProvider getLlmProvider() {

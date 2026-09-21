@@ -46,6 +46,16 @@ public class QuizDTO {
 
     private Integer maxAttempts = 1;
 
+    /** Auto-publish and auto-open the quiz once quizDate + startTime is reached. */
+    private boolean autoOpen;
+
+    /** When the quiz's current live period began (null while it's a draft). */
+    private java.time.LocalDateTime publishedAt;
+
+    /** Auto-close the quiz once autoCloseFraction of its duration has elapsed since it was published. */
+    private boolean autoClose;
+    private com.exam.model.exam.AutoCloseFraction autoCloseFraction;
+
 
     // Constructors
     public QuizDTO() {
@@ -79,6 +89,10 @@ public class QuizDTO {
         this.enableDevToolsBlocking = quiz.getEnableDevToolsBlocking();
         this.llmProvider = quiz.getLlmProvider();
         this.maxAttempts = quiz.getMaxAttempts() == null ? 1 : quiz.getMaxAttempts();
+        this.autoOpen = quiz.isAutoOpen();
+        this.publishedAt = quiz.getPublishedAt();
+        this.autoClose = quiz.isAutoClose();
+        this.autoCloseFraction = quiz.getAutoCloseFraction();
 
         // Convert category to DTO (avoid sending user info)
         if (quiz.getCategory() != null) {
@@ -302,5 +316,37 @@ public class QuizDTO {
 
     public void setLlmProvider(LlmProvider llmProvider) {
         this.llmProvider = llmProvider;
+    }
+
+    public boolean isAutoOpen() {
+        return autoOpen;
+    }
+
+    public void setAutoOpen(boolean autoOpen) {
+        this.autoOpen = autoOpen;
+    }
+
+    public java.time.LocalDateTime getPublishedAt() {
+        return publishedAt;
+    }
+
+    public void setPublishedAt(java.time.LocalDateTime publishedAt) {
+        this.publishedAt = publishedAt;
+    }
+
+    public boolean isAutoClose() {
+        return autoClose;
+    }
+
+    public void setAutoClose(boolean autoClose) {
+        this.autoClose = autoClose;
+    }
+
+    public com.exam.model.exam.AutoCloseFraction getAutoCloseFraction() {
+        return autoCloseFraction;
+    }
+
+    public void setAutoCloseFraction(com.exam.model.exam.AutoCloseFraction autoCloseFraction) {
+        this.autoCloseFraction = autoCloseFraction;
     }
 }

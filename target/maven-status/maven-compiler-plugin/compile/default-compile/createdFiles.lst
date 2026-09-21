@@ -34,6 +34,7 @@ com\exam\auth\AuthenticationResponse$AuthenticationResponseBuilder.class
 com\exam\service\llm\GPTEvaluationStrategy.class
 com\exam\service\AttemptService.class
 com\exam\DTO\AttemptStatusDTO.class
+com\exam\model\exam\AutoCloseFraction.class
 com\exam\service\llm\GeminiEvaluationStrategy.class
 com\exam\service\LogoutService.class
 com\exam\service\CategoryService.class

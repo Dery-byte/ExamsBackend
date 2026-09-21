@@ -287,6 +287,7 @@ package com.exam.service;
 
 import com.exam.DTO.QuizDTO;
 import com.exam.DTO.QuizUpdateRequest;
+import com.exam.model.QuizStatus;
 import com.exam.model.Role;
 import com.exam.model.User;
 import com.exam.model.exam.*;
@@ -318,6 +319,7 @@ public class QuizService {
     @Autowired private QuestionsRepository                questionsRepository;
     @Autowired private ProgramRepository                  programRepository;
     @Autowired private QuizAttemptRepository              quizAttemptRepository;
+    @Autowired private Registered_coursesRepository       registeredCoursesRepository;
 
     // ── Create ────────────────────────────────────────────────────────────────
 
@@ -332,6 +334,8 @@ public class QuizService {
     public Quiz addQuiz(Quiz quiz) {
         quiz.setPrograms(resolveAllowedPrograms(quiz.getProgramIds(), categoryOf(quiz), true));
         quiz.setMaxAttempts(validMaxAttempts(quiz.getMaxAttempts()));
+        normalizeAutoClose(quiz);
+        stampPublishedAt(quiz, false);
         return quizRepository.save(quiz);
     }
 
@@ -347,6 +351,8 @@ public class QuizService {
         quiz.setUser(currentUser);
         quiz.setPrograms(resolveAllowedPrograms(quiz.getProgramIds(), categoryOf(quiz), true));
         quiz.setMaxAttempts(validMaxAttempts(quiz.getMaxAttempts()));
+        normalizeAutoClose(quiz);
+        stampPublishedAt(quiz, false);
         return quizRepository.save(quiz);
     }
 
@@ -365,6 +371,8 @@ public class QuizService {
         quiz.setUser(user);
         quiz.setPrograms(resolveAllowedPrograms(quiz.getProgramIds(), categoryOf(quiz), false));
         quiz.setMaxAttempts(validMaxAttempts(quiz.getMaxAttempts()));
+        normalizeAutoClose(quiz);
+        stampPublishedAt(quiz, false);
         return quizRepository.save(quiz);
     }
 
@@ -460,7 +468,13 @@ public class QuizService {
         if (req.getLlmProvider()                != null) quiz.setLlmProvider(req.getLlmProvider());
 
         // active is a primitive boolean — always apply
+        boolean wasActive = quiz.isActive();
         quiz.setActive(req.isActive());
+        quiz.setAutoOpen(req.isAutoOpen());
+        quiz.setAutoClose(req.isAutoClose());
+        quiz.setAutoCloseFraction(req.getAutoCloseFraction());
+        normalizeAutoClose(quiz);
+        stampPublishedAt(quiz, wasActive);
 
         // ── Category ──────────────────────────────────────────────────────────
         if (req.getCategoryId() != null) {
@@ -572,7 +586,136 @@ public class QuizService {
         return programs;
     }
 
-    // ── Student access (program restriction) ──────────────────────────────────
+    /** A lecturer can turn auto-close on without picking a fraction; default that to HALF rather than reject it. */
+    private void normalizeAutoClose(Quiz quiz) {
+        if (quiz.isAutoClose() && quiz.getAutoCloseFraction() == null) {
+            quiz.setAutoCloseFraction(AutoCloseFraction.HALF);
+        }
+    }
+
+    /**
+     * Keeps {@code publishedAt} in step with {@code active}: stamped the moment a quiz goes live
+     * (from draft or on creation), cleared the moment it's taken back to draft. Never trusts a
+     * client-supplied value — the entity field itself is read-only over JSON (see {@link Quiz}).
+     */
+    private void stampPublishedAt(Quiz quiz, boolean wasActive) {
+        if (quiz.isActive() && !wasActive) {
+            quiz.setPublishedAt(java.time.LocalDateTime.now());
+        } else if (!quiz.isActive() && wasActive) {
+            quiz.setPublishedAt(null);
+        }
+    }
+
+    // ── Auto-open ────────────────────────────────────────────────────────────
+
+    /**
+     * If the quiz is set to auto-open and its scheduled date/time has arrived, publishes and opens
+     * it (sets active=true and status=OPEN — the same state a manual "go live" + "open" would
+     * leave it in). A no-op for quizzes that don't have auto-open on, aren't due yet, or are
+     * already published and open.
+     * <p>
+     * Called from two places so opening never depends on either alone:
+     *  - {@link #openDueQuizzes()}, a periodic sweep that catches every scheduled quiz on its own;
+     *  - {@link #assertStudentMayAccess(Quiz, User)}, so a student following a direct link the
+     *    moment the clock ticks over is never blocked by sweep latency.
+     */
+    @Transactional
+    public Quiz ensureAutoOpened(Quiz quiz) {
+        if (quiz == null || !quiz.isAutoOpen()) return quiz;
+        if (quiz.isActive() && quiz.getStatus() == QuizStatus.OPEN) {
+            // Already open — normally nothing to do. But a quiz auto-opened before publishedAt
+            // existed (or before a since-fixed bug in this method) is stuck active with no
+            // publishedAt forever, since that field is only ever set on a false→true transition.
+            // Backfill it here using its own schedule — the best available estimate of when an
+            // auto-open quiz actually went live — so the "Published on …" display recovers on
+            // the very next time anyone touches this quiz, with no migration needed.
+            if (quiz.getPublishedAt() == null && quiz.getQuizDate() != null && quiz.getStartTime() != null) {
+                quiz.setPublishedAt(java.time.LocalDateTime.of(quiz.getQuizDate(), quiz.getStartTime()));
+                return quizRepository.save(quiz);
+            }
+            return quiz;
+        }
+        if (quiz.getQuizDate() == null || quiz.getStartTime() == null) return quiz;
+
+        java.time.LocalDateTime dueAt = java.time.LocalDateTime.of(quiz.getQuizDate(), quiz.getStartTime());
+        if (java.time.LocalDateTime.now().isBefore(dueAt)) return quiz;
+
+        boolean wasActive = quiz.isActive();
+        quiz.setActive(true);
+        quiz.setStatus(QuizStatus.OPEN);
+        stampPublishedAt(quiz, wasActive);
+        return quizRepository.save(quiz);
+    }
+
+    /** Periodic backstop: opens every due, auto-open quiz even if nobody has tried to access it yet. */
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 30_000)
+    @Transactional
+    public void openDueQuizzes() {
+        quizRepository.findByAutoOpenTrueAndActiveFalse().forEach(this::ensureAutoOpened);
+    }
+
+    // ── Auto-close ───────────────────────────────────────────────────────────
+
+    /**
+     * The exam duration in minutes, exactly as the student's own on-screen timer counts it
+     * (Instructions/StartQuiz sum these same two numbers): the objective section's quizTime, plus
+     * — for THEORY/BOTH — the theory section's timeAllowed. The latter is configured separately,
+     * when theory questions are set up, often after the quiz is created/published; reading it live
+     * here (rather than a value captured once) is what lets auto-close work correctly even though
+     * that number can still change after the quiz has gone live.
+     */
+    private int resolveDurationMinutes(Quiz quiz) {
+        int objMinutes = parseMinutes(quiz.getQuizTime());
+        int theoryMinutes = numberOfTheoryToAnswerRepository.findByQuiz_qId(quiz.getqId()).stream()
+                .findFirst()
+                .map(NumberOfTheoryToAnswer::getTimeAllowed)
+                .filter(java.util.Objects::nonNull)
+                .orElse(0);
+        return objMinutes + theoryMinutes;
+    }
+
+    private static int parseMinutes(String raw) {
+        if (raw == null || raw.isBlank()) return 0;
+        try {
+            return Integer.parseInt(raw.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * If the quiz has auto-close on and is currently open, closes it once the chosen fraction
+     * (half or a quarter) of its total duration has elapsed since it was published. A no-op while
+     * the duration isn't known yet — e.g. a THEORY/BOTH quiz whose theory time-allowed hasn't been
+     * configured — so it never closes against a duration of zero; it simply starts counting the
+     * moment that duration becomes known (checked live, every time, not just once).
+     */
+    @Transactional
+    public Quiz ensureAutoClosed(Quiz quiz) {
+        if (quiz == null || !quiz.isAutoClose()) return quiz;
+        if (!quiz.isActive() || quiz.getStatus() != QuizStatus.OPEN) return quiz;
+        if (quiz.getPublishedAt() == null) return quiz;
+
+        int durationMinutes = resolveDurationMinutes(quiz);
+        if (durationMinutes <= 0) return quiz;
+
+        AutoCloseFraction fraction = quiz.getAutoCloseFraction() != null ? quiz.getAutoCloseFraction() : AutoCloseFraction.HALF;
+        long secondsUntilClose = Math.round(durationMinutes * 60.0 / fraction.getDivisor());
+        java.time.LocalDateTime closeAt = quiz.getPublishedAt().plusSeconds(secondsUntilClose);
+        if (java.time.LocalDateTime.now().isBefore(closeAt)) return quiz;
+
+        quiz.setStatus(QuizStatus.CLOSED);
+        return quizRepository.save(quiz);
+    }
+
+    /** Periodic backstop: closes every due, auto-close quiz even if nobody has tried to access it yet. */
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 30_000)
+    @Transactional
+    public void closeDueQuizzes() {
+        quizRepository.findByAutoCloseTrueAndActiveTrueAndStatus(QuizStatus.OPEN).forEach(this::ensureAutoClosed);
+    }
+
+    // ── Student access (program + course enrollment) ────────────────────────────
 
     /** A quiz with no programs is open to everyone; otherwise the student's program must be listed. */
     private boolean isOpenToStudent(Quiz quiz, User student) {
@@ -582,6 +725,23 @@ public class QuizService {
         return quiz.getPrograms().stream().anyMatch(p -> p.getId().equals(programId));
     }
 
+    /**
+     * A quiz belongs to a course (category); the student must be registered for that course.
+     * A quiz with no course (shouldn't normally happen — the create forms require one) is open,
+     * since there is nothing to be enrolled in.
+     */
+    private boolean isEnrolledInCourse(Quiz quiz, User student) {
+        if (quiz.getCategory() == null) return true;
+        return registeredCoursesRepository.countByCategoryAndUser(quiz.getCategory(), student) > 0;
+    }
+
+    /** Null if the student may access this quiz; otherwise the reason they may not, for the error message. */
+    private String accessDenialReason(Quiz quiz, User student) {
+        if (!isOpenToStudent(quiz, student)) return "This quiz is not available for your program";
+        if (!isEnrolledInCourse(quiz, student)) return "You are not enrolled in the course this quiz belongs to";
+        return null;
+    }
+
     private User studentOrNull(Principal principal) {
         if (principal == null) return null;
         return userRepository.findByUsername(principal.getName())
@@ -589,19 +749,26 @@ public class QuizService {
                 .orElse(null);
     }
 
-    /** Hides quizzes the calling student's program isn't allowed to take. Non-students see everything. */
+    /** Hides quizzes the calling student's program/enrollment doesn't allow. Non-students see everything. */
     public List<Quiz> filterForCaller(List<Quiz> quizzes, Principal principal) {
         User student = studentOrNull(principal);
         if (student == null) return quizzes;
-        return quizzes.stream().filter(q -> isOpenToStudent(q, student)).toList();
+        return quizzes.stream().filter(q -> accessDenialReason(q, student) == null).toList();
     }
 
-    /** Throws 403 if the caller is a student whose program isn't allowed to take this quiz. */
+    /** Throws 403 if the caller is a student who may not access this quiz (program or non-enrollment). */
     public void assertStudentMayAccess(Long quizId, Principal principal) {
-        User student = studentOrNull(principal);
-        if (student == null) return;
-        if (!isOpenToStudent(getQuiz(quizId), student)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This quiz is not available for your program");
+        assertStudentMayAccess(getQuiz(quizId), studentOrNull(principal));
+    }
+
+    /** Throws 403 if student is a NORMAL user who may not access this quiz. Non-students (or null) pass through. */
+    public void assertStudentMayAccess(Quiz quiz, User student) {
+        ensureAutoOpened(quiz);    // catch up immediately rather than wait for the next sweep
+        ensureAutoClosed(quiz);    // same, for closing — order matters: a quiz can open then immediately need closing
+        if (student == null || student.getRole() != Role.NORMAL) return;
+        String reason = accessDenialReason(quiz, student);
+        if (reason != null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, reason);
         }
     }
 

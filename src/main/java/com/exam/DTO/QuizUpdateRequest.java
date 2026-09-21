@@ -57,6 +57,13 @@ public class QuizUpdateRequest {
     /** How many times each student may take the quiz. Null means no change. */
     private Integer maxAttempts;
 
+    /** Auto-publish and auto-open the quiz once quizDate + startTime is reached. */
+    private boolean autoOpen;
+
+    /** Auto-close the quiz once autoCloseFraction of its duration has elapsed since it was published. */
+    private boolean autoClose;
+    private com.exam.model.exam.AutoCloseFraction autoCloseFraction;
+
 
 
 
@@ -289,5 +296,29 @@ public class QuizUpdateRequest {
 
     public void setProgramIds(java.util.List<Long> programIds) {
         this.programIds = programIds;
+    }
+
+    public boolean isAutoOpen() {
+        return autoOpen;
+    }
+
+    public void setAutoOpen(boolean autoOpen) {
+        this.autoOpen = autoOpen;
+    }
+
+    public boolean isAutoClose() {
+        return autoClose;
+    }
+
+    public void setAutoClose(boolean autoClose) {
+        this.autoClose = autoClose;
+    }
+
+    public com.exam.model.exam.AutoCloseFraction getAutoCloseFraction() {
+        return autoCloseFraction;
+    }
+
+    public void setAutoCloseFraction(com.exam.model.exam.AutoCloseFraction autoCloseFraction) {
+        this.autoCloseFraction = autoCloseFraction;
     }
 }

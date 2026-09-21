@@ -30,4 +30,10 @@ public interface QuizRepository  extends JpaRepository <Quiz, Long> {
 
     // Fetch all quizzes for a given user ID
     List<Quiz> findByUser_Id(Long userId);
+
+    /** Candidates for the auto-open sweep: scheduled to open automatically but not yet published. */
+    List<Quiz> findByAutoOpenTrueAndActiveFalse();
+
+    /** Candidates for the auto-close sweep: open quizzes that close themselves once due. */
+    List<Quiz> findByAutoCloseTrueAndActiveTrueAndStatus(com.exam.model.QuizStatus status);
 }

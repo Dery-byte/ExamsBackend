@@ -5,8 +5,10 @@ import com.exam.model.QuizType;
 import com.exam.model.Role;
 import com.exam.model.User;
 import com.exam.model.exam.AttemptStatus;
+import com.exam.model.exam.Category;
 import com.exam.model.exam.Quiz;
 import com.exam.model.exam.QuizAttempt;
+import com.exam.model.exam.Registered_courses;
 import com.exam.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.datasource.password=",
         "spring.jpa.show-sql=false",
 })
-@Import(AttemptService.class)
+@Import({AttemptService.class, QuizService.class})
 class AttemptServiceJpaTest {
 
     @Autowired AttemptService        service;
@@ -52,15 +54,23 @@ class AttemptServiceJpaTest {
     @Autowired QuizRepository        quizzes;
     @Autowired StudentAnswerRepository studentAnswers;
     @Autowired AnswerRepository      answers;
+    @Autowired CategoryRepository    categories;
+    @Autowired Registered_coursesRepository registrations;
 
     User student;
     User admin;
     Quiz quiz;
+    Category course;
 
     @BeforeEach
     void setUp() {
         student = users.save(user("ada", Role.NORMAL));
         admin   = users.save(user("root", Role.SUPER_ADMIN));
+
+        Category c = new Category();
+        c.setTitle("Data Structures");
+        c.setCourseCode("CS201");
+        course = categories.save(c);
 
         Quiz q = new Quiz();
         q.setTitle("Mid-sem");
@@ -68,7 +78,31 @@ class AttemptServiceJpaTest {
         q.setQuizpassword("pw");
         q.setQuizType(QuizType.OBJ);
         q.setMaxAttempts(2);
+        q.setActive(true);
+        q.setCategory(course);
         quiz = quizzes.save(q);
+
+        Registered_courses reg = new Registered_courses();
+        reg.setUser(student);
+        reg.setCategory(course);
+        registrations.save(reg);
+    }
+
+    @Test
+    void unenrolledStudentIsBlockedByTheRealEnrollmentCheck() {
+        User outsider = users.save(user("bo", Role.NORMAL));   // never registered for `course`
+
+        assertThatThrownBy(() -> service.begin(outsider, quiz))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode().value()).isEqualTo(403));
+        assertThat(attempts.findByUser_IdAndQuiz_qIdOrderByAttemptNumberAsc(outsider.getId(), quiz.getqId())).isEmpty();
+
+        // registering fixes it — proves the check reads live enrollment, not a cached copy
+        Registered_courses reg = new Registered_courses();
+        reg.setUser(outsider);
+        reg.setCategory(course);
+        registrations.save(reg);
+        assertThat(service.begin(outsider, quiz).activeAttemptNumber()).isEqualTo(1);
     }
 
     @Test
@@ -101,6 +135,28 @@ class AttemptServiceJpaTest {
                 .containsExactly(AttemptStatus.SUBMITTED, AttemptStatus.VOIDED, AttemptStatus.IN_PROGRESS);
         assertThat(all.get(1).getVoidedByName()).isEqualTo(admin.getFullName());
         assertThat(all.get(1).getMarksA()).isEqualByComparingTo("8.0");   // voided attempt's marks are kept
+    }
+
+    @Test
+    void autoOpenPublishesADueDraftQuizOnFirstStudentAccessAgainstTheRealDb() {
+        Quiz draft = new Quiz();
+        draft.setTitle("Pop quiz");
+        draft.setQuizTime("10");
+        draft.setQuizpassword("pw");
+        draft.setQuizType(QuizType.OBJ);
+        draft.setMaxAttempts(1);
+        draft.setCategory(course);
+        draft.setActive(false);
+        draft.setAutoOpen(true);
+        draft.setQuizDate(java.time.LocalDate.now());
+        draft.setStartTime(java.time.LocalTime.now().minusMinutes(1));   // due a minute ago
+        draft = quizzes.save(draft);
+
+        assertThat(service.begin(student, draft).activeAttemptNumber()).isEqualTo(1);
+
+        Quiz reloaded = quizzes.findById(draft.getqId()).orElseThrow();
+        assertThat(reloaded.isActive()).isTrue();
+        assertThat(reloaded.getStatus().name()).isEqualTo("OPEN");
     }
 
     @Test

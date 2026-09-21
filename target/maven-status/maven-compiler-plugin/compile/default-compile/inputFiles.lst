@@ -151,6 +151,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\QuestionType.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\NumberOfTheoryUpdateRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\SemesterSheet.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\AutoCloseFraction.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\GPTChoice.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\QuizAttemptRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\GeminiRequest.java

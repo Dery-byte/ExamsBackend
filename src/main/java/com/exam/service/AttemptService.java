@@ -52,11 +52,13 @@ public class AttemptService {
     @Autowired private QuizTimerRepository          timers;
     @Autowired private UserQuizProgressRepository   quizProgress;
     @Autowired private TheoryProgressRepository     theoryProgress;
+    @Autowired private QuizService                  quizService;
 
     // ── Student: status / begin / finish ─────────────────────────────────────
 
     @Transactional(readOnly = true)
     public AttemptStatusDTO myStatus(User student, Quiz quiz) {
+        quizService.assertStudentMayAccess(quiz, student);
         List<QuizAttempt> all = load(student.getId(), quiz.getqId());
         int legacyUsed = all.isEmpty() && hasReport(student.getId(), quiz.getqId()) ? 1 : 0;
         return toStatus(quiz, all, legacyUsed, isReviewed(student.getId(), quiz.getqId()));
@@ -223,7 +225,10 @@ public class AttemptService {
     /** Returns the attempt in progress, or starts a new one if the student still has attempts left. */
     private QuizAttempt startOrResume(User s, Quiz quiz, List<QuizAttempt> all) {
         QuizAttempt current = active(all).orElse(null);
-        if (current != null) return current;
+        if (current != null) return current;   // resuming is always allowed, even if access was revoked meanwhile
+
+        // Starting a genuinely new attempt requires current access (program + course enrollment).
+        quizService.assertStudentMayAccess(quiz, s);
 
         // A reviewed result is final. Checked first because it is the more useful reason to show.
         if (isReviewed(s.getId(), quiz.getqId())) {
@@ -233,6 +238,12 @@ public class AttemptService {
         int lim = limit(quiz);
         if (counted(all) >= lim) {
             throw conflict("You have used all " + lim + " attempt" + (lim == 1 ? "" : "s") + " allowed for this quiz.");
+        }
+        // assertStudentMayAccess() above already ran ensureAutoOpened(), so a due auto-open quiz
+        // is active by this point. A quiz that's still a draft (manual publish, not yet toggled
+        // live) must not be startable just because its ID is known, e.g. via a shared link.
+        if (!quiz.isActive()) {
+            throw conflict("This quiz has not been published yet.");
         }
         if (quiz.getStatus() == QuizStatus.CLOSED) {
             throw conflict("This quiz is closed.");

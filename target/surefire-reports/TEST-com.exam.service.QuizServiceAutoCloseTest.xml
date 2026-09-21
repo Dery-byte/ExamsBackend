@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="com.exam.service.AttemptServiceJpaTest" time="13.403" tests="5" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="com.exam.service.QuizServiceAutoCloseTest" time="0.061" tests="10" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="21"/>
     <property name="sun.cpu.isalist" value="amd64"/>
@@ -60,9 +60,14 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="65.0"/>
   </properties>
-  <testcase name="databaseRejectsADuplicateAttemptNumber" classname="com.exam.service.AttemptServiceJpaTest" time="0.606"/>
-  <testcase name="fullLifecycleAgainstTheRealJpaLayer" classname="com.exam.service.AttemptServiceJpaTest" time="0.429"/>
-  <testcase name="autoOpenPublishesADueDraftQuizOnFirstStudentAccessAgainstTheRealDb" classname="com.exam.service.AttemptServiceJpaTest" time="0.049"/>
-  <testcase name="unenrolledStudentIsBlockedByTheRealEnrollmentCheck" classname="com.exam.service.AttemptServiceJpaTest" time="0.084"/>
-  <testcase name="newQueriesAreValidAndRunnable" classname="com.exam.service.AttemptServiceJpaTest" time="0.047"/>
+  <testcase name="theoryQuizWaitsForItsTimeAllowedToBeConfiguredBeforeCountingDown" classname="com.exam.service.QuizServiceAutoCloseTest" time="0.027"/>
+  <testcase name="draftOrAlreadyClosedQuizzesAreLeftAlone" classname="com.exam.service.QuizServiceAutoCloseTest" time="0"/>
+  <testcase name="doesNotCloseBeforeTheFractionElapses" classname="com.exam.service.QuizServiceAutoCloseTest" time="0.012"/>
+  <testcase name="neverClosesBeforeItWasEverPublished" classname="com.exam.service.QuizServiceAutoCloseTest" time="0"/>
+  <testcase name="halfFractionClosesAtHalfTheDuration" classname="com.exam.service.QuizServiceAutoCloseTest" time="0"/>
+  <testcase name="missingFractionDefaultsToHalfRatherThanFailing" classname="com.exam.service.QuizServiceAutoCloseTest" time="0"/>
+  <testcase name="closesAtAQuarterOfDurationExactlyLikeTheWorkedExample" classname="com.exam.service.QuizServiceAutoCloseTest" time="0"/>
+  <testcase name="combinedQuizDurationIsObjectivePlusTheoryTimeExactlyLikeTheStudentTimer" classname="com.exam.service.QuizServiceAutoCloseTest" time="0.01"/>
+  <testcase name="autoCloseOffIsANoOp" classname="com.exam.service.QuizServiceAutoCloseTest" time="0"/>
+  <testcase name="sweepClosesEveryDueOpenQuizAndSkipsOnesNotYetDue" classname="com.exam.service.QuizServiceAutoCloseTest" time="0.002"/>
 </testsuite>

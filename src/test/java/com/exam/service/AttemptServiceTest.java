@@ -46,6 +46,7 @@ class AttemptServiceTest {
     @Mock QuizTimerRepository        timers;
     @Mock UserQuizProgressRepository quizProgress;
     @Mock TheoryProgressRepository   theoryProgress;
+    @Mock QuizService                quizService;   // access checks default to "allowed" (void, no-op) unless stubbed
 
     @InjectMocks AttemptService service;
 
@@ -68,6 +69,7 @@ class AttemptServiceTest {
         quiz.setQuizType(QuizType.OBJ);
         quiz.setMaxAttempts(1);
         quiz.setUser(owner);
+        quiz.setActive(true);   // published; the not-yet-published case has its own tests below
 
         when(users.lockById(anyLong())).thenAnswer(i -> Optional.of(student));
         when(quizzes.findById(10L)).thenReturn(Optional.of(quiz));
@@ -163,6 +165,58 @@ class AttemptServiceTest {
         service.recordObjective(student, quiz, BigDecimal.ONE);
         quiz.setMaxAttempts(2);
         assertConflict(() -> service.begin(student, quiz));                             // but no new attempt
+    }
+
+    @Test
+    void unpublishedQuizCannotBeStartedButAnAttemptAlreadyInProgressCanStillBeResumed() {
+        quiz.setActive(false);   // draft, e.g. known only by a shared link before the lecturer publishes it
+        assertConflict(() -> service.begin(student, quiz));
+        assertThat(store).isEmpty();
+
+        // published mid-way through: the student begins normally from then on
+        quiz.setActive(true);
+        service.begin(student, quiz);
+        assertThat(store).hasSize(1);
+
+        // unpublished again after starting: the in-progress attempt can still be resumed and finished
+        quiz.setActive(false);
+        assertThat(service.begin(student, quiz).activeAttemptNumber()).isEqualTo(1);
+        service.recordObjective(student, quiz, BigDecimal.ONE);
+        assertThat(store.get(0).getStatus()).isEqualTo(AttemptStatus.SUBMITTED);
+    }
+
+    @Test
+    void unenrolledStudentCannotStartANewAttempt() {
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not enrolled in the course this quiz belongs to"))
+                .when(quizService).assertStudentMayAccess(quiz, student);
+
+        assertThatThrownBy(() -> service.begin(student, quiz))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+        assertThat(store).isEmpty();   // no attempt row was created
+    }
+
+    @Test
+    void unenrolledStudentCanStillResumeAnAttemptAlreadyInProgress() {
+        service.begin(student, quiz);   // starts while still enrolled
+
+        // dropped from the course after starting (e.g. unenrolled, or moved programs)
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not enrolled in the course this quiz belongs to"))
+                .when(quizService).assertStudentMayAccess(quiz, student);
+
+        assertThat(service.begin(student, quiz).activeAttemptNumber()).isEqualTo(1);   // resume still works
+        service.recordObjective(student, quiz, BigDecimal.ONE);                        // and so does submitting it
+        assertThat(store.get(0).getStatus()).isEqualTo(AttemptStatus.SUBMITTED);
+    }
+
+    @Test
+    void myStatusChecksAccessTooSoTheInstructionsPageCanShowIt() {
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not enrolled in the course this quiz belongs to"))
+                .when(quizService).assertStudentMayAccess(quiz, student);
+
+        assertThatThrownBy(() -> service.myStatus(student, quiz))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
     }
 
     // ── submitting ───────────────────────────────────────────────────────────
