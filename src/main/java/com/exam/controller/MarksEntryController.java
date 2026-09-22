@@ -187,14 +187,24 @@ public class MarksEntryController {
 
     @PostMapping("/{sheetId}/save")
     public ResponseEntity<?> saveMarks(@PathVariable Long sheetId, @RequestBody SemesterSheetDTO dto) {
-        marksEntryService.saveMarks(sheetId, dto);
-        return ResponseEntity.ok().build();
+        try {
+            marksEntryService.saveMarks(sheetId, dto);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(java.util.Map.of("message", "Failed to save marks: " + e.getMessage()));
+        }
     }
 
     @PostMapping("/{sheetId}/submit")
     public ResponseEntity<?> submitSheet(@PathVariable Long sheetId) {
-        marksEntryService.submitSheet(sheetId);
-        return ResponseEntity.ok().build();
+        try {
+            marksEntryService.submitSheet(sheetId);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(java.util.Map.of("message", "Failed to submit sheet: " + e.getMessage()));
+        }
     }
 
     @PostMapping("/{sheetId}/publish")

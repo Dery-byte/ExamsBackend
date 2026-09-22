@@ -644,10 +644,35 @@ public class MarksEntryService {
                 if (courseMark.getSectionMarks() != null) {
                     for (com.exam.DTO.SemesterSheetDTO.SectionMarkDTO sectionMark : courseMark.getSectionMarks()) {
                         System.out.println("[saveMarks]      SectionMarkId=" + sectionMark.getSectionMarkId()
+                                + " | sectionId=" + sectionMark.getSectionId()
                                 + " | score=" + sectionMark.getScoreObtained());
 
-                        StudentSectionMark ssm = studentSectionMarkRepository
-                            .findById(sectionMark.getSectionMarkId()).orElse(null);
+                        StudentSectionMark ssm = null;
+                        if (sectionMark.getSectionMarkId() != null) {
+                            ssm = studentSectionMarkRepository.findById(sectionMark.getSectionMarkId()).orElse(null);
+                        }
+
+                        // Fall back to matching by section id — covers rows that didn't exist yet
+                        // when the client loaded this sheet (e.g. a section added afterwards).
+                        if (ssm == null && sectionMark.getSectionId() != null) {
+                            final Long sectionId = sectionMark.getSectionId();
+                            ssm = scm.getSectionMarks().stream()
+                                .filter(s -> s.getSection() != null && sectionId.equals(s.getSection().getId()))
+                                .findFirst()
+                                .orElse(null);
+
+                            if (ssm == null) {
+                                MarkSheetSection section = markSheetSectionRepository.findById(sectionId).orElse(null);
+                                if (section != null) {
+                                    ssm = new StudentSectionMark();
+                                    ssm.setStudentCourseMark(scm);
+                                    ssm.setSection(section);
+                                    scm.getSectionMarks().add(ssm);
+                                    System.out.println("[saveMarks]      CREATED missing StudentSectionMark for sectionId=" + sectionId);
+                                }
+                            }
+                        }
+
                         if (ssm != null) {
                             BigDecimal score = sectionMark.getScoreObtained() != null
                                     ? sectionMark.getScoreObtained() : BigDecimal.ZERO;
@@ -656,8 +681,8 @@ public class MarksEntryService {
                             total = total.add(score);
                             System.out.println("[saveMarks]      SAVED ssm id=" + ssm.getId() + " score=" + score);
                         } else {
-                            System.out.println("[saveMarks]      ERROR: StudentSectionMark NOT FOUND for id="
-                                    + sectionMark.getSectionMarkId());
+                            System.out.println("[saveMarks]      ERROR: could not resolve StudentSectionMark for sectionMarkId="
+                                    + sectionMark.getSectionMarkId() + " sectionId=" + sectionMark.getSectionId());
                         }
                     }
                 }
