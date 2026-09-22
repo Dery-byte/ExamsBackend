@@ -40,6 +40,7 @@ com\exam\service\LogoutService.class
 com\exam\service\CategoryService.class
 com\exam\controller\LlmProviderController$1.class
 com\exam\service\JwtService.class
+com\exam\DTO\QuizPublicSummaryDTO.class
 com\exam\token\TokenType.class
 com\exam\service\ReportService.class
 com\exam\model\exam\LlmProvider.class

@@ -142,6 +142,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\ForgotP
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Impl\MailService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\GPTResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\NumberOfTheoryToAnswer.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\QuizPublicSummaryDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\StudentCourseMark.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuestionsService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\LecturerDTO.java

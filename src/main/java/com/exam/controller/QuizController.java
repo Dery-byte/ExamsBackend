@@ -81,6 +81,15 @@ public class QuizController {
         return this.quizService.getQuiz(qid);
     }
 
+    /**
+     * Title + allowed program names only — shown on the shared quiz link's sign-in page, before
+     * the student has logged in. No access check: there's no one signed in yet to check it for.
+     */
+    @GetMapping("quiz/{qid}/public-summary")
+    public com.exam.DTO.QuizPublicSummaryDTO publicSummary(@PathVariable("qid") Long qid) {
+        return this.quizService.getPublicSummary(qid);
+    }
+
     // get questions of any quiz
     @GetMapping("question/quiz/{qid}")
     public  ResponseEntity<?> getQuestionsOfQuiz(@PathVariable("qid") Long qid, Principal principal){

@@ -5,6 +5,8 @@ import com.exam.model.User;
 import com.exam.model.exam.Category;
 import com.exam.model.exam.Program;
 import com.exam.model.exam.Quiz;
+import com.exam.DTO.QuizPublicSummaryDTO;
+import com.exam.repository.QuizRepository;
 import com.exam.repository.Registered_coursesRepository;
 import com.exam.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +40,7 @@ class QuizServiceAccessTest {
 
     @Mock UserRepository               userRepository;
     @Mock Registered_coursesRepository registeredCoursesRepository;
+    @Mock QuizRepository               quizRepository;
 
     @InjectMocks QuizService service;
 
@@ -120,5 +123,36 @@ class QuizServiceAccessTest {
         List<Quiz> visible = service.filterForCaller(List.of(quiz, notEnrolled), principal);
 
         assertThat(visible).containsExactly(quiz);
+    }
+
+    // ── public summary (shown on the shared link's sign-in page, before login) ────
+
+    @Test
+    void publicSummaryListsProgramsAlphabeticallyAndIncludesTheCourse() {
+        course.setTitle("Data Structures");
+        Program cs = Program.builder().id(1L).name("BSc. Computer Science").code("CS").durationYears(4).build();
+        Program it = Program.builder().id(2L).name("BSc. Information Technology").code("IT").durationYears(4).build();
+        quiz.setPrograms(Set.of(it, cs));   // deliberately out of order
+        when(quizRepository.findById(10L)).thenReturn(Optional.of(quiz));
+
+        QuizPublicSummaryDTO summary = service.getPublicSummary(10L);
+
+        assertThat(summary.qId()).isEqualTo(10L);
+        assertThat(summary.courseTitle()).isEqualTo("Data Structures");
+        assertThat(summary.programNames()).containsExactly("BSc. Computer Science", "BSc. Information Technology");
+    }
+
+    @Test
+    void publicSummaryOfAnUnrestrictedQuizHasNoPrograms() {
+        when(quizRepository.findById(10L)).thenReturn(Optional.of(quiz));   // quiz.programs left empty
+        assertThat(service.getPublicSummary(10L).programNames()).isEmpty();
+    }
+
+    @Test
+    void publicSummaryOfAMissingQuizIs404NotACrash() {
+        when(quizRepository.findById(999L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.getPublicSummary(999L))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
     }
 }

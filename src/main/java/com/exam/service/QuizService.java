@@ -394,6 +394,23 @@ public class QuizService {
                 .orElseThrow(() -> new EntityNotFoundException("Quiz not found with id: " + qid));
     }
 
+    /**
+     * The minimal, safe-to-show-before-login summary of a quiz, for the shared quiz link's sign-in
+     * page — so a student sees which program(s) it's for before they even log in. Deliberately
+     * omits the passkey and everything else on the full entity; no access check, since there's no
+     * one to check access for yet.
+     */
+    public com.exam.DTO.QuizPublicSummaryDTO getPublicSummary(Long qid) {
+        Quiz quiz = quizRepository.findById(qid)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found"));
+        List<String> programNames = quiz.getPrograms() == null ? List.of() : quiz.getPrograms().stream()
+                .map(Program::getName)
+                .sorted()
+                .toList();
+        String courseTitle = quiz.getCategory() != null ? quiz.getCategory().getTitle() : null;
+        return new com.exam.DTO.QuizPublicSummaryDTO(quiz.getqId(), quiz.getTitle(), courseTitle, programNames);
+    }
+
     public List<Quiz> getQuizzesOfCategory(Category category) {
         return quizRepository.findBycategory(category);
     }
