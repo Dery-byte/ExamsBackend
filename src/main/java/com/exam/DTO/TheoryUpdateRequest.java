@@ -14,4 +14,5 @@ public class TheoryUpdateRequest {
     private String marks;    // optional
     private Long quizId;     // optional, if you allow changing the quiz
     private String evaluationCriteria;
+    private String image;      // optional; empty string removes the image
 }

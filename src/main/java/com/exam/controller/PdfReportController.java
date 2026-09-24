@@ -53,13 +53,13 @@ public class PdfReportController {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDisposition(
-                    ContentDisposition.attachment().filename(filename).build());
+            // No "Content-Disposition: attachment": download managers (e.g. IDM) hijack such responses and
+            // cancel the app's XHR. The frontend names and saves the file itself.
             headers.setContentLength(pdf.length);
             System.out.println("[PDF] ✅ SUCCESS — sending PDF as: " + filename);
             return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
 
-        } catch (Exception e) {
+        } catch (Throwable e) {   // Throwable: an Error (linkage/OOM) would otherwise bypass this handler and lose the CORS headers
             System.err.println("\n[PDF] ❌ FAILED at some step — quizId=" + quizId);
             System.err.println("[PDF] Error type   : " + e.getClass().getName());
             System.err.println("[PDF] Error message: " + e.getMessage());

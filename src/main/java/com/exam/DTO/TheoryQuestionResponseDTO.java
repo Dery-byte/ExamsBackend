@@ -51,6 +51,9 @@ public class TheoryQuestionResponseDTO {
     private String prefix;
     private String evaluationCriteria;
 
+    /** Optional image shown with the question (path like "question-images/{id}.webp"). */
+    private String image;
+
 
     /**
      * Whether this question's group is compulsory.

@@ -13,5 +13,6 @@ public class TheoryQuestionDTO {
     private String question;
     private String marks;
     private String evaluationCriteria;
+    private String image;
     private Long quizId; // optional, just to know which quiz it belongs to
 }

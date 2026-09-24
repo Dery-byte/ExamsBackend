@@ -105,6 +105,10 @@ public class Quiz {
     private Integer maxDelaySeconds = 120;
 
 
+    /** When true, students are emailed their PDF result slip as soon as the lecturer completes their review. */
+    @Column(name = "email_report_on_review")
+    private Boolean emailReportOnReview = false;
+
     @Column(name = "enable_watermark")
     private Boolean enableWatermark = true;
 
@@ -418,6 +422,14 @@ public class Quiz {
 
     public void setMaxDelaySeconds(Integer maxDelaySeconds) {
         this.maxDelaySeconds = maxDelaySeconds;
+    }
+
+    public Boolean getEmailReportOnReview() {
+        return emailReportOnReview;
+    }
+
+    public void setEmailReportOnReview(Boolean emailReportOnReview) {
+        this.emailReportOnReview = emailReportOnReview;
     }
 
     public Boolean getEnableWatermark() {

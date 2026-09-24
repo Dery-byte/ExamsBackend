@@ -1,4 +1,5 @@
 com\exam\controller\CategoryController.class
+com\exam\repository\QuestionImageRepository.class
 com\exam\service\llm\ClaudeEvaluationStrategy$ContentBlock.class
 com\exam\controller\QuizController.class
 com\exam\model\exam\QuizAttempt.class
@@ -19,6 +20,7 @@ com\exam\repository\UserRepository.class
 com\exam\service\QuizService.class
 com\exam\model\User$UserBuilder.class
 com\exam\auth\AuthenticationResponse.class
+com\exam\controller\QuestionImageController.class
 com\exam\model\exam\Report.class
 com\exam\model\exam\AttemptStatus.class
 com\exam\model\exam\Questions.class
@@ -30,6 +32,7 @@ com\exam\helper\ApiExceptionHandler.class
 com\exam\service\llm\EvaluationPersistenceHelper.class
 com\exam\service\SubjectiveEvaluationService.class
 com\exam\controller\DemoController.class
+com\exam\service\ReportEmailService.class
 com\exam\auth\AuthenticationResponse$AuthenticationResponseBuilder.class
 com\exam\service\llm\GPTEvaluationStrategy.class
 com\exam\service\AttemptService.class
@@ -53,12 +56,15 @@ com\exam\model\User.class
 com\exam\helper\UserNotFoundException.class
 com\exam\service\llm\LLMEvaluationStrategyFactory.class
 com\exam\repository\ReportRepository.class
+com\exam\service\QuestionImageService$PdfImage.class
 com\exam\repository\QuestionsRepository.class
 com\exam\repository\QuizRepository.class
 com\exam\token\Token.class
+com\exam\model\exam\QuestionImage.class
 com\exam\service\llm\ClaudeEvaluationStrategy$ClaudeResponse.class
 com\exam\auth\RegisterRequest.class
 com\exam\model\Role.class
+com\exam\service\QuestionImageService.class
 com\exam\repository\TokenRepository.class
 com\exam\service\llm\LLMEvaluationStrategy.class
 com\exam\controller\QuestionsController.class

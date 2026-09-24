@@ -170,6 +170,9 @@
 <div th:if="${showSectionA}" style="margin-top: 25pt;">
   <div class="s-title">Section A: Objective Assessment — Detailed Analysis</div>
   <div th:each="q, qStat : ${mcqQuestions}" class="q-block">
+    <div th:if="${q.image != null}" style="margin: 0 0 6pt 0; text-align:center;">
+      <img th:src="${q.image.src}" th:width="${q.image.widthPt}" th:height="${q.image.heightPt}" alt="" style="border:0.5pt solid #d0d4ee;" />
+    </div>
     <table style="margin-bottom: 3pt;">
       <tr>
         <td style="width:17pt; font-weight:bold; color:#1a2744; vertical-align:top;" th:text="${q.number} + '.'">1.</td>
@@ -208,6 +211,9 @@
 <div th:if="${showSectionMatching}" style="margin-top: 25pt;">
   <div class="s-title">Matching Assessment — Detailed Analysis</div>
   <div th:each="q, qStat : ${matchingQuestions}" class="q-block">
+    <div th:if="${q.image != null}" style="margin: 0 0 6pt 0; text-align:center;">
+      <img th:src="${q.image.src}" th:width="${q.image.widthPt}" th:height="${q.image.heightPt}" alt="" style="border:0.5pt solid #d0d4ee;" />
+    </div>
     <table style="margin-bottom: 3pt;">
       <tr>
         <td style="width:17pt; font-weight:bold; color:#1a2744; vertical-align:top;" th:text="${q.number} + '.'">1.</td>
@@ -251,6 +257,9 @@
   <div th:each="grp : ${theoryGroups}" style="margin-bottom:10pt;">
     <div class="s-sub" th:text="'Module ' + ${grp.prefix}">Module Q1</div>
     <div th:each="ans, st : ${grp.questions}" class="q-block">
+    <div th:if="${ans.image != null}" style="margin: 0 0 6pt 0; text-align:center;">
+      <img th:src="${ans.image.src}" th:width="${ans.image.widthPt}" th:height="${ans.image.heightPt}" alt="" style="border:0.5pt solid #d0d4ee;" />
+    </div>
       <table>
         <tr>
           <td style="width:42pt; font-size:9pt; font-weight:bold; color:#4a4a9c; vertical-align:top;" th:text="${ans.quesNo}">Q1a</td>

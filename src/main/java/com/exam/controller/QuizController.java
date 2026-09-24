@@ -176,6 +176,25 @@ public class QuizController {
         return quizService.getQuizzesForLoggedInUser(principal);
     }
 
+    /** Lecturer / Admin: turn automatic emailing of PDF result slips on or off for one quiz. */
+    @PutMapping("/quiz/{quizId}/email-report")
+    public ResponseEntity<?> setEmailReport(@PathVariable Long quizId,
+                                            @RequestBody Map<String, Boolean> body,
+                                            org.springframework.security.core.Authentication auth) {
+        boolean allowed = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("LECTURER") || a.getAuthority().equals("ADMIN")
+                        || a.getAuthority().equals("SUPER_ADMIN"));
+        if (!allowed) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body("Not allowed");
+        }
+        Quiz quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new ResourceNotFoundException("Quiz not found with ID: " + quizId));
+        boolean enabled = Boolean.TRUE.equals(body.get("enabled"));
+        quiz.setEmailReportOnReview(enabled);
+        quizRepository.save(quiz);
+        return ResponseEntity.ok(Map.of("enabled", enabled));
+    }
+
     @PutMapping("/quiz/status/{quizId}")
     public ResponseEntity<Map<String, String>> updateQuizStatus(
             @PathVariable Long quizId,

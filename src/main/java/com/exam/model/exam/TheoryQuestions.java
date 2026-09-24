@@ -17,6 +17,9 @@ public class TheoryQuestions {
     @Column(nullable = false, length = 5000)
     private String question;
 
+    @Column(nullable = true)
+    private String image;
+
     @Transient
     private String answer;
     @Column(nullable = false)
@@ -107,6 +110,14 @@ public class TheoryQuestions {
     }
 
     // NEW GETTER AND SETTER
+    public String getImage() {
+        return image;
+    }
+
+    public void setImage(String image) {
+        this.image = image;
+    }
+
     public Boolean getIsCompulsory() {
         return isCompulsory;
     }

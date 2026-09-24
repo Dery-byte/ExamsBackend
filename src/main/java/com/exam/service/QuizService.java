@@ -477,6 +477,7 @@ public class QuizService {
         if (req.getMaxDelaySeconds()            != null) quiz.setMaxDelaySeconds(req.getMaxDelaySeconds());
         if (req.getDelayIncrementOnRepeat()     != null) quiz.setDelayIncrementOnRepeat(req.getDelayIncrementOnRepeat());
         if (req.getEnableWatermark()            != null) quiz.setEnableWatermark(req.getEnableWatermark());
+        if (req.getEmailReportOnReview()        != null) quiz.setEmailReportOnReview(req.getEmailReportOnReview());
         if (req.getEnableFullscreenLock()       != null) quiz.setEnableFullscreenLock(req.getEnableFullscreenLock());
         if (req.getEnableScreenshotBlocking()   != null) quiz.setEnableScreenshotBlocking(req.getEnableScreenshotBlocking());
         if (req.getEnableDevToolsBlocking()     != null) quiz.setEnableDevToolsBlocking(req.getEnableDevToolsBlocking());

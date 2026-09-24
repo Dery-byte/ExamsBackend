@@ -333,6 +333,9 @@ public class QuestionsService {
     private QuestionsRepository questionsRepository;
 
     @Autowired
+    private QuestionImageService questionImageService;
+
+    @Autowired
     @Lazy
     private ReportRepository reportRepository;
 
@@ -350,7 +353,11 @@ public class QuestionsService {
                 .orElseThrow(() -> new RuntimeException("Question not found"));
 
         question.setContent(dto.getContent());
-        question.setImage(dto.getImage());
+        String newImage = (dto.getImage() == null || dto.getImage().isBlank()) ? null : dto.getImage();
+        if (!Objects.equals(question.getImage(), newImage)) {
+            questionImageService.deleteByPath(question.getImage());
+        }
+        question.setImage(newImage);
         question.setQuestionType(dto.getQuestionType() != null
                 ? dto.getQuestionType()
                 : QuestionType.MCQ);                          // default to MCQ
@@ -652,6 +659,8 @@ public class QuestionsService {
     // ── Delete ────────────────────────────────────────────────────────────────
 
     public void deleteQuestion(Long quesId) {
+        questionsRepository.findById(quesId)
+                .ifPresent(existing -> questionImageService.deleteByPath(existing.getImage()));
         Questions questions = new Questions();
         questions.setQuesId(quesId);
         this.questionsRepository.delete(questions);

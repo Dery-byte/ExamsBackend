@@ -42,6 +42,8 @@ public class QuizUpdateRequest {
 
     private Boolean enableWatermark = true;
 
+    private Boolean emailReportOnReview;
+
     private Boolean enableFullscreenLock = true;
 
     private Boolean enableScreenshotBlocking = true;
@@ -240,6 +242,14 @@ public class QuizUpdateRequest {
 
     public void setMaxDelaySeconds(Integer maxDelaySeconds) {
         this.maxDelaySeconds = maxDelaySeconds;
+    }
+
+    public Boolean getEmailReportOnReview() {
+        return emailReportOnReview;
+    }
+
+    public void setEmailReportOnReview(Boolean emailReportOnReview) {
+        this.emailReportOnReview = emailReportOnReview;
     }
 
     public Boolean getEnableWatermark() {

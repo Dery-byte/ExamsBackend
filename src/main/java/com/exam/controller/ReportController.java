@@ -44,6 +44,10 @@ private ReportService reportService;
     private final UserDetailsService userDetailsService;
     @Autowired
     private AuthenticationService authenticationService;
+    @Autowired
+    private com.exam.service.ReportEmailService reportEmailService;
+    @Autowired
+    private com.exam.service.SystemSettingService systemSettingService;
     public ReportController(UserDetailsService userDetailsService) {
         this.userDetailsService = userDetailsService;
     }
@@ -184,6 +188,7 @@ public ResponseEntity<List<Report>> getQuizIds(@PathVariable("quiz_Id") Long qui
             return ResponseEntity.badRequest().body("Report not found for this user and quiz");
         }
 
+        boolean wasReviewed = Boolean.TRUE.equals(existingReport.getIsReviewed());
         existingReport.setMarksB(request.marksB);
         existingReport.setIsReviewed(request.isReviewed);
 
@@ -204,7 +209,32 @@ public ResponseEntity<List<Report>> getQuizIds(@PathVariable("quiz_Id") Long qui
 
         Report updatedReport = reportRepository.save(existingReport);
         attemptService.syncOfficialMarks(updatedReport);
+
+        // Review just completed → email the student their result slip (if the feature is enabled)
+        if (!wasReviewed && Boolean.TRUE.equals(updatedReport.getIsReviewed())) {
+            reportEmailService.sendReviewedReport(updatedReport.getUser(), updatedReport.getQuiz());
+        }
         return ResponseEntity.ok(updatedReport);
+    }
+
+    /** Whether the system allows result slips to be emailed after review (master switch). Readable by any signed-in user. */
+    @GetMapping("/report-email-setting")
+    public ResponseEntity<Map<String, Boolean>> getReportEmailSetting() {
+        return ResponseEntity.ok(Map.of("enabled", reportEmailService.isEnabled()));
+    }
+
+    /** Admin / Super Admin: master switch for emailing result slips (lecturers still opt in per quiz). */
+    @PutMapping("/report-email-setting")
+    public ResponseEntity<?> updateReportEmailSetting(@RequestBody Map<String, Boolean> body,
+                                                      org.springframework.security.core.Authentication auth) {
+        boolean allowed = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ADMIN") || a.getAuthority().equals("SUPER_ADMIN"));
+        if (!allowed) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only admins can change this setting");
+        }
+        boolean enabled = Boolean.TRUE.equals(body.get("enabled"));
+        systemSettingService.updateSetting(com.exam.service.SystemSettingService.EMAIL_REPORT_FEATURE_ENABLED, String.valueOf(enabled));
+        return ResponseEntity.ok(Map.of("enabled", enabled));
     }
 
 

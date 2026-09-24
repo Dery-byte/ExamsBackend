@@ -1,6 +1,8 @@
+com\exam\service\AttemptServiceJpaTest.class
+com\exam\service\PdfImageRenderTest.class
 com\exam\service\QuizServiceAutoOpenTest.class
 com\exam\service\AttemptServiceTest.class
+com\exam\service\QuestionImageServiceTest.class
 com\exam\SecurityApplicationTests.class
 com\exam\service\QuizServiceAccessTest.class
-com\exam\service\AttemptServiceJpaTest.class
 com\exam\service\QuizServiceAutoCloseTest.class

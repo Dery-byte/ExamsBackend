@@ -23,6 +23,8 @@ public class TheoryService {
     @Autowired
     private TheoryQuestionsRepository theoryQuestionsRepository;
     @Autowired
+    private QuestionImageService questionImageService;
+    @Autowired
     @Lazy
     private ReportRepository reportRepository;
 
@@ -58,6 +60,13 @@ public class TheoryService {
         if (request.getQuestion() != null) tq.setQuestion(request.getQuestion());
         if (request.getMarks() != null) tq.setMarks(request.getMarks());
         if(request.getEvaluationCriteria() != null) tq.setEvaluationCriteria(request.getEvaluationCriteria());
+        if (request.getImage() != null) {
+            String newImage = request.getImage().isBlank() ? null : request.getImage();
+            if (!java.util.Objects.equals(tq.getImage(), newImage)) {
+                questionImageService.deleteByPath(tq.getImage());
+            }
+            tq.setImage(newImage);
+        }
         if (request.getQuizId() != null) {
 //            Quiz quiz = new Quiz();
 //            quiz.setqId(request.getQuizId());
@@ -74,6 +83,7 @@ public class TheoryService {
         dto.setQuestion(tq.getQuestion());
         dto.setMarks(String.valueOf(tq.getMarks()));
         dto.setEvaluationCriteria(tq.getEvaluationCriteria());
+        dto.setImage(tq.getImage());
         if (tq.getQuiz() != null) {
             dto.setQuizId(tq.getQuiz().getqId());
         }
@@ -149,6 +159,7 @@ public class TheoryService {
         dto.setPrefix(q.getQuesNo());
         dto.setCompulsory(q.getIsCompulsory());
         dto.setEvaluationCriteria(q.getEvaluationCriteria());
+        dto.setImage(q.getImage());
 
         // givenAnswer starts null for unanswered questions —
         // the textarea placeholder handles the empty state in the UI
@@ -163,6 +174,8 @@ public class TheoryService {
 
 
     public void deleteQuestion(Long TqId){
+        theoryQuestionsRepository.findById(TqId)
+                .ifPresent(existing -> questionImageService.deleteByPath(existing.getImage()));
         TheoryQuestions theoryQuestions = new TheoryQuestions();
         theoryQuestions.setTqId(TqId);
         this.theoryQuestionsRepository.delete(theoryQuestions);

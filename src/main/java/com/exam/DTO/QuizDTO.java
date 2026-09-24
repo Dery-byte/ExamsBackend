@@ -37,6 +37,7 @@ public class QuizDTO {
     private Double delayMultiplier;
     private Integer maxDelaySeconds;
     private Boolean enableWatermark;
+    private Boolean emailReportOnReview;
     private Boolean enableFullscreenLock;
     private Boolean enableScreenshotBlocking;
     private Boolean enableDevToolsBlocking;
@@ -84,6 +85,7 @@ public class QuizDTO {
         this.delayMultiplier = quiz.getDelayMultiplier();
         this.maxDelaySeconds = quiz.getMaxDelaySeconds();
         this.enableWatermark = quiz.getEnableWatermark();
+        this.emailReportOnReview = quiz.getEmailReportOnReview();
         this.enableFullscreenLock = quiz.getEnableFullscreenLock();
         this.enableScreenshotBlocking = quiz.getEnableScreenshotBlocking();
         this.enableDevToolsBlocking = quiz.getEnableDevToolsBlocking();
@@ -268,6 +270,14 @@ public class QuizDTO {
 
     public void setMaxDelaySeconds(Integer maxDelaySeconds) {
         this.maxDelaySeconds = maxDelaySeconds;
+    }
+
+    public Boolean getEmailReportOnReview() {
+        return emailReportOnReview;
+    }
+
+    public void setEmailReportOnReview(Boolean emailReportOnReview) {
+        this.emailReportOnReview = emailReportOnReview;
     }
 
     public Boolean getEnableWatermark() {

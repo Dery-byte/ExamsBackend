@@ -90,6 +90,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\AnswerD
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\StudentSectionMark.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuestionScoringService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuizService.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\ReportEmailService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\ReportRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\SystemSettingRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\llm\GPTEvaluationStrategy.java
@@ -106,6 +107,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\token\Token.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\exception\ResetPasswordTokenAlreadyUsedException.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\Mail.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\QuestionImageController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\ResetPasswordWithTokenRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\MNotifyV2Config.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\MarksEntryController.java
@@ -118,6 +120,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\Answe
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\OpenAIConfig.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\GradeResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\CustomLocalDateDeserializer.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\QuestionImage.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\StudentAnswerRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\DepartmentDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\StringListConverter.java
@@ -157,6 +160,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\GPTChoi
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\QuizAttemptRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\GeminiRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\TheoryUpdateRequest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\QuestionImageRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\QuizRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\ResourceNotFoundException.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\QuizTimerRepository.java
@@ -202,6 +206,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\TheoryQuestionResponseDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\QuizType.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\NumberOfTheoryToAnswerService.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuestionImageService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\DepartmentService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\SuperAdminController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\ApiExceptionHandler.java

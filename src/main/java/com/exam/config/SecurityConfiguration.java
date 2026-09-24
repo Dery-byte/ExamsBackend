@@ -393,6 +393,22 @@ public class SecurityConfiguration {
                 );
         return http.build();
     }
+    /**
+     * Also apply CORS at the servlet level for REQUEST and ERROR dispatches. Without this, when a request
+     * fails after the controller ran (container error dispatch to /error), the CORS headers are lost and the
+     * browser reports a misleading "No 'Access-Control-Allow-Origin' header" instead of the real error.
+     */
+    @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<org.springframework.web.filter.CorsFilter> corsErrorDispatchFilter(
+            CorsConfigurationSource corsConfigurationSource) {
+        var registration = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(
+                new org.springframework.web.filter.CorsFilter(corsConfigurationSource));
+        registration.setDispatcherTypes(java.util.EnumSet.of(
+                jakarta.servlet.DispatcherType.REQUEST, jakarta.servlet.DispatcherType.ERROR));
+        registration.setOrder(org.springframework.core.Ordered.HIGHEST_PRECEDENCE);
+        return registration;
+    }
+
     // =========================
     // CORS CONFIGURATION (No Credentials)
     // =========================

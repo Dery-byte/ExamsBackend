@@ -18,11 +18,19 @@ public class SystemSettingService {
     private SystemSettingRepository systemSettingRepository;
 
     public static final String ALLOW_CARRYOVER_REGISTRATION = "ALLOW_CARRYOVER_REGISTRATION";
+    /**
+     * Master switch (Admin / Super Admin). When "false", no result slip is ever emailed, whatever the
+     * per-quiz setting says. Lecturers choose per quiz; this only allows or blocks the feature system-wide.
+     */
+    public static final String EMAIL_REPORT_FEATURE_ENABLED = "EMAIL_REPORT_FEATURE_ENABLED";
 
     @PostConstruct
     public void initDefaultSettings() {
         if (!systemSettingRepository.existsById(ALLOW_CARRYOVER_REGISTRATION)) {
             systemSettingRepository.save(new SystemSetting(ALLOW_CARRYOVER_REGISTRATION, "false"));
+        }
+        if (!systemSettingRepository.existsById(EMAIL_REPORT_FEATURE_ENABLED)) {
+            systemSettingRepository.save(new SystemSetting(EMAIL_REPORT_FEATURE_ENABLED, "true"));
         }
     }
 

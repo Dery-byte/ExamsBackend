@@ -40,6 +40,10 @@ public class PdfReportService {
     @Autowired @Lazy private ReportService reportService;
     @Autowired private NumberOfTheoryToAnswerService numberOfTheoryToAnswerService;
     @Autowired private TemplateEngine templateEngine;
+    @Autowired private QuestionImageService questionImageService;
+
+    private static final int IMG_MAX_W_PT = 380;
+    private static final int IMG_MAX_H_PT = 200;
 
     // ── Inner DTOs ────────────────────────────────────────────────────────────
 
@@ -55,6 +59,7 @@ public class PdfReportService {
     public static class McqDto {
         private int number;
         private String content;
+        private QuestionImageService.PdfImage image;
         private String status;
         private List<OptionDto> options;
     }
@@ -71,6 +76,7 @@ public class PdfReportService {
     public static class MatchingDto {
         private int number;
         private String content;
+        private QuestionImageService.PdfImage image;
         private String status;
         private int pairsCorrect;
         private int pairsTotal;
@@ -81,6 +87,7 @@ public class PdfReportService {
     public static class TheoryAnswerDto {
         private String quesNo;
         private String question;
+        private QuestionImageService.PdfImage image;
         private String studentAnswer;
         private String score;
         private String maxMarks;
@@ -235,7 +242,8 @@ public class PdfReportService {
                 String txt = String.valueOf(v);
                 opts.add(new OptionDto(letters[i], txt, cSet.contains(txt), sSet.contains(txt)));
             }
-            dtos.add(new McqDto(num++, String.valueOf(q.getOrDefault("content", "")), status, opts));
+            dtos.add(new McqDto(num++, String.valueOf(q.getOrDefault("content", "")),
+                    questionImageService.loadForPdf((String) q.get("image"), IMG_MAX_W_PT, IMG_MAX_H_PT), status, opts));
         }
         return dtos;
     }
@@ -264,7 +272,8 @@ public class PdfReportService {
                 boolean correct = Boolean.parseBoolean(String.valueOf(p.get("correct")));
                 pairs.add(new MatchingPairDto(prompt, expected, student, correct));
             }
-            dtos.add(new MatchingDto(num++, String.valueOf(q.getOrDefault("content", "")), status, pairsCorrect, pairsTotal, pairs));
+            dtos.add(new MatchingDto(num++, String.valueOf(q.getOrDefault("content", "")),
+                    questionImageService.loadForPdf((String) q.get("image"), IMG_MAX_W_PT, IMG_MAX_H_PT), status, pairsCorrect, pairsTotal, pairs));
         }
         return dtos;
     }
@@ -277,9 +286,11 @@ public class PdfReportService {
                     ? qNo.toUpperCase().replaceAll("(Q\\d+).*", "$1") : "OTHER";
             int    sPct    = a.getMaxMarks() > 0 ? (int) Math.round((a.getScore() / a.getMaxMarks()) * 100) : 0;
             String q       = a.getTheoryQuestion() != null ? a.getTheoryQuestion().getQuestion() : "";
+            QuestionImageService.PdfImage qImg = a.getTheoryQuestion() != null
+                    ? questionImageService.loadForPdf(a.getTheoryQuestion().getImage(), IMG_MAX_W_PT, IMG_MAX_H_PT) : null;
             List<String> km = a.getKeyMissed() != null ? a.getKeyMissed() : List.of();
             map.computeIfAbsent(prefix, k -> new ArrayList<>())
-               .add(new TheoryAnswerDto(qNo, q, safeStr(a.getStudentAnswer()),
+               .add(new TheoryAnswerDto(qNo, q, qImg, safeStr(a.getStudentAnswer()),
                        fmt(a.getScore()), fmt(a.getMaxMarks()), sPct, km, safeStr(a.getFeedback()), safeStr(a.getLecturerComment())));
         }
         return map.entrySet().stream()
