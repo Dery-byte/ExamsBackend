@@ -91,7 +91,7 @@ public class ReportEmailService {
                     + "<p>Alternatively, you may download it at any time from your dashboard.</p>"
                     + "<p>Should you have any questions or concerns, please do not hesitate to contact your lecturer.</p>"
                     + "<p>Best regards,<br>"
-                    + "&copy; " + Year.now().getValue() + "</p>", true);
+                    + " OTC &copy; " + Year.now().getValue() + "</p>", true);
             helper.addAttachment(fileName, new ByteArrayResource(pdf), "application/pdf");
             mailSender.send(message);
             log.info("[REPORT-MAIL] Result slip sent to {}", to);

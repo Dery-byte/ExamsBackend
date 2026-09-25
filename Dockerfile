@@ -27,6 +27,10 @@ RUN mvn clean package -DskipTests
 
 # RUNTIME STAGE
 FROM eclipse-temurin:21-jre
+
+# Install fontconfig and fonts required for PDF generation (AWT/Flying Saucer)
+RUN apt-get update && apt-get install -y fontconfig fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY --from=build /app/target/exam-docker.jar exam-docker.jar
 EXPOSE 8080
