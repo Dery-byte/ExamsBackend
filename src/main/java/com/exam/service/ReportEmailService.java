@@ -89,7 +89,9 @@ public class ReportEmailService {
                     + "<b>" + HtmlUtils.htmlEscape(quizTitle) + "</b> (" + HtmlUtils.htmlEscape(course)
                     + "). Your result slip has been attached to this email as a PDF document.</p>"
                     + "<p>Alternatively, you may download it at any time from your dashboard.</p>"
-                    + "<p>Should you have any questions or concerns, please do not hesitate to contact your lecturer.</p>"
+                    + "<p>Should you have any questions or concerns, please do not hesitate to contact <b>"
+                    + (lecturerName == null || lecturerName.isBlank() ? "Your Lecturer" : HtmlUtils.htmlEscape(lecturerName))
+                    + "</b>.</p>"
                     + "<p>Best regards,<br>"
                     + " OTC &copy; " + Year.now().getValue() + "</p>", true);
             helper.addAttachment(fileName, new ByteArrayResource(pdf), "application/pdf");
