@@ -166,6 +166,13 @@ public class PdfReportService {
         ctx.setVariable("submissionDate",  submDate);
         ctx.setVariable("refId",           String.format("%06d", quizId));
         ctx.setVariable("generatedDate",   java.time.LocalDate.now().format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
+
+        // Resolve lecturer name from the quiz owner (the user who created the quiz)
+        com.exam.model.User quizOwner = report != null && report.getQuiz() != null ? report.getQuiz().getUser() : null;
+        String lecturerFirstName = quizOwner != null ? safeStr(quizOwner.getFirstname()) : "";
+        String lecturerLastName  = quizOwner != null ? safeStr(quizOwner.getLastname())  : "";
+        String lecturerName      = (lecturerFirstName + " " + lecturerLastName).trim();
+        ctx.setVariable("lecturerName", lecturerName.isEmpty() ? "N/A" : lecturerName);
         ctx.setVariable("objScore",   fmt(objScore));
         ctx.setVariable("maxObj",     fmt(maxObj));
         ctx.setVariable("objPct",     objPct);

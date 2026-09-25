@@ -13,6 +13,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
 
+import java.time.Year;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -53,7 +54,6 @@ public class ReportEmailService {
             }
 
             byte[] pdf = pdfReportService.generateReportPdf(quiz.getqId(), student.getId());
-
             String name = ((student.getFirstname() == null ? "" : student.getFirstname()) + " "
                     + (student.getLastname() == null ? "" : student.getLastname())).trim();
             String course = quiz.getCategory() != null && quiz.getCategory().getTitle() != null
@@ -61,13 +61,19 @@ public class ReportEmailService {
             String quizTitle = quiz.getTitle() != null ? quiz.getTitle() : "Quiz";
             String fileName = ("ResultsSlip_" + course + "_" + quizTitle).replaceAll("[^a-zA-Z0-9.-]", "_") + ".pdf";
 
-            CompletableFuture.runAsync(() -> send(to, name, course, quizTitle, fileName, pdf));
+            // Resolve the lecturer name from the quiz owner
+            User lecturer = quiz.getUser();
+            String lecturerName = lecturer == null ? "" :
+                    ((lecturer.getFirstname() == null ? "" : lecturer.getFirstname()) + " "
+                    + (lecturer.getLastname() == null ? "" : lecturer.getLastname())).trim();
+
+            CompletableFuture.runAsync(() -> send(to, name, course, quizTitle, fileName, pdf, lecturerName));
         } catch (Exception e) {
             log.error("[REPORT-MAIL] Could not prepare result slip email for quiz {}", quiz != null ? quiz.getqId() : null, e);
         }
     }
 
-    private void send(String to, String name, String course, String quizTitle, String fileName, byte[] pdf) {
+    private void send(String to, String name, String course, String quizTitle, String fileName, byte[] pdf, String lecturerName) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -75,10 +81,17 @@ public class ReportEmailService {
             helper.setTo(to);
             helper.setSubject("Your result slip: " + course + " - " + quizTitle);
             String greeting = name.isEmpty() ? "Hello," : "Hello " + HtmlUtils.htmlEscape(name) + ",";
+            String lecturerLine = lecturerName.isEmpty()
+                    ? "Your lecturer"
+                    : "<b>" + HtmlUtils.htmlEscape(lecturerName) + "</b>";
             helper.setText("<p>" + greeting + "</p>"
-                    + "<p>Your lecturer has finished reviewing <b>" + HtmlUtils.htmlEscape(quizTitle)
-                    + "</b> (" + HtmlUtils.htmlEscape(course) + "). Your result slip is attached as a PDF.</p>"
-                    + "<p>You can also download it any time from your dashboard.</p>", true);
+                    + "<p>" + lecturerLine + " has completed the review of "
+                    + "<b>" + HtmlUtils.htmlEscape(quizTitle) + "</b> (" + HtmlUtils.htmlEscape(course)
+                    + "). Your result slip has been attached to this email as a PDF document.</p>"
+                    + "<p>Alternatively, you may download it at any time from your dashboard.</p>"
+                    + "<p>Should you have any questions or concerns, please do not hesitate to contact your lecturer.</p>"
+                    + "<p>Best regards,<br>"
+                    + "&copy; " + Year.now().getValue() + "</p>", true);
             helper.addAttachment(fileName, new ByteArrayResource(pdf), "application/pdf");
             mailSender.send(message);
             log.info("[REPORT-MAIL] Result slip sent to {}", to);

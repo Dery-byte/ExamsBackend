@@ -127,6 +127,10 @@
     <td class="lb">Merit Status</td>
     <td th:text="${gradeStatus}" th:class="${totalPct >= 50} ? 's-pass' : 's-fail'">QUALIFIED</td>
   </tr>
+  <tr>
+    <td class="lb">Lecturer</td>
+    <td colspan="3" th:text="${lecturerName}">Dr. John Smith</td>
+  </tr>
 </table>
 
 <!-- ══════════ PERFORMANCE SUMMARY ══════════ -->
