@@ -28,6 +28,7 @@ com\exam\controller\AuthenticationController.class
 com\exam\model\exam\Quiz.class
 com\exam\controller\ReportController.class
 com\exam\repository\QuizAttemptRepository.class
+com\exam\controller\FeatureFlagController.class
 com\exam\helper\ApiExceptionHandler.class
 com\exam\service\llm\EvaluationPersistenceHelper.class
 com\exam\service\SubjectiveEvaluationService.class
@@ -63,6 +64,7 @@ com\exam\token\Token.class
 com\exam\model\exam\QuestionImage.class
 com\exam\service\llm\ClaudeEvaluationStrategy$ClaudeResponse.class
 com\exam\auth\RegisterRequest.class
+com\exam\config\MarksSheetAccessInterceptor.class
 com\exam\model\Role.class
 com\exam\service\QuestionImageService.class
 com\exam\repository\TokenRepository.class

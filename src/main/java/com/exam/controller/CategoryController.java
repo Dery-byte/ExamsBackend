@@ -15,6 +15,7 @@ import com.exam.service.CategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -41,13 +42,21 @@ public class CategoryController {
     // ── CATEGORY CRUD ─────────────────────────────────────────────────────────
 
     @PostMapping("/add")
-    public ResponseEntity<Category> addCategory(@RequestBody Category category) {
-        return ResponseEntity.ok(this.categoryService.addCategory(category));
+    public ResponseEntity<?> addCategory(@RequestBody Category category) {
+        try {
+            return ResponseEntity.ok(this.categoryService.addCategory(category));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage(e.getMessage()));
+        }
     }
 
     @PostMapping("/lecturer/addCategory")
-    public ResponseEntity<Category> lecturerAddCategory(@RequestBody Category category) {
-        return ResponseEntity.ok(this.categoryService.lecturerAddCategory(category));
+    public ResponseEntity<?> lecturerAddCategory(@RequestBody Category category) {
+        try {
+            return ResponseEntity.ok(this.categoryService.lecturerAddCategory(category));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage(e.getMessage()));
+        }
     }
 
     @GetMapping("/getCategories")
@@ -75,14 +84,20 @@ public class CategoryController {
     public ResponseEntity<?> adminUpdateCategory(@PathVariable Long id, @RequestBody CategoryUpdateRequest request) {
         try {
             return ResponseEntity.ok(this.categoryService.adminUpdateCategory(id, request));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorMessage(e.getMessage()));
         }
     }
 
     @PutMapping("/category/updateCategory")
-    public ResponseEntity<CategoryDTO> updateCategory(@RequestBody CategoryUpdateRequest request) {
-        return ResponseEntity.ok(categoryService.updateCategory(request));
+    public ResponseEntity<?> updateCategory(@RequestBody CategoryUpdateRequest request) {
+        try {
+            return ResponseEntity.ok(categoryService.updateCategory(request));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage(e.getMessage()));
+        }
     }
 
     @DeleteMapping("/category/{categoryId}")
@@ -118,8 +133,12 @@ public class CategoryController {
     }
 
     @PostMapping("/user/addCategory")
-    public Category addCategoryForLoggedInUser(@RequestBody CategoryRequest category, Principal principal) {
-        return categoryService.addCategoryForUser(category, principal);
+    public ResponseEntity<?> addCategoryForLoggedInUser(@RequestBody CategoryRequest category, Principal principal) {
+        try {
+            return ResponseEntity.ok(categoryService.addCategoryForUser(category, principal));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage(e.getMessage()));
+        }
     }
 
     @PutMapping("/courses/{categoryId}/assign/{lecturerId}")

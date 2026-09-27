@@ -14,6 +14,8 @@ import com.exam.repository.*;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -87,8 +89,49 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
         }
     }
 
+    // ── Global courses ────────────────────────────────────────────────────────
+    // A course with no programs is "global": every student can take it regardless
+    // of program. Only the Super Admin may create global courses or change a
+    // global course's program assignment.
+
+    private static boolean isGlobal(Category category) {
+        return category.getPrograms() == null || category.getPrograms().isEmpty();
+    }
+
+    private static boolean currentUserIsSuperAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "SUPER_ADMIN".equals(a.getAuthority()) || "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+    }
+
+    private static void requireProgramUnlessSuperAdmin(Category category) {
+        if (isGlobal(category) && !currentUserIsSuperAdmin()) {
+            throw new AccessDeniedException(
+                    "Only the Super Admin can add global courses. Select at least one program for this course.");
+        }
+    }
+
+    /** Applies programIds from an update request, enforcing the global-course rules. */
+    private void applyProgramIds(Category category, List<Long> programIds) {
+        if (programIds == null) return;
+        boolean wasGlobal = isGlobal(category);
+        Set<Program> resolved = new HashSet<>(programRepository.findAllById(programIds));
+        if (!currentUserIsSuperAdmin()) {
+            if (resolved.isEmpty() && !wasGlobal) {
+                throw new AccessDeniedException(
+                        "Only the Super Admin can make a course global. Select at least one program.");
+            }
+            if (wasGlobal && !resolved.isEmpty()) {
+                throw new AccessDeniedException(
+                        "Only the Super Admin can change the programs of a global course.");
+            }
+        }
+        category.setPrograms(resolved);
+    }
+
     public Category addCategory(Category category){
         resolveAndNormalize(category);
+        requireProgramUnlessSuperAdmin(category);
         return this.categoryRepository.save(category);
     }
 
@@ -97,6 +140,7 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
 
     public Category lecturerAddCategory(Category category) {
         resolveAndNormalize(category);
+        requireProgramUnlessSuperAdmin(category);
         String username = SecurityContextHolder.getContext()
                 .getAuthentication()
                 .getName();
@@ -116,10 +160,7 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
         category.setDescription(request.getDescription());
         category.setLevel(request.getLevel());
         category.setCourseCode(request.getCourseCode());
-        if (request.getProgramIds() != null) {
-            java.util.List<Program> resolvedPrograms = programRepository.findAllById(request.getProgramIds());
-            category.setPrograms(new java.util.HashSet<>(resolvedPrograms));
-        }
+        applyProgramIds(category, request.getProgramIds());
         Category savedCategory = categoryRepository.save(category);
         return convertToDTO(savedCategory);
     }
@@ -155,10 +196,7 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
         category.setDescription(request.getDescription());
         category.setLevel(request.getLevel());
         category.setCourseCode(request.getCourseCode());
-        if (request.getProgramIds() != null) {
-            java.util.List<Program> resolvedPrograms = programRepository.findAllById(request.getProgramIds());
-            category.setPrograms(new java.util.HashSet<>(resolvedPrograms));
-        }
+        applyProgramIds(category, request.getProgramIds());
         // User field is NOT touched, so it remains unchanged
         Category updated = categoryRepository.save(category);
         return new com.exam.DTO.CategoryDTO(updated);
@@ -257,6 +295,8 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
         category.setDescription(request.getDescription());
         category.setLevel(request.getLevel());
         category.setUser(lecturer); // assign lecturer as owner
+        // This endpoint takes no programs, so the course would be global
+        requireProgramUnlessSuperAdmin(category);
         return categoryRepository.save(category);
     }
 

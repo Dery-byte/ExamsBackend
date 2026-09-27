@@ -24,8 +24,18 @@ public class SystemSettingService {
      */
     public static final String EMAIL_REPORT_FEATURE_ENABLED = "EMAIL_REPORT_FEATURE_ENABLED";
 
+    /** Super Admin switches: show the Marks Sheet navigation entry to each role. */
+    public static final String MARKS_SHEET_VISIBLE_ADMIN    = "MARKS_SHEET_VISIBLE_ADMIN";
+    public static final String MARKS_SHEET_VISIBLE_LECTURER = "MARKS_SHEET_VISIBLE_LECTURER";
+    public static final String MARKS_SHEET_VISIBLE_STUDENT  = "MARKS_SHEET_VISIBLE_STUDENT";
+
     @PostConstruct
     public void initDefaultSettings() {
+        for (String key : List.of(MARKS_SHEET_VISIBLE_ADMIN, MARKS_SHEET_VISIBLE_LECTURER, MARKS_SHEET_VISIBLE_STUDENT)) {
+            if (!systemSettingRepository.existsById(key)) {
+                systemSettingRepository.save(new SystemSetting(key, "true"));
+            }
+        }
         if (!systemSettingRepository.existsById(ALLOW_CARRYOVER_REGISTRATION)) {
             systemSettingRepository.save(new SystemSetting(ALLOW_CARRYOVER_REGISTRATION, "false"));
         }
@@ -50,6 +60,15 @@ public class SystemSettingService {
         SystemSetting setting = systemSettingRepository.findById(key).orElse(new SystemSetting(key));
         setting.setSettingValue(value);
         systemSettingRepository.save(setting);
+    }
+
+    /** Navigation visibility flags, readable by every signed-in role. */
+    public Map<String, Boolean> getFeatureFlags() {
+        Map<String, Boolean> flags = new HashMap<>();
+        flags.put("marksSheetAdmin",    getBooleanSetting(MARKS_SHEET_VISIBLE_ADMIN, true));
+        flags.put("marksSheetLecturer", getBooleanSetting(MARKS_SHEET_VISIBLE_LECTURER, true));
+        flags.put("marksSheetStudent",  getBooleanSetting(MARKS_SHEET_VISIBLE_STUDENT, true));
+        return flags;
     }
 
     public Map<String, String> getAllSettings() {
