@@ -48,6 +48,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Import({AttemptService.class, QuizService.class})
 class AttemptServiceJpaTest {
 
+    /** QuizService notifies students when a quiz goes live; not under test here. */
+    @org.springframework.boot.test.mock.mockito.MockBean com.exam.service.comms.NotificationService notificationService;
+
     @Autowired AttemptService        service;
     @Autowired QuizAttemptRepository attempts;
     @Autowired UserRepository        users;
@@ -75,7 +78,7 @@ class AttemptServiceJpaTest {
         Quiz q = new Quiz();
         q.setTitle("Mid-sem");
         q.setQuizTime("30");
-        q.setQuizpassword("pw");
+        q.setQuizpassword("");   // no access code: these tests are about the attempt lifecycle (see passwordGate… below)
         q.setQuizType(QuizType.OBJ);
         q.setMaxAttempts(2);
         q.setActive(true);
@@ -142,7 +145,7 @@ class AttemptServiceJpaTest {
         Quiz draft = new Quiz();
         draft.setTitle("Pop quiz");
         draft.setQuizTime("10");
-        draft.setQuizpassword("pw");
+        draft.setQuizpassword("");
         draft.setQuizType(QuizType.OBJ);
         draft.setMaxAttempts(1);
         draft.setCategory(course);
@@ -185,6 +188,35 @@ class AttemptServiceJpaTest {
         a.setAttemptNumber(number);
         a.setStartedAt(LocalDateTime.now());
         return a;
+    }
+
+    @Autowired com.exam.repository.QuizUnlockRepository unlocks;
+
+    private void unlock(User u, Quiz q) {
+        com.exam.model.examops.QuizUnlock x = new com.exam.model.examops.QuizUnlock();
+        x.setUser(u);
+        x.setQuiz(q);
+        unlocks.save(x);
+    }
+
+    @Test
+    void passwordGateRequiresAFreshUnlockForEachNewAttemptButNotToResume() throws Exception {
+        quiz.setQuizpassword("s3cret");
+        quizzes.save(quiz);
+
+        assertThatThrownBy(() -> service.begin(student, quiz))            // no unlock yet
+                .isInstanceOfSatisfying(ResponseStatusException.class, e -> assertThat(e.getStatusCode().value()).isEqualTo(403));
+
+        unlock(student, quiz);
+        assertThat(service.begin(student, quiz).activeAttemptNumber()).isEqualTo(1);
+        assertThat(service.begin(student, quiz).activeAttemptNumber()).isEqualTo(1);   // resume after a crash: no new unlock needed
+        service.recordObjective(student, quiz, new BigDecimal("5"));
+
+        Thread.sleep(5);                                                   // unlock timestamps must be after the attempt start
+        assertThatThrownBy(() -> service.begin(student, quiz))            // the old unlock was used by attempt 1
+                .isInstanceOf(ResponseStatusException.class);
+        unlock(student, quiz);
+        assertThat(service.begin(student, quiz).activeAttemptNumber()).isEqualTo(2);
     }
 
     private static User user(String name, Role role) {

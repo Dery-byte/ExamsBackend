@@ -87,6 +87,20 @@ public class QuestionImageService {
     }
 
     /** Deletes the stored image referenced by a question's image path (no-op otherwise). */
+    /**
+     * Duplicates a stored image and returns the new path, so two questions never share one
+     * image row (deleting either question deletes its own image). Returns null if there is none.
+     */
+    public String copy(String path) {
+        if (path == null || !path.startsWith(PATH_PREFIX) || !path.endsWith(SUFFIX)) return null;
+        String id = path.substring(PATH_PREFIX.length(), path.length() - SUFFIX.length());
+        return repository.findById(id).map(img -> {
+            String newId = UUID.randomUUID().toString();
+            repository.save(new QuestionImage(newId, img.getData()));
+            return PATH_PREFIX + newId + SUFFIX;
+        }).orElse(null);
+    }
+
     public void deleteByPath(String path) {
         if (path == null || !path.startsWith(PATH_PREFIX) || !path.endsWith(SUFFIX)) return;
         String id = path.substring(PATH_PREFIX.length(), path.length() - SUFFIX.length());

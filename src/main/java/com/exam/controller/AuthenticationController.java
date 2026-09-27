@@ -144,8 +144,17 @@ public class AuthenticationController {
     // SUPER ADMIN  (bootstrap — secured at network/infra level in production)
     @PostMapping("/register/super-admin")
     public ResponseEntity<?> registerSuperAdmin(
-            @RequestBody RegisterRequest request
+            @RequestBody RegisterRequest request,
+            Principal principal
     ) {
+        // Open only for first-time setup (no Super Admin yet); afterwards only a Super Admin may add another
+        boolean anyExists = !userRepository.findByRole(Role.SUPER_ADMIN).isEmpty();
+        if (anyExists) {
+            User caller = principal == null ? null : userRepository.findByUsername(principal.getName()).orElse(null);
+            if (caller == null || caller.getRole() != Role.SUPER_ADMIN)
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(java.util.Map.of("message", "Only a Super Admin can create another Super Admin account."));
+        }
         try {
             return ResponseEntity.ok(service.registerAsSuperAdmin(request));
         } catch (UserFoundException e) {
@@ -161,6 +170,11 @@ public class AuthenticationController {
 
 
 
+@Autowired
+private com.exam.config.RateLimiter rateLimiter;
+private static final int MAX_FAILED_LOGINS = 5;
+private static final long LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000L;
+
 @PostMapping("/authenticate")
 public ResponseEntity<AuthenticationResponse> authenticate(
         @RequestBody AuthenticationRequest request,
@@ -174,8 +188,28 @@ public ResponseEntity<AuthenticationResponse> authenticate(
 //    log.debug("Path: {}", httpRequest.getRequestURI());
 //    log.debug("Content-Type: {}", httpRequest.getHeader("Content-Type"));
 
+    // Per-account lockout: too many wrong passwords for one username locks it for a while
+    String lockKey = "login-fail:" + String.valueOf(request.getUsername()).trim().toLowerCase();
+    if (rateLimiter.count(lockKey, LOGIN_LOCK_WINDOW_MS) >= MAX_FAILED_LOGINS) {
+        long wait = Math.max(1, rateLimiter.retryAfterSeconds(lockKey, LOGIN_LOCK_WINDOW_MS) / 60);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(AuthenticationResponse.builder()
+                .message("Too many failed sign-in attempts for this account. Try again in " + wait + " minute(s).").build());
+    }
+
     // Authenticate user and generate token
-    AuthenticationResponse authResponse = service.authenticate(request);
+    AuthenticationResponse authResponse;
+    try {
+        authResponse = service.authenticate(request);
+        rateLimiter.reset(lockKey);
+    } catch (org.springframework.security.authentication.DisabledException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(AuthenticationResponse.builder()
+                .message("This account has been deactivated. Please contact your administrator.").build());
+    } catch (org.springframework.security.core.AuthenticationException e) {
+        // 400 (not 401): the frontend treats 401 as "session expired" and reloads the sign-in page
+        rateLimiter.record(lockKey);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(AuthenticationResponse.builder()
+                .message("Incorrect username or password.").build());
+    }
 
 //    log.info("✅ User authenticated successfully: {}", request.getEmail());
 
@@ -486,15 +520,23 @@ public ResponseEntity<?> logout(
 
     // Delete lecturer
     @DeleteMapping("/lecturer/{id}")
-    public ResponseEntity<Void> deleteLecturer(@PathVariable Long id) {
-        service.deleteLecturer(id);
+    public ResponseEntity<?> deleteLecturer(@PathVariable Long id) {
+        try {
+            service.deleteLecturer(id);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", e.getMessage()));
+        }
         return ResponseEntity.noContent().build();
     }
 
 
     @DeleteMapping("/student/{id}")
-    public ResponseEntity<Void> deleteStudent(@PathVariable Long id) {
-        service.deleteStudent(id);
+    public ResponseEntity<?> deleteStudent(@PathVariable Long id) {
+        try {
+            service.deleteStudent(id);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", e.getMessage()));
+        }
         return ResponseEntity.noContent().build();
     }
 

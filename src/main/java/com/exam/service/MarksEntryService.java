@@ -22,6 +22,15 @@ public class MarksEntryService {
     private CategoryRepository categoryRepository; // Courses
 
     @Autowired
+    private com.exam.service.academic.GradingService gradingService;
+
+    @Autowired
+    private com.exam.service.academic.AcademicSessionService academicSessionService;
+
+    @Autowired
+    private com.exam.service.academic.AcademicRecordService academicRecordService;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -63,9 +72,12 @@ public class MarksEntryService {
         Program program = programRepository.findById(programId)
                 .orElseThrow(() -> new RuntimeException("Program not found"));
 
-        // Duplicate check: a sheet already exists for this exact program+level+semester
+        // Duplicate check: a sheet already exists for this program+level+semester in the CURRENT session
+        com.exam.model.academic.AcademicSession session = academicSessionService.current();
         List<SemesterSheet> existing = semesterSheetRepository.findByProgramIdAndLevelAndSemester(
-                program.getId(), level, semester);
+                program.getId(), level, semester).stream()
+                .filter(ex -> ex.getSession() == null || ex.getSession().getId().equals(session.getId()))
+                .collect(java.util.stream.Collectors.toList());
         if (existing != null && !existing.isEmpty()) {
             // Check if this course already has a sheet for this program+level+semester
             for (SemesterSheet ex : existing) {
@@ -102,6 +114,7 @@ public class MarksEntryService {
         sheet.setClassTeacher(classTeacher);
         sheet.setRestrictLecturerToAssignedCourses(restrictLecturer);
         sheet.setStatus("DRAFT");
+        sheet.setSession(session);
 
         for (MarkSheetSection section : sections) {
             section.setSemesterSheet(sheet);
@@ -116,9 +129,11 @@ public class MarksEntryService {
         try { levelInt = Integer.parseInt(level); } catch (NumberFormatException ignored) {}
         List<User> students = userRepository.findByProgramAndCurrentLevel(program, levelInt);
 
-        // Generate blank marks for each student × each selected course
-        for (User student : students) {
-            for (Category c : selectedCourses) {
+        // Generate blank marks for each student × each selected course,
+        // plus carry-over students who still owe the course from an earlier attempt
+        for (Category c : selectedCourses) {
+            List<User> takers = withCarryovers(students, c);
+            for (User student : takers) {
                 StudentCourseMark scm = new StudentCourseMark();
                 scm.setSemesterSheet(savedSheet);
                 scm.setStudent(student);
@@ -139,6 +154,14 @@ public class MarksEntryService {
         return savedSheet;
     }
 
+
+    /** The level's students plus anyone (any level) still owing this course as a carry-over, without duplicates. */
+    private List<User> withCarryovers(List<User> students, Category course) {
+        java.util.Map<Long, User> all = new java.util.LinkedHashMap<>();
+        students.stream().filter(User::isEnabled).forEach(u -> all.put(u.getId(), u));   // deactivated accounts are skipped
+        academicRecordService.studentsOwing(course.getCid()).forEach(u -> all.putIfAbsent(u.getId(), u));
+        return new ArrayList<>(all.values());
+    }
 
     public void deleteSheet(Long sheetId) {
         SemesterSheet sheet = semesterSheetRepository.findById(sheetId)
@@ -369,6 +392,7 @@ public class MarksEntryService {
         data.put("programName",  sheetDto.getProgramName());
         data.put("level",        sheetDto.getLevel());
         data.put("semester",     sheetDto.getSemester());
+        data.put("sessionName",  sheetDto.getSessionName());
         data.put("sections",     sheetDto.getSections());
         data.put("courseMarks",  myMark.getCourseMarks());
         data.put("generatedDate", java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy")));
@@ -392,7 +416,7 @@ public class MarksEntryService {
             if (data != null && data.get("courseMarks") != null) {
                 List<?> marks = (List<?>) data.get("courseMarks");
                 if (!marks.isEmpty()) {
-                    String key = data.get("level") + "-" + data.get("semester");
+                    String key = data.get("sessionName") + "|" + data.get("level") + "-" + data.get("semester");
                     if (!groupedReports.containsKey(key)) {
                         groupedReports.put(key, new java.util.HashMap<>(data));
                     } else {
@@ -452,6 +476,8 @@ public class MarksEntryService {
         List<java.util.Map<String, Object>> allReports = new ArrayList<>(groupedReports.values());
 
         allReports.sort((r1, r2) -> {
+            int cmpSession = String.valueOf(r1.get("sessionName")).compareTo(String.valueOf(r2.get("sessionName")));
+            if (cmpSession != 0) return cmpSession;
             String l1 = String.valueOf(r1.get("level")).replace("Level", "").trim();
             String l2 = String.valueOf(r2.get("level")).replace("Level", "").trim();
             int cmpLevel = 0;
@@ -466,6 +492,25 @@ public class MarksEntryService {
             int s2 = Integer.parseInt(String.valueOf(r2.get("semester")));
             return Integer.compare(s1, s2);
         });
+
+        // Semester GPA and running CGPA (every graded attempt counts)
+        BigDecimal cumPoints = BigDecimal.ZERO;
+        int cumCredits = 0;
+        for (java.util.Map<String, Object> report : allReports) {
+            BigDecimal points = BigDecimal.ZERO;
+            int credits = 0;
+            for (Object o : (List<?>) report.get("courseMarks")) {
+                com.exam.DTO.SemesterSheetDTO.CourseMarkDTO cm = (com.exam.DTO.SemesterSheetDTO.CourseMarkDTO) o;
+                if (cm.getGradePoint() == null || cm.getCreditUnits() == null) continue;
+                points = points.add(cm.getGradePoint().multiply(BigDecimal.valueOf(cm.getCreditUnits())));
+                credits += cm.getCreditUnits();
+            }
+            cumPoints = cumPoints.add(points);
+            cumCredits += credits;
+            report.put("creditUnits", credits);
+            report.put("gpa", credits == 0 ? null : points.divide(BigDecimal.valueOf(credits), 2, java.math.RoundingMode.HALF_UP));
+            report.put("cgpa", cumCredits == 0 ? null : cumPoints.divide(BigDecimal.valueOf(cumCredits), 2, java.math.RoundingMode.HALF_UP));
+        }
 
         return allReports;
     }
@@ -526,6 +571,10 @@ public class MarksEntryService {
         dto.setStatus(sheet.getStatus());
         dto.setClassTeacherId(sheet.getClassTeacher() != null ? sheet.getClassTeacher().getId() : null);
         dto.setRestrictLecturerToAssignedCourses(sheet.isRestrictLecturerToAssignedCourses());
+        if (sheet.getSession() != null) {
+            dto.setSessionId(sheet.getSession().getId());
+            dto.setSessionName(sheet.getSession().getName());
+        }
 
         if (sheet.getCourses() != null && !sheet.getCourses().isEmpty()) {
             dto.setCourseId(sheet.getCourses().get(0).getCid());
@@ -591,6 +640,12 @@ public class MarksEntryService {
             cmDto.setCourseCode(scm.getCourse().getCourseCode());
             cmDto.setTotalScore(scm.getTotalScore());
             cmDto.setGrade(scm.getGrade());
+            cmDto.setCreditUnits(scm.getCourse().getCreditUnits() != null
+                    ? scm.getCourse().getCreditUnits() : gradingService.defaultCreditUnits());
+            if (scm.getGrade() != null && !"N/A".equals(scm.getGrade())) {
+                cmDto.setGradePoint(scm.getGradePoint() != null ? scm.getGradePoint()
+                        : gradingService.bandForLetter(scm.getGrade()).map(com.exam.model.academic.GradeBand::getGradePoint).orElse(null));
+            }
 
             List<com.exam.DTO.SemesterSheetDTO.SectionMarkDTO> sectionMarkDTOs = new ArrayList<>();
             for (StudentSectionMark ssm : scm.getSectionMarks()) {
@@ -688,24 +743,13 @@ public class MarksEntryService {
                 }
 
                 scm.setTotalScore(total);
-                scm.setGrade(calculateGrade(total));
+                gradingService.applyGrade(scm, total);
                 studentCourseMarkRepository.save(scm);
                 System.out.println("[saveMarks]    Saved SCM id=" + scm.getId()
                         + " total=" + total + " grade=" + scm.getGrade());
             }
         }
         System.out.println("[saveMarks] DONE for sheetId=" + sheetId);
-    }
-
-    private String calculateGrade(BigDecimal total) {
-        if (total == null) return "F";
-        double percentage = total.doubleValue();
-        if (percentage >= 90) return "A+";
-        if (percentage >= 80) return "A";
-        if (percentage >= 70) return "B";
-        if (percentage >= 60) return "C";
-        if (percentage >= 50) return "D";
-        return "F";
     }
 
     /**
@@ -741,8 +785,8 @@ public class MarksEntryService {
         }
 
         int count = 0;
-        for (User student : students) {
-            for (Category course : courses) {
+        for (Category course : courses) {
+            for (User student : withCarryovers(students, course)) {
                 // Skip if row already exists for this student+course in this sheet
                 boolean exists = !studentCourseMarkRepository
                     .findBySemesterSheetIdAndStudentId(sheetId, student.getId()).stream()
@@ -823,7 +867,7 @@ public class MarksEntryService {
                     total = total.add(ssm.getScoreObtained() != null ? ssm.getScoreObtained() : BigDecimal.ZERO);
                 }
                 scm.setTotalScore(total);
-                scm.setGrade(calculateGrade(total));
+                gradingService.applyGrade(scm, total);
                 studentCourseMarkRepository.save(scm);
             }
         }
@@ -919,7 +963,7 @@ public class MarksEntryService {
                 total = total.add(ssm.getScoreObtained() != null ? ssm.getScoreObtained() : BigDecimal.ZERO);
             }
             scm.setTotalScore(total);
-            scm.setGrade(calculateGrade(total));
+            gradingService.applyGrade(scm, total);
             studentCourseMarkRepository.save(scm);
         }
 
@@ -1006,6 +1050,12 @@ public class MarksEntryService {
             cmDto.setCourseCode(scm.getCourse().getCourseCode());
             cmDto.setTotalScore(scm.getTotalScore());
             cmDto.setGrade(scm.getGrade());
+            cmDto.setCreditUnits(scm.getCourse().getCreditUnits() != null
+                    ? scm.getCourse().getCreditUnits() : gradingService.defaultCreditUnits());
+            if (scm.getGrade() != null && !"N/A".equals(scm.getGrade())) {
+                cmDto.setGradePoint(scm.getGradePoint() != null ? scm.getGradePoint()
+                        : gradingService.bandForLetter(scm.getGrade()).map(com.exam.model.academic.GradeBand::getGradePoint).orElse(null));
+            }
 
             List<com.exam.DTO.SemesterSheetDTO.SectionMarkDTO> sectionMarkDTOs = new ArrayList<>();
             for (StudentSectionMark ssm : scm.getSectionMarks()) {

@@ -10,4 +10,6 @@ import java.util.List;
 public interface StudentCourseMarkRepository extends JpaRepository<StudentCourseMark, Long> {
     List<StudentCourseMark> findBySemesterSheetId(Long semesterSheetId);
     List<StudentCourseMark> findBySemesterSheetIdAndStudentId(Long semesterSheetId, Long studentId);
+    List<StudentCourseMark> findByStudent_Id(Long studentId);
+    List<StudentCourseMark> findByCourse_Cid(Long courseId);
 }

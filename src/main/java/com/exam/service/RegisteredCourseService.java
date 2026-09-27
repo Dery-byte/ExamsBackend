@@ -16,7 +16,12 @@ public class RegisteredCourseService {
 
     @Autowired
     private Registered_coursesRepository registeredRepository;
+
+    @Autowired
+    private com.exam.service.academic.AcademicSessionService academicSessionService;
+
     public Registered_courses registerCourse(Registered_courses registered_courses){
+        if (registered_courses.getSession() == null) registered_courses.setSession(academicSessionService.current());
         return registeredRepository.save(registered_courses);
     }
 

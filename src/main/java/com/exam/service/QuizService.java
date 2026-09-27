@@ -616,9 +616,12 @@ public class QuizService {
      * (from draft or on creation), cleared the moment it's taken back to draft. Never trusts a
      * client-supplied value — the entity field itself is read-only over JSON (see {@link Quiz}).
      */
+    @Autowired private com.exam.service.comms.NotificationService notificationService;
+
     private void stampPublishedAt(Quiz quiz, boolean wasActive) {
         if (quiz.isActive() && !wasActive) {
             quiz.setPublishedAt(java.time.LocalDateTime.now());
+            notificationService.quizPublished(quiz); // never throws
         } else if (!quiz.isActive() && wasActive) {
             quiz.setPublishedAt(null);
         }

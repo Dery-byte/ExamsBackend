@@ -28,6 +28,9 @@ import java.util.Optional;
 @RequestMapping("/api/v1/auth")
 public class ReportController {
 
+    @Autowired
+    private com.exam.service.comms.NotificationService notificationService;
+
 @Autowired
 @Lazy
 private ReportService reportService;
@@ -179,9 +182,14 @@ public ResponseEntity<List<Report>> getQuizIds(@PathVariable("quiz_Id") Long qui
         public java.util.Map<String, Double> reviewedMarks;
     }
 
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.exam.config.QuizOwnershipInterceptor ownership;
+
     @PutMapping("/save-review")
     public ResponseEntity<?> saveReview(@RequestBody SaveReviewRequest request, Principal principal) {
         if (principal == null) return ResponseEntity.badRequest().body("Principal is null");
+        ownership.requireQuiz(request.quizId);
 
         Report existingReport = reportService.findByUserAndQuiz(Math.toIntExact(request.userId), request.quizId);
         if (existingReport == null) {
@@ -213,6 +221,7 @@ public ResponseEntity<List<Report>> getQuizIds(@PathVariable("quiz_Id") Long qui
         // Review just completed → email the student their result slip (if the feature is enabled)
         if (!wasReviewed && Boolean.TRUE.equals(updatedReport.getIsReviewed())) {
             reportEmailService.sendReviewedReport(updatedReport.getUser(), updatedReport.getQuiz());
+            notificationService.resultReleased(updatedReport.getUser(), updatedReport.getQuiz());
         }
         return ResponseEntity.ok(updatedReport);
     }

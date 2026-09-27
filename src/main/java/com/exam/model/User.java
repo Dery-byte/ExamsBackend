@@ -48,7 +48,12 @@ public class User implements UserDetails {
   private String phone;
   private boolean emailVerified = false;
   private boolean phoneVerified = false;
+  /** False once the account is deactivated: the user can no longer sign in. */
+  @Builder.Default
   private boolean enabled = true;
+  private java.time.LocalDateTime deactivatedAt;
+  @Column(length = 300)
+  private String deactivationReason;
   @Column(length = 1000)
   private String profilePic;
   @Enumerated(EnumType.STRING)
@@ -221,7 +226,7 @@ public class User implements UserDetails {
 
   @Override
   public boolean isEnabled() {
-    return true;
+    return enabled;
   }
     public String getFullName() {
         return firstname + " " + lastname;

@@ -40,11 +40,16 @@ public class TheoryController {
     private AttemptService attemptService;
 
 
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.exam.config.QuizOwnershipInterceptor ownership;
+
     @PostMapping("theoryquestion/add")
     public ResponseEntity<?> add(@RequestBody TheoryQuestions theoryQuestions) {
         // The frontend sends { quiz: { qId: X }, ... }
         // Jackson creates a transient Quiz with only qId set — that detached object
         // must be replaced with the managed entity from the DB before we can save.
+        ownership.requireQuiz(theoryQuestions.getQuiz() != null ? theoryQuestions.getQuiz().getqId() : null);
         if (theoryQuestions.getQuiz() == null || theoryQuestions.getQuiz().getqId() == null) {
             return ResponseEntity.badRequest().body("quiz.qId is required");
         }
@@ -72,6 +77,8 @@ public class TheoryController {
 
     @PutMapping("/theoryquestion/updateQuestions")
     public TheoryQuestionDTO updateQuestion(@RequestBody TheoryUpdateRequest request) {
+        ownership.requireTheoryQuestion(request.getTqId());
+        ownership.requireQuiz(request.getQuizId());
         return this.theoryService.updateQuestions(request);
     }
 

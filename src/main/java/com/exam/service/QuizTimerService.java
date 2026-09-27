@@ -181,6 +181,24 @@ public class QuizTimerService {
     @Autowired private UserRepository userRepository;
     @Autowired private QuizRepository quizRepository;
     @Autowired private NumberOfTheoryToAnswerRepository numberOfTheoryToAnswerRepository;
+    @Autowired private com.exam.service.SystemSettingService systemSettingService;
+
+    /** Allowance for network latency when a client reports a little more time than the server expects. */
+    private static final int SAVE_TOLERANCE_SECONDS = 5;
+
+    /**
+     * Time actually left on a checkpoint. If the exam clock runs while the student is away,
+     * the seconds since the last checkpoint are subtracted.
+     */
+    private int effectiveRemaining(QuizTimer t) {
+        int remaining = t.getRemainingTime() == null ? 0 : t.getRemainingTime();
+        if (t.getUpdatedAt() == null
+                || !systemSettingService.getBooleanSetting(com.exam.service.SystemSettingService.EXAM_CLOCK_RUNS_WHILE_AWAY, true)) {
+            return remaining;
+        }
+        long away = java.time.Duration.between(t.getUpdatedAt(), LocalDateTime.now()).getSeconds();
+        return (int) Math.max(0, remaining - Math.max(0, away));
+    }
 
     // ─────────────────────────────────────────────
     //  TIMER  — save & get
@@ -251,7 +269,12 @@ public class QuizTimerService {
                     return t;
                 });
 
-        timer.setRemainingTime(request.getRemainingTime());
+        // A checkpoint can only move the clock down: never accept more time than is actually left
+        int accepted = request.getRemainingTime();
+        if (timer.getId() != null) {
+            accepted = Math.min(accepted, effectiveRemaining(timer) + SAVE_TOLERANCE_SECONDS);
+        }
+        timer.setRemainingTime(Math.max(0, accepted));
         timer.setUpdatedAt(LocalDateTime.now());
         QuizTimer saved = quizTimerRepository.save(timer);
 
@@ -293,11 +316,13 @@ public class QuizTimerService {
         return quizTimerRepository
                 .findByUserIdAndQuiz_qId(userId, quizId)
                 .map(qt -> {
+                    int left = effectiveRemaining(qt);
                     QuizTimerResponseDTO response = new QuizTimerResponseDTO();
-                    response.setRemainingTime(qt.getRemainingTime());
+                    response.setRemainingTime(left);
                     response.setUpdatedAt(qt.getUpdatedAt());
                     response.setTotalViolationCount(qt.getTotalViolationCount());
-                    response.setStatus("saved");
+                    // "expired" → the client must submit straight away instead of restarting the clock
+                    response.setStatus(left > 0 ? "saved" : "expired");
                     return response;
                 })
                 .orElseGet(() -> {

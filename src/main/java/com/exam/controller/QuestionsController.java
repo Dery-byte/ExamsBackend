@@ -683,8 +683,13 @@ public class QuestionsController {
      * Add a single question.
      * For MATCHING questions the matchingPairs FK is linked here before save.
      */
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.exam.config.QuizOwnershipInterceptor ownership;
+
     @PostMapping("/question/add")
     public ResponseEntity<Questions> addQuestion(@RequestBody Questions question) {
+        ownership.requireQuiz(question.getQuiz() != null ? question.getQuiz().getqId() : null);
         if (question.getQuestionType() == null) {
             question.setQuestionType(QuestionType.MCQ);
         }
@@ -761,6 +766,7 @@ public class QuestionsController {
 
     @PutMapping("/question/updateQuestions")
     public ResponseEntity<QuestionDTO> updateQuestion(@RequestBody UpdateQuestionDTO dto) {
+        ownership.requireQuestion(dto.getQuesId());
         return ResponseEntity.ok(questionsService.updateQuestion(dto));
     }
 

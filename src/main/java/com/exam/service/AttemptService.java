@@ -53,6 +53,10 @@ public class AttemptService {
     @Autowired private UserQuizProgressRepository   quizProgress;
     @Autowired private TheoryProgressRepository     theoryProgress;
     @Autowired private QuizService                  quizService;
+    @Autowired private com.exam.repository.QuizUnlockRepository unlocks;
+
+    /** How long a correct quiz password stays valid for starting an attempt. */
+    private static final int UNLOCK_VALID_HOURS = 6;
 
     // ── Student: status / begin / finish ─────────────────────────────────────
 
@@ -229,6 +233,17 @@ public class AttemptService {
 
         // Starting a genuinely new attempt requires current access (program + course enrollment).
         quizService.assertStudentMayAccess(quiz, s);
+
+        // Password-protected quizzes: a new attempt needs a recent unlock made after the previous attempt began
+        if (quiz.hasPassword()) {
+            LocalDateTime lastStart = all.stream().map(QuizAttempt::getStartedAt).filter(java.util.Objects::nonNull)
+                    .max(java.util.Comparator.naturalOrder()).orElse(null);
+            boolean unlocked = unlocks.findTopByUser_IdAndQuiz_qIdOrderByUnlockedAtDesc(s.getId(), quiz.getqId())
+                    .map(u -> u.getUnlockedAt().isAfter(LocalDateTime.now().minusHours(UNLOCK_VALID_HOURS))
+                            && (lastStart == null || u.getUnlockedAt().isAfter(lastStart)))
+                    .orElse(false);
+            if (!unlocked) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Enter the quiz password to start this attempt.");
+        }
 
         // A reviewed result is final. Checked first because it is the more useful reason to show.
         if (isReviewed(s.getId(), quiz.getqId())) {

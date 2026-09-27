@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Academic Transcript</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 14mm 15mm 18mm 15mm;
+      @bottom-left  { content: "University of Cape Coast  |  Academic Transcript"; font-size: 6.5pt; color: #888; font-family: 'Times New Roman', serif; padding-top: 3pt; border-top: 0.5pt solid #ccc; }
+      @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 6.5pt; color: #888; font-family: 'Times New Roman', serif; padding-top: 3pt; border-top: 0.5pt solid #ccc; }
+    }
+    body { font-family: 'Times New Roman','Liberation Serif',Georgia,serif; font-size: 10pt; color: #1a1a1a; margin: 0; padding: 0; line-height: 1.3; }
+    .watermark { position: fixed; top: 0; left: 0; width: 100%; height: 100%; text-align: center; z-index: -1; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { vertical-align: top; }
+    .t-info td { border: 0.5pt solid #c5c9e8; padding: 4pt 7pt; font-size: 9.5pt; }
+    .t-info .lb { background: #edf0fb; font-weight: bold; color: #1a2744; width: 95pt; }
+    .t-marks thead th { background: #1a2744; color: #fff; padding: 4pt 6pt; font-size: 8.5pt; border: 0.5pt solid #0d1628; text-align: center; }
+    .t-marks thead th.l { text-align: left; }
+    .t-marks tbody td { border: 0.5pt solid #c5c9e8; padding: 3pt 6pt; font-size: 9pt; text-align: center; }
+    .t-marks tbody td.l { text-align: left; }
+    .t-marks tbody tr:nth-child(even) td { background: #f6f7fd; }
+    .t-sum td { border: 0.5pt solid #c5c9e8; padding: 3pt 6pt; font-size: 9pt; background: #e8ecf8; font-weight: bold; }
+    .s-title { background: #1a2744; color: #fff; padding: 4pt 9pt; font-size: 9pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.7pt; margin: 9pt 0 4pt 0; }
+    .sem { page-break-inside: avoid; margin-bottom: 8pt; }
+    .sem-head { font-size: 9.5pt; font-weight: bold; color: #1a2744; margin: 6pt 0 3pt; }
+    .s-fail { color: #7a1820; font-weight: bold; }
+    .summary td { border: 0.5pt solid #1a2744; padding: 5pt 8pt; font-size: 10pt; }
+    .summary .lb { background: #1a2744; color: #fff; font-weight: bold; width: 120pt; }
+    .footer-box { margin-top: 14pt; border-top: 1pt solid #1a2744; padding-top: 6pt; font-size: 8pt; color: #555; }
+  </style>
+</head>
+<body>
+
+<div class="watermark">
+  <img th:if="${watermarkBase64 != null and !watermarkBase64.isEmpty()}" th:src="${watermarkBase64}" style="width: 100%; height: 100%; object-fit: contain;" alt="Watermark" />
+</div>
+
+<!-- HEADER -->
+<table style="border-bottom: 2pt solid #1a2744; margin-bottom: 8pt; padding-bottom: 7pt;">
+  <tr>
+    <td style="width: 56pt; text-align: center; vertical-align: middle;">
+      <img th:if="${uccLogoBase64 != null and !uccLogoBase64.isEmpty()}" th:src="${uccLogoBase64}" style="width: 48pt; height: 48pt;" alt="Logo" />
+    </td>
+    <td style="padding-left: 10pt; vertical-align: middle;">
+      <div style="font-size: 14.5pt; font-weight: bold; color: #1a2744;">University of Cape Coast</div>
+      <div style="font-size: 9pt; color: #4a4a9c; font-weight: bold;" th:text="${t.department}">Department</div>
+      <div style="font-size: 7pt; color: #888; text-transform: uppercase; letter-spacing: 1pt; margin-top: 2pt;">Official Academic Transcript</div>
+    </td>
+    <td style="text-align: right; vertical-align: top; width: 90pt;">
+      <div style="font-size: 7pt; color: #888;">Date Issued</div>
+      <div style="font-size: 7.5pt; color: #888; margin-top: 4pt;" th:text="${generatedDate}">01 Jan 2026</div>
+    </td>
+  </tr>
+</table>
+
+<div class="s-title">Student Information</div>
+<table class="t-info" style="margin-bottom: 6pt;">
+  <tr>
+    <td class="lb">Full Name</td><td th:text="${t.studentName}">John Doe</td>
+    <td class="lb">Student ID</td><td style="font-weight: bold;" th:text="${t.username}">STD001</td>
+  </tr>
+  <tr>
+    <td class="lb">Programme</td><td th:text="${t.program ?: '-'}">BSc</td>
+    <td class="lb">Current Level</td><td th:text="${t.currentLevel ?: '-'}">200</td>
+  </tr>
+</table>
+
+<div class="s-title">Academic Record</div>
+<p th:if="${#lists.isEmpty(t.semesters)}" style="font-size: 9.5pt; color: #666;">No published results yet.</p>
+
+<div class="sem" th:each="sem : ${t.semesters}">
+  <div class="sem-head" th:text="${sem.session + '  ·  Level ' + sem.level + '  ·  ' + (sem.semester == 1 ? 'First Semester' : (sem.semester == 2 ? 'Second Semester' : 'Semester ' + sem.semester))}">2025/2026 · Level 100 · First Semester</div>
+  <table class="t-marks">
+    <thead>
+      <tr>
+        <th class="l" style="width: 55pt;">Code</th>
+        <th class="l">Course Title</th>
+        <th style="width: 30pt;">CU</th>
+        <th style="width: 40pt;">Score</th>
+        <th style="width: 34pt;">Grade</th>
+        <th style="width: 34pt;">GP</th>
+        <th style="width: 40pt;">CU × GP</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr th:each="c : ${sem.courses}">
+        <td class="l" style="font-weight: bold;" th:text="${c.courseCode}">CS101</td>
+        <td class="l">
+          <span th:text="${c.courseTitle}">Intro</span>
+          <span th:if="${c.attempt > 1}" style="font-size: 7.5pt; color: #7a5600;" th:text="' (resit, attempt ' + ${c.attempt} + ')'"></span>
+        </td>
+        <td th:text="${c.creditUnits}">3</td>
+        <td th:text="${c.score}">70</td>
+        <td th:text="${c.grade}" th:class="${c.passed} ? '' : 's-fail'">B</td>
+        <td th:text="${c.gradePoint}">3.0</td>
+        <td th:text="${c.gradePoint * c.creditUnits}">9.0</td>
+      </tr>
+    </tbody>
+  </table>
+  <table class="t-sum">
+    <tr>
+      <td th:text="'Credit units: ' + ${sem.creditUnits}">CU</td>
+      <td th:text="'Credit points: ' + ${sem.creditPoints}">CP</td>
+      <td th:text="'Semester GPA: ' + ${sem.gpa ?: '-'}">GPA</td>
+      <td th:text="'CGPA: ' + ${sem.cgpa ?: '-'}">CGPA</td>
+    </tr>
+  </table>
+</div>
+
+<div class="s-title">Summary</div>
+<table class="summary">
+  <tr><td class="lb">Cumulative GPA</td><td th:text="${t.cgpa != null ? t.cgpa + ' / ' + t.maxGradePoint : '-'}">3.2 / 4.0</td></tr>
+  <tr><td class="lb">Credit units attempted</td><td th:text="${t.totalCreditUnits}">60</td></tr>
+  <tr><td class="lb">Credit units earned</td><td th:text="${t.creditsEarned}">57</td></tr>
+  <tr><td class="lb">Class (current standing)</td><td th:text="${t.degreeClass ?: '-'}">Second Class Upper</td></tr>
+  <tr><td class="lb">Outstanding courses</td>
+      <td>
+        <span th:if="${#lists.isEmpty(t.outstanding)}">None</span>
+        <span th:each="o, st : ${t.outstanding}" th:text="${o.courseCode} + (${st.last} ? '' : ', ')" class="s-fail">CS201</span>
+      </td></tr>
+</table>
+
+<div class="footer-box">
+  CU = credit units, GP = grade point. GPA = total (CU × GP) ÷ total CU. Every attempt at a course counts towards the CGPA.
+  This transcript was generated by the Examination Portal and is valid without a signature.
+</div>
+
+</body>
+</html>

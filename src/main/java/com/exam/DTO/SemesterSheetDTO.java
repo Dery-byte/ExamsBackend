@@ -17,6 +17,13 @@ public class SemesterSheetDTO {
     private int enrolledStudentCount;
     private Long courseId;
     private String courseName;
+    private Long sessionId;
+    private String sessionName;
+
+    public Long getSessionId() { return sessionId; }
+    public void setSessionId(Long sessionId) { this.sessionId = sessionId; }
+    public String getSessionName() { return sessionName; }
+    public void setSessionName(String sessionName) { this.sessionName = sessionName; }
     private List<SectionDTO> sections;
     private List<StudentMarkDTO> studentMarks;
 
@@ -60,6 +67,13 @@ public class SemesterSheetDTO {
         private BigDecimal totalScore;
         private String grade;
         private List<SectionMarkDTO> sectionMarks;
+        private Integer creditUnits;
+        private BigDecimal gradePoint;
+
+        public Integer getCreditUnits() { return creditUnits; }
+        public void setCreditUnits(Integer creditUnits) { this.creditUnits = creditUnits; }
+        public BigDecimal getGradePoint() { return gradePoint; }
+        public void setGradePoint(BigDecimal gradePoint) { this.gradePoint = gradePoint; }
 
         public Long getCourseMarkId() { return courseMarkId; }
         public void setCourseMarkId(Long courseMarkId) { this.courseMarkId = courseMarkId; }

@@ -5,6 +5,7 @@ import com.exam.model.User;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -31,6 +32,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     User findByPhone(String phone);
 
     List<User> findByRole(Role role);
+
+    /** One-time migration: 'enabled' was never enforced before, so every existing account starts active. */
+    @Modifying
+    @Query("UPDATE User u SET u.enabled = true WHERE u.enabled = false AND u.deactivatedAt IS NULL")
+    int enableAllNeverDeactivated();
 
     long countByRole(Role role);
 

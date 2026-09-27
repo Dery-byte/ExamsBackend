@@ -14,6 +14,7 @@ public class CategoryUpdateRequest {
     private String description;
     private String level;
     private java.util.List<Long> programIds;
+    private Integer creditUnits;
     //private Long userId;
     // Constructors
 //    public CategoryUpdateRequest() {

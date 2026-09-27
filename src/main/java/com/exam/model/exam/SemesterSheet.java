@@ -32,6 +32,19 @@ public class SemesterSheet {
 
     private boolean restrictLecturerToAssignedCourses = true;
 
+    /** Academic session (e.g. 2025/2026) this sheet belongs to. Stamped with the current session on creation. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "session_id")
+    private com.exam.model.academic.AcademicSession session;
+
+    public com.exam.model.academic.AcademicSession getSession() {
+        return session;
+    }
+
+    public void setSession(com.exam.model.academic.AcademicSession session) {
+        this.session = session;
+    }
+
     @OneToMany(mappedBy = "semesterSheet", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MarkSheetSection> sections = new ArrayList<>();
 

@@ -81,6 +81,18 @@ public class StudentCourseMark {
         this.totalScore = totalScore;
     }
 
+    /** Grade point for the grade, captured from the grading scale when the grade was set. */
+    @Column(precision = 4, scale = 2)
+    private BigDecimal gradePoint;
+
+    public BigDecimal getGradePoint() {
+        return gradePoint;
+    }
+
+    public void setGradePoint(BigDecimal gradePoint) {
+        this.gradePoint = gradePoint;
+    }
+
     public String getGrade() {
         return grade;
     }

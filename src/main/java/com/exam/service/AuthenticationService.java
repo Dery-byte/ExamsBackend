@@ -270,10 +270,8 @@ public class AuthenticationService {
 //        var tokens = tokenRepository.findByToken(user.getTokens().toString());
 
 
-        //deleting the expired tokens
-
-        if (validUserTokens.isEmpty())
-//            return;
+        // One active session per user: signing in ends every earlier session
+        if (validUserTokens.isEmpty()) return;
         validUserTokens.forEach(token -> {
             token.setExpired(true);
             token.setRevoked(true);
@@ -718,13 +716,25 @@ public class AuthenticationService {
 
     // Delete lecturer
     public void deleteLecturer(Long id) {
+        refuseIfHistory(id);
         Optional<User> lecturer = userRepository.findByIdAndRole(id, Role.LECTURER);
         lecturer.ifPresent(userRepository::delete);
+    }
+
+    @Autowired
+    private com.exam.service.admin.AccountService accountService;
+
+    /** Deleting cascades to results, quizzes and courses, so accounts with history are deactivated instead. */
+    private void refuseIfHistory(Long id) {
+        String blocking = accountService.historyBlockingDelete(id);
+        if (blocking != null)
+            throw new IllegalStateException("This account has " + blocking + ", which deleting would erase. Deactivate it instead.");
     }
 
 
 
     public void deleteStudent(Long id) {
+        refuseIfHistory(id);
         Optional<User> student = userRepository.findByIdAndRole(id, Role.NORMAL);
         student.ifPresent(userRepository::delete);
     }

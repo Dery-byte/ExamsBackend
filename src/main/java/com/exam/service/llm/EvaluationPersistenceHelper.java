@@ -146,7 +146,57 @@ public class EvaluationPersistenceHelper {
 
     // ═══════════════════ JSON parsing helpers (shared) ═══════════════════════
 
+    /**
+     * Parses the submitted answers, then replaces everything that decides the grade (question
+     * text, marking criteria, maximum marks) with the values stored for that question. The
+     * request comes from the student's browser, so only the tqid and the answer are trusted.
+     * Questions from another quiz are rejected and repeated questions are counted once.
+     */
     public List<QuestionSubmission> parseSubmissions(GeminiRequest request) {
+        List<QuestionSubmission> parsed = parseRawSubmissions(request);
+        if (parsed.isEmpty()) return parsed;
+        Long quizId;
+        try { quizId = Long.valueOf(parsed.get(0).getQuizId().trim()); }
+        catch (Exception e) { throw new IllegalArgumentException("Invalid quiz id in submission."); }
+
+        Map<Long, QuestionSubmission> trusted = new LinkedHashMap<>();
+        for (QuestionSubmission s : parsed) {
+            Long tqid;
+            try {
+                if (!quizId.equals(Long.valueOf(s.getQuizId().trim())))
+                    throw new IllegalArgumentException("All answers must belong to the same quiz.");
+                tqid = Long.valueOf(s.getTqid().trim());
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid question id in submission.");
+            }
+            if (trusted.containsKey(tqid)) continue;   // a question can only be marked once
+            TheoryQuestions tq = theoryQuestionsRepository.findById(tqid)
+                    .orElseThrow(() -> new IllegalArgumentException("Question not found: " + tqid));
+            if (tq.getQuiz() == null || !quizId.equals(tq.getQuiz().getqId()))
+                throw new IllegalArgumentException("Question " + tqid + " does not belong to this quiz.");
+
+            s.setQuizId(String.valueOf(quizId));
+            s.setTqid(String.valueOf(tqid));
+            s.setQuestion(tq.getQuestion());
+            s.setQuestionNumber(tq.getQuesNo() != null ? tq.getQuesNo() : s.getQuestionNumber());
+            s.setCriteria(tq.getEvaluationCriteria() != null && !tq.getEvaluationCriteria().isBlank()
+                    ? tq.getEvaluationCriteria() : "Standard evaluation");
+            s.setMaxMarks(storedMarks(tq));
+            trusted.put(tqid, s);
+        }
+        return new ArrayList<>(trusted.values());
+    }
+
+    private static double storedMarks(TheoryQuestions tq) {
+        try {
+            String m = tq.getMarks() == null ? "" : tq.getMarks().replaceAll("[^\\d.]", "");
+            return m.isEmpty() ? 10.0 : Double.parseDouble(m);
+        } catch (NumberFormatException e) {
+            return 10.0;
+        }
+    }
+
+    private List<QuestionSubmission> parseRawSubmissions(GeminiRequest request) {
         return request.getContents().stream()
                 .flatMap(content -> content.getParts().stream())
                 .map(part -> {

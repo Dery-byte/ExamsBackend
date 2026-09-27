@@ -206,6 +206,10 @@ public class SuperAdminController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("message", "User is not an HOD/Admin."));
         }
+        String blocking = accountService.historyBlockingDelete(id);
+        if (blocking != null)
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message",
+                    "This HOD has " + blocking + ", which deleting would erase. Deactivate the account instead."));
         userRepository.deleteById(id);
         return ResponseEntity.ok(Map.of("message", "HOD account deleted."));
     }
@@ -288,17 +292,18 @@ public class SuperAdminController {
     @GetMapping("/students")
     public ResponseEntity<List<Map<String, Object>>> getAllStudentsWithInfo() {
         List<User> students = userRepository.findByRole(Role.NORMAL);
-        List<Map<String, Object>> result = students.stream().map(s -> Map.<String, Object>of(
-                "id", s.getId(),
-                "firstname", s.getFirstname() != null ? s.getFirstname() : "",
-                "lastname", s.getLastname() != null ? s.getLastname() : "",
-                "email", s.getEmail() != null ? s.getEmail() : "",
-                "username", s.getUsername() != null ? s.getUsername() : "",
-                "phone", s.getPhone() != null ? s.getPhone() : "",
-                "program", s.getProgram() != null ? s.getProgram().getName() : "",
-                "programId", s.getProgram() != null ? s.getProgram().getId() : 0,
-                "currentLevel", s.getCurrentLevel() != null ? s.getCurrentLevel() : 0,
-                "currentSemester", s.getCurrentSemester() != null ? s.getCurrentSemester() : 0
+        List<Map<String, Object>> result = students.stream().map(s -> Map.<String, Object>ofEntries(
+                Map.entry("id", (Object) (s.getId())),
+                Map.entry("firstname", (Object) (s.getFirstname() != null ? s.getFirstname() : "")),
+                Map.entry("lastname", (Object) (s.getLastname() != null ? s.getLastname() : "")),
+                Map.entry("email", (Object) (s.getEmail() != null ? s.getEmail() : "")),
+                Map.entry("username", (Object) (s.getUsername() != null ? s.getUsername() : "")),
+                Map.entry("phone", (Object) (s.getPhone() != null ? s.getPhone() : "")),
+                Map.entry("program", (Object) (s.getProgram() != null ? s.getProgram().getName() : "")),
+                Map.entry("programId", (Object) (s.getProgram() != null ? s.getProgram().getId() : 0)),
+                Map.entry("currentLevel", (Object) (s.getCurrentLevel() != null ? s.getCurrentLevel() : 0)),
+                Map.entry("currentSemester", (Object) (s.getCurrentSemester() != null ? s.getCurrentSemester() : 0)),
+                Map.entry("enabled", (Object) (s.isEnabled()))
         )).collect(Collectors.toList());
         return ResponseEntity.ok(result);
     }
@@ -311,6 +316,41 @@ public class SuperAdminController {
      * Promote or demote a single student to any level in their program.
      * Super Admin only — no directional restriction.
      */
+    /**
+     * Moves students to targetLevel. Forward moves only take students who meet the promotion
+     * rules; the rest are held back and listed with their reasons.
+     */
+    static Map<String, Object> applyBulkPromotion(List<User> students, Integer level, Integer targetLevel,
+                                                  com.exam.service.academic.AcademicRecordService records,
+                                                  UserRepository users) {
+        List<User> promote = new java.util.ArrayList<>();
+        List<Map<String, Object>> heldBack = new java.util.ArrayList<>();
+        for (User s : students) {
+            if (!s.isEnabled()) continue;   // deactivated accounts stay where they are
+            if (targetLevel > level) {
+                Map<String, Object> elig = records.eligibility(s);
+                if (!Boolean.TRUE.equals(elig.get("eligible"))) {
+                    heldBack.add(Map.of("studentId", s.getId(), "name", elig.get("name"), "reasons", elig.get("reasons")));
+                    continue;
+                }
+            }
+            s.setCurrentLevel(targetLevel);
+            s.setCurrentSemester(1);
+            promote.add(s);
+        }
+        users.saveAll(promote);
+        String msg = "Moved " + promote.size() + " student" + (promote.size() == 1 ? "" : "s") + " from Level "
+                + level + " to Level " + targetLevel
+                + (heldBack.isEmpty() ? "." : ". " + heldBack.size() + " held back by the promotion rules.");
+        return Map.of("message", msg, "count", promote.size(), "heldBack", heldBack);
+    }
+
+    @Autowired
+    private com.exam.service.academic.AcademicRecordService academicRecordService;
+
+    @Autowired
+    private com.exam.service.admin.AccountService accountService;
+
     @PutMapping("/student/{id}/promote")
     public ResponseEntity<?> promoteStudent(
             @PathVariable Long id,
@@ -324,6 +364,16 @@ public class SuperAdminController {
         Integer targetLevel = body.get("targetLevel");
         if (targetLevel == null)
             return ResponseEntity.badRequest().body(Map.of("message", "targetLevel is required."));
+
+        // Promotion rules apply to forward moves; the Super Admin may override with {"override": 1}
+        int current = student.getCurrentLevel() != null ? student.getCurrentLevel() : 0;
+        if (targetLevel > current && !Integer.valueOf(1).equals(body.get("override"))) {
+            Map<String, Object> elig = academicRecordService.eligibility(student);
+            if (!Boolean.TRUE.equals(elig.get("eligible")))
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                        "message", "This student doesn't meet the promotion rules.",
+                        "reasons", elig.get("reasons"), "canOverride", true));
+        }
 
         student.setCurrentLevel(targetLevel);
         // Reset semester to 1 when level changes
@@ -351,10 +401,7 @@ public class SuperAdminController {
                 .filter(s -> level.equals(s.getCurrentLevel()))
                 .collect(Collectors.toList());
 
-        students.forEach(s -> { s.setCurrentLevel(targetLevel); s.setCurrentSemester(1); });
-        userRepository.saveAll(students);
-        return ResponseEntity.ok(Map.of("message", "Promoted " + students.size() + " students in program from Level "
-                + level + " to Level " + targetLevel, "count", students.size()));
+        return ResponseEntity.ok(applyBulkPromotion(students, level, targetLevel, academicRecordService, userRepository));
     }
 
     /**
@@ -476,7 +523,9 @@ public class SuperAdminController {
     }
 
     @PutMapping("/settings")
-    public ResponseEntity<Map<String, String>> updateSettings(@RequestBody Map<String, String> payload) {
+    public ResponseEntity<Map<String, String>> updateSettings(@RequestBody Map<String, String> payload,
+                                                              jakarta.servlet.http.HttpServletRequest request) {
+        request.setAttribute(com.exam.config.AuditInterceptor.AUDIT_DETAILS, payload.toString());
         payload.forEach((key, value) -> systemSettingService.updateSetting(key, value));
         return ResponseEntity.ok(Map.of("message", "Settings updated successfully."));
     }

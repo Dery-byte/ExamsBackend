@@ -29,6 +29,12 @@ public class MarksEntryController {
     @Autowired
     private com.exam.service.PdfReportService pdfReportService;
 
+    @Autowired
+    private com.exam.service.comms.NotificationService notificationService;
+
+    @Autowired
+    private com.exam.service.comms.CurrentUserService currentUserService;
+
     public static class ActivateSheetRequest {
         public Long programId;
         public String level;
@@ -143,6 +149,10 @@ public class MarksEntryController {
                 dto.setCourseId(sheet.getCourses().get(0).getCid());
                 dto.setCourseName(sheet.getCourses().get(0).getTitle());
             }
+            if (sheet.getSession() != null) {
+                dto.setSessionId(sheet.getSession().getId());
+                dto.setSessionName(sheet.getSession().getName());
+            }
             response.add(dto);
         }
         return ResponseEntity.ok(response);
@@ -170,6 +180,10 @@ public class MarksEntryController {
             if (sheet.getCourses() != null && !sheet.getCourses().isEmpty()) {
                 dto.setCourseId(sheet.getCourses().get(0).getCid());
                 dto.setCourseName(sheet.getCourses().get(0).getTitle());
+            }
+            if (sheet.getSession() != null) {
+                dto.setSessionId(sheet.getSession().getId());
+                dto.setSessionName(sheet.getSession().getName());
             }
             response.add(dto);
         }
@@ -200,6 +214,9 @@ public class MarksEntryController {
     public ResponseEntity<?> submitSheet(@PathVariable Long sheetId) {
         try {
             marksEntryService.submitSheet(sheetId);
+            SemesterSheet sheet = marksEntryService.getSheetById(sheetId);
+            if (sheet != null) notificationService.sheetSubmitted(sheet,
+                    currentUserService.current().map(com.exam.service.comms.CurrentUserService::displayName).orElse(null));
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             e.printStackTrace();
@@ -210,6 +227,8 @@ public class MarksEntryController {
     @PostMapping("/{sheetId}/publish")
     public ResponseEntity<?> publishSheet(@PathVariable Long sheetId) {
         marksEntryService.publishSheet(sheetId);
+        SemesterSheet sheet = marksEntryService.getSheetById(sheetId);
+        if (sheet != null) notificationService.sheetPublished(sheet);
         return ResponseEntity.ok().build();
     }
 
@@ -217,6 +236,8 @@ public class MarksEntryController {
     @PostMapping("/{sheetId}/revert")
     public ResponseEntity<?> revertSheet(@PathVariable Long sheetId) {
         marksEntryService.revertSheet(sheetId);
+        SemesterSheet reverted = marksEntryService.getSheetById(sheetId);
+        if (reverted != null) notificationService.sheetReturned(reverted);
         return ResponseEntity.ok(java.util.Map.of("message", "Sheet reverted to lecturer for corrections."));
     }
 
@@ -224,6 +245,8 @@ public class MarksEntryController {
     @PostMapping("/{sheetId}/approve")
     public ResponseEntity<?> approveSheet(@PathVariable Long sheetId) {
         marksEntryService.approveSheet(sheetId);
+        SemesterSheet approved = marksEntryService.getSheetById(sheetId);
+        if (approved != null) notificationService.sheetApproved(approved);
         return ResponseEntity.ok(java.util.Map.of("message", "Sheet approved successfully."));
     }
 

@@ -346,6 +346,7 @@ public class SecurityConfiguration {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final AuthenticationProvider authenticationProvider;
     private final LogoutHandler logoutHandler;
+    private final RateLimiter rateLimiter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -356,21 +357,15 @@ public class SecurityConfiguration {
                 // ✅ Enable CORS
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // ✅ Authorization rules
-                .authorizeHttpRequests(auth -> auth
-                        // Allow preflight requests
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                // ✅ Authorization rules (see EndpointRules for the full policy)
+                .authorizeHttpRequests(EndpointRules::apply)
 
-                        // Public endpoints (authentication)
-                        .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/token-info").permitAll()
-                        .requestMatchers("/error").permitAll()
-
-                        // Super Admin only
-                        .requestMatchers("/api/v1/super-admin/**").hasAuthority("SUPER_ADMIN")
-
-                        // Everything else requires authentication
-                        .anyRequest().authenticated()
+                // JSON errors the frontend can show (default is an empty 403 for both cases)
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, e) -> writeJson(response, 401,
+                                "Please sign in to continue."))
+                        .accessDeniedHandler((request, response, e) -> writeJson(response, 403,
+                                "You don't have permission to do that."))
                 )
 
                 // ✅ Stateless session (no server-side session)
@@ -383,6 +378,8 @@ public class SecurityConfiguration {
 
                 // ✅ JWT filter (extracts token from Authorization header)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                // Per-IP limits on sign-in / sign-up / password reset (runs before authentication)
+                .addFilterBefore(new RateLimitFilter(rateLimiter), JwtAuthenticationFilter.class)
 
                 // ✅ Logout
                 .logout(logout -> logout
@@ -393,6 +390,13 @@ public class SecurityConfiguration {
                 );
         return http.build();
     }
+    private static void writeJson(jakarta.servlet.http.HttpServletResponse response, int status, String message)
+            throws java.io.IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"message\":\"" + message.replace("\"", "'") + "\"}");
+    }
+
     /**
      * Also apply CORS at the servlet level for REQUEST and ERROR dispatches. Without this, when a request
      * fails after the controller ran (container error dispatch to /error), the CORS headers are lost and the
@@ -440,7 +444,8 @@ public class SecurityConfiguration {
 
         // ✅ Expose Authorization header so frontend can read it
         configuration.setExposedHeaders(List.of(
-                "Authorization"
+                "Authorization",
+                "Content-Disposition"
         ));
 
         // ❌ NO credentials - we're using localStorage/sessionStorage

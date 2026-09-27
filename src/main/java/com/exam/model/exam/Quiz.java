@@ -129,6 +129,8 @@ public class Quiz {
 
 
     @Column(length =  50, nullable = false)
+    /** Access password. Only staff ever receive it; students unlock via POST /quiz/{qid}/unlock. */
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.exam.config.json.StaffOnlySerializer.class)
     private String quizpassword;
     //add ...
 
@@ -309,6 +311,12 @@ public class Quiz {
 
     public void setMaxMarks(Double maxMarks) {
         this.maxMarks = maxMarks;
+    }
+
+    /** True when the quiz needs a password to start (serialised as "hasPassword" for students' pages). */
+    @com.fasterxml.jackson.annotation.JsonProperty(value = "hasPassword", access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    public boolean hasPassword() {
+        return quizpassword != null && !quizpassword.isBlank();
     }
 
     public String getQuizpassword() {

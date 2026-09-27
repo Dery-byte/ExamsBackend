@@ -29,8 +29,18 @@ public class SystemSettingService {
     public static final String MARKS_SHEET_VISIBLE_LECTURER = "MARKS_SHEET_VISIBLE_LECTURER";
     public static final String MARKS_SHEET_VISIBLE_STUDENT  = "MARKS_SHEET_VISIBLE_STUDENT";
 
+    /**
+     * When "true" (default), a student's exam clock keeps running while they are away
+     * (browser closed, crash, power cut): on return they get only the time actually left.
+     * When "false", the clock resumes from the last checkpoint.
+     */
+    public static final String EXAM_CLOCK_RUNS_WHILE_AWAY = "EXAM_CLOCK_RUNS_WHILE_AWAY";
+
     @PostConstruct
     public void initDefaultSettings() {
+        if (!systemSettingRepository.existsById(EXAM_CLOCK_RUNS_WHILE_AWAY)) {
+            systemSettingRepository.save(new SystemSetting(EXAM_CLOCK_RUNS_WHILE_AWAY, "true"));
+        }
         for (String key : List.of(MARKS_SHEET_VISIBLE_ADMIN, MARKS_SHEET_VISIBLE_LECTURER, MARKS_SHEET_VISIBLE_STUDENT)) {
             if (!systemSettingRepository.existsById(key)) {
                 systemSettingRepository.save(new SystemSetting(key, "true"));

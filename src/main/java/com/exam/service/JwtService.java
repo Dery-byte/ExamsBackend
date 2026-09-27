@@ -18,7 +18,25 @@ import org.springframework.stereotype.Service;
 public class JwtService {
 
     public static  final long JWT_TOKEN_VALIDITY=1000 * 60 * 70;
-    private static final String SECRET_KEY = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(JwtService.class);
+
+    /**
+     * HMAC signing key, from the JWT_SECRET_KEY environment variable (base64, at least 32 bytes).
+     * If it's missing a random key is generated at start-up, which is secure but signs everyone
+     * out whenever the server restarts, so set the variable in production.
+     */
+    private final Key signingKey;
+
+    public JwtService(@org.springframework.beans.factory.annotation.Value("${JWT_SECRET_KEY:}") String configuredKey) {
+        if (configuredKey == null || configuredKey.isBlank()) {
+            log.warn("[JwtService] JWT_SECRET_KEY is not set: using a random key. Users will be signed out on every restart.");
+            this.signingKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+        } else {
+            byte[] bytes = Decoders.BASE64.decode(configuredKey.trim());
+            if (bytes.length < 32) throw new IllegalStateException("JWT_SECRET_KEY must be at least 32 bytes (base64-encoded).");
+            this.signingKey = Keys.hmacShaKeyFor(bytes);
+        }
+    }
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -70,7 +88,6 @@ public class JwtService {
     }
 
     private Key getSignInKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);
-        return Keys.hmacShaKeyFor(keyBytes);
+        return signingKey;
     }
 }

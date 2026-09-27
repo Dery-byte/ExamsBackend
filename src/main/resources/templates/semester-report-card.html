@@ -89,7 +89,7 @@
   </tr>
   <tr>
     <td class="lb">Semester</td>
-    <td th:text="${semester == 1} ? 'First Semester' : 'Second Semester'">First Semester</td>
+    <td th:text="${(sessionName != null ? sessionName + ' · ' : '') + (semester == 1 ? 'First Semester' : 'Second Semester')}">First Semester</td>
     <td class="lb">Report Status</td>
     <td class="s-pass">OFFICIAL</td>
   </tr>
@@ -102,6 +102,7 @@
     <tr>
       <th style="text-align:left; width: 55pt;">Course Code</th>
       <th style="text-align:left;">Course Title</th>
+      <th style="width: 28pt;">CU</th>
       <th th:each="sec : ${sections}" th:text="${sec.sectionName} + ' (/' + ${sec.maxScore} + ')'" style="width: 60pt;">Section A (/50)</th>
       <th style="width: 55pt;">Total Score</th>
       <th style="width: 45pt;">Grade</th>
@@ -111,15 +112,24 @@
     <tr th:each="cm : ${courseMarks}">
       <td style="font-weight: bold; color: #1a2744;" th:text="${cm.courseCode}">CS101</td>
       <td th:text="${cm.courseTitle}">Introduction to Computing</td>
+      <td style="text-align: center;" th:text="${cm.creditUnits ?: '-'}">3</td>
       <td th:each="sec : ${sections}" style="text-align: center;">
         <span th:with="sm=${cm.sectionMarks.^[sectionId == __${sec.id}__]}" th:text="${sm != null ? sm.scoreObtained : '-'}">-</span>
       </td>
       <td style="text-align: center; font-weight: bold;" th:text="${cm.totalScore != null ? cm.totalScore : '-'}">-</td>
       <td style="text-align: center; font-weight: bold;"
           th:text="${cm.grade}"
-          th:class="${cm.grade == 'F'} ? 's-fail' : 's-pass'">A</td>
+          th:class="${cm.gradePoint != null and cm.gradePoint.signum() == 0} ? 's-fail' : 's-pass'">A</td>
     </tr>
   </tbody>
+</table>
+
+<table th:if="${gpa != null}" class="t-info" style="margin-bottom: 7pt;">
+  <tr>
+    <td class="lb">Credit Units</td><td th:text="${creditUnits}">15</td>
+    <td class="lb">Semester GPA</td><td style="font-weight: bold;" th:text="${gpa}">3.20</td>
+    <td class="lb">CGPA</td><td style="font-weight: bold;" th:text="${cgpa}">3.10</td>
+  </tr>
 </table>
 
 <!-- FOOTER -->

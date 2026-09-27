@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface SemesterSheetRepository extends JpaRepository<SemesterSheet, Long> {
     List<SemesterSheet> findByProgramIdAndLevelAndSemester(Long programId, String level, Integer semester);
+    long countBySession_Id(Long sessionId);
+    List<SemesterSheet> findBySessionIsNull();
 }

@@ -24,8 +24,13 @@ public class NumberOfTheoryToAnswerController {
     private QuizService quizService;
 
 
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.exam.config.QuizOwnershipInterceptor ownership;
+
     @PostMapping("numberOfTheoryQuestion/add")
     public ResponseEntity<NumberOfTheoryToAnswer> add(@RequestBody NumberOfTheoryToAnswer numberOfTheoryToAnswer) {
+        ownership.requireQuiz(numberOfTheoryToAnswer.getQuiz() != null ? numberOfTheoryToAnswer.getQuiz().getqId() : null);
         return ResponseEntity.ok(this.numberOfTheoryToAnswerService.addQuestions(numberOfTheoryToAnswer));
     }
 

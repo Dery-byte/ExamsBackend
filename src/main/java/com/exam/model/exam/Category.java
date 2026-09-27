@@ -25,6 +25,9 @@ public class Category {
     /** Semester this course belongs to: 1 (first) or 2 (second). */
     private Integer semester;
 
+    /** Credit units (weight in GPA). Null → the system default (see AcademicSettings). */
+    private Integer creditUnits;
+
     /** The academic programs this course belongs to. */
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
@@ -122,6 +125,14 @@ public class Category {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public Integer getCreditUnits() {
+        return creditUnits;
+    }
+
+    public void setCreditUnits(Integer creditUnits) {
+        this.creditUnits = creditUnits;
     }
 
     public Integer getSemester() {

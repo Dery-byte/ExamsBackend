@@ -24,6 +24,20 @@ public class Registered_courses {
     @JoinColumn(name = "user_id")
     private User user;
 
+    /** Academic session of the enrolment. Stamped with the current session on creation. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "session_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private com.exam.model.academic.AcademicSession session;
+
+    public com.exam.model.academic.AcademicSession getSession() {
+        return session;
+    }
+
+    public void setSession(com.exam.model.academic.AcademicSession session) {
+        this.session = session;
+    }
+
 
     public Registered_courses() {
     }

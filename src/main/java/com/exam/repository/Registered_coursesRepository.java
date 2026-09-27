@@ -47,4 +47,6 @@ public interface Registered_coursesRepository extends JpaRepository<Registered_c
 
     /** Find registrations by category */
     List<Registered_courses> findByCategory(Category category);
+    List<Registered_courses> findBySessionIsNull();
+    long countBySession_Id(Long sessionId);
 }

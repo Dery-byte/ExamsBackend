@@ -386,6 +386,10 @@ public class PdfReportService {
         ctx.setVariable("sections",     data.get("sections"));
         ctx.setVariable("courseMarks",  data.get("courseMarks"));
         ctx.setVariable("generatedDate",data.get("generatedDate"));
+        ctx.setVariable("sessionName",  data.get("sessionName"));
+        ctx.setVariable("gpa",          data.get("gpa"));
+        ctx.setVariable("cgpa",         data.get("cgpa"));
+        ctx.setVariable("creditUnits",  data.get("creditUnits"));
         ctx.setVariable("watermarkBase64", generateDiagonalWatermarkBase64(candidateId != null ? candidateId : "UCC"));
 
         try {
@@ -405,6 +409,35 @@ public class PdfReportService {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ITextRenderer renderer = new ITextRenderer();
         renderer.setDocumentFromString(xhtml);
+        renderer.layout();
+        renderer.createPDF(out);
+        return out.toByteArray();
+    }
+
+    /**
+     * Generates the student's academic transcript (see AcademicRecordService#transcript).
+     */
+    public byte[] generateTranscriptPdf(java.util.Map<String, Object> transcript, String candidateId) throws Exception {
+        Context ctx = new Context();
+        ctx.setVariable("t", transcript);
+        ctx.setVariable("generatedDate", java.time.LocalDate.now().format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
+        ctx.setVariable("watermarkBase64", generateDiagonalWatermarkBase64(candidateId != null ? candidateId : "UCC"));
+        try {
+            ClassPathResource imgFile = new ClassPathResource("static/images/ucc-logo.png");
+            byte[] bytes = org.springframework.util.StreamUtils.copyToByteArray(imgFile.getInputStream());
+            ctx.setVariable("uccLogoBase64", "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes));
+        } catch (Exception e) {
+            ctx.setVariable("uccLogoBase64", "");
+        }
+
+        String html  = templateEngine.process("transcript", ctx);
+        Document doc = Jsoup.parse(html);
+        doc.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
+        doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ITextRenderer renderer = new ITextRenderer();
+        renderer.setDocumentFromString(doc.html());
         renderer.layout();
         renderer.createPDF(out);
         return out.toByteArray();

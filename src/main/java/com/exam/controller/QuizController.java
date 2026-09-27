@@ -68,8 +68,13 @@ public class QuizController {
 
 
 
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.exam.config.QuizOwnershipInterceptor ownership;
+
     @PutMapping("/update")
     public ResponseEntity<QuizDTO> updateQuiz(@RequestBody QuizUpdateRequest request) {
+        ownership.requireQuiz(request.getqId());
         QuizDTO updated = quizService.updateQuiz(request);
         return ResponseEntity.ok(updated);
     }
@@ -85,6 +90,40 @@ public class QuizController {
      * Title + allowed program names only — shown on the shared quiz link's sign-in page, before
      * the student has logged in. No access check: there's no one signed in yet to check it for.
      */
+    @Autowired private com.exam.repository.QuizUnlockRepository quizUnlockRepository;
+    @Autowired private com.exam.repository.UserRepository userRepositoryForUnlock;
+    @Autowired private com.exam.config.RateLimiter rateLimiter;
+
+    /**
+     * Student enters the quiz password. Checked on the server (students never receive the
+     * password); a correct entry lets them start one new attempt in the next few hours.
+     * At most 10 guesses per student per quiz every 15 minutes.
+     */
+    @PostMapping("quiz/{qid}/unlock")
+    public ResponseEntity<?> unlockQuiz(@PathVariable("qid") Long qid, @RequestBody Map<String, String> body, Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).body(Map.of("message", "Please sign in."));
+        this.quizService.assertStudentMayAccess(qid, principal);
+        Quiz quiz = this.quizService.getQuiz(qid);
+        if (!quiz.hasPassword()) return ResponseEntity.ok(Map.of("unlocked", true));
+
+        com.exam.model.User user = userRepositoryForUnlock.findByUsername(principal.getName()).orElse(null);
+        if (user == null) return ResponseEntity.status(401).body(Map.of("message", "Please sign in."));
+        if (!rateLimiter.tryAcquire("quiz-unlock:" + user.getId() + ":" + qid, 10, 15 * 60 * 1000L))
+            return ResponseEntity.status(429).body(Map.of("message", "Too many attempts. Please wait a few minutes and try again."));
+
+        String given = body == null ? null : body.get("password");
+        boolean ok = given != null && java.security.MessageDigest.isEqual(
+                given.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                quiz.getQuizpassword().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        if (!ok) return ResponseEntity.status(403).body(Map.of("message", "The code provided does not match our records."));
+
+        com.exam.model.examops.QuizUnlock unlock = new com.exam.model.examops.QuizUnlock();
+        unlock.setUser(user);
+        unlock.setQuiz(quiz);
+        quizUnlockRepository.save(unlock);
+        return ResponseEntity.ok(Map.of("unlocked", true));
+    }
+
     @GetMapping("quiz/{qid}/public-summary")
     public com.exam.DTO.QuizPublicSummaryDTO publicSummary(@PathVariable("qid") Long qid) {
         return this.quizService.getPublicSummary(qid);

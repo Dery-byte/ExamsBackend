@@ -65,6 +65,9 @@ UserRepository userRepository;
 ProgramRepository programRepository;
 
 @Autowired
+com.exam.service.academic.AcademicSessionService academicSessionService;
+
+@Autowired
 com.exam.repository.QuizAttemptRepository quizAttemptRepository;
 
 
@@ -73,7 +76,14 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
      * Resolves programId → Program entity, normalises semester (String → Integer)
      * and level format ("Level 100" → "100"), then saves.
      */
+    private static Integer validCreditUnits(Integer cu) {
+        if (cu == null) return null;
+        if (cu < 0 || cu > 30) throw new IllegalArgumentException("Credit units must be between 0 and 30.");
+        return cu;
+    }
+
     private void resolveAndNormalize(Category category) {
+        category.setCreditUnits(validCreditUnits(category.getCreditUnits()));
         // 1. Resolve programIds → Programs
         if (category.getProgramIds() != null && !category.getProgramIds().isEmpty()) {
             java.util.List<Program> resolvedPrograms = programRepository.findAllById(category.getProgramIds());
@@ -161,6 +171,7 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
         category.setLevel(request.getLevel());
         category.setCourseCode(request.getCourseCode());
         applyProgramIds(category, request.getProgramIds());
+        if (request.getCreditUnits() != null) category.setCreditUnits(validCreditUnits(request.getCreditUnits()));
         Category savedCategory = categoryRepository.save(category);
         return convertToDTO(savedCategory);
     }
@@ -173,6 +184,7 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
         dto.setCid(category.getCid());
         dto.setLevel(String.valueOf(category.getLevel()));
         dto.setCourseCode(String.valueOf(category.getCourseCode()));
+        dto.setCreditUnits(category.getCreditUnits());
 //        dto.setId(category.getId());
         dto.setTitle(category.getTitle());
         dto.setDescription(category.getDescription());
@@ -197,6 +209,7 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
         category.setLevel(request.getLevel());
         category.setCourseCode(request.getCourseCode());
         applyProgramIds(category, request.getProgramIds());
+        if (request.getCreditUnits() != null) category.setCreditUnits(validCreditUnits(request.getCreditUnits()));
         // User field is NOT touched, so it remains unchanged
         Category updated = categoryRepository.save(category);
         return new com.exam.DTO.CategoryDTO(updated);
@@ -523,12 +536,14 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
                 .orElseThrow(() -> new RuntimeException("Student not found"));
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new RuntimeException("Course not found"));
+        if (!student.isEnabled()) throw new RuntimeException("This student's account is deactivated.");
         if (registeredCoursesRepository.countByCategoryAndUser(category, student) > 0) {
             return Map.of("message", "Student is already enrolled in this course.");
         }
         Registered_courses reg = new Registered_courses();
         reg.setCategory(category);
         reg.setUser(student);
+        reg.setSession(academicSessionService.current());
         reg.setRegDate(new java.util.Date());
         registeredCoursesRepository.save(reg);
         return Map.of("message", "Student enrolled in " + category.getTitle() + " successfully.");

@@ -39,6 +39,9 @@ public class CategoryController {
     @Autowired
     private com.exam.service.ProgramService programService;
 
+    @Autowired
+    private com.exam.service.academic.AcademicRecordService academicRecordService;
+
     // ── CATEGORY CRUD ─────────────────────────────────────────────────────────
 
     @PostMapping("/add")
@@ -47,6 +50,8 @@ public class CategoryController {
             return ResponseEntity.ok(this.categoryService.addCategory(category));
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorMessage(e.getMessage()));
         }
     }
 
@@ -56,6 +61,8 @@ public class CategoryController {
             return ResponseEntity.ok(this.categoryService.lecturerAddCategory(category));
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorMessage(e.getMessage()));
         }
     }
 
@@ -86,6 +93,8 @@ public class CategoryController {
             return ResponseEntity.ok(this.categoryService.adminUpdateCategory(id, request));
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorMessage(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorMessage(e.getMessage()));
         }
@@ -97,6 +106,8 @@ public class CategoryController {
             return ResponseEntity.ok(categoryService.updateCategory(request));
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorMessage(e.getMessage()));
         }
     }
 
@@ -138,6 +149,8 @@ public class CategoryController {
             return ResponseEntity.ok(categoryService.addCategoryForUser(category, principal));
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorMessage(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorMessage(e.getMessage()));
         }
     }
 
@@ -182,6 +195,11 @@ public class CategoryController {
         if (targetLevel <= current)
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", "HOD can only promote students forward. Target level must be higher than current level."));
+        Map<String, Object> elig = academicRecordService.eligibility(student);
+        if (!Boolean.TRUE.equals(elig.get("eligible")))
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                    "message", "This student doesn't meet the promotion rules. Only the Super Admin can override.",
+                    "reasons", elig.get("reasons"), "canOverride", false));
         student.setCurrentLevel(targetLevel);
         student.setCurrentSemester(1);
         userRepository.save(student);
@@ -203,10 +221,7 @@ public class CategoryController {
                 .filter(s -> s.getProgram() != null && s.getProgram().getId().equals(programId))
                 .filter(s -> level.equals(s.getCurrentLevel()))
                 .collect(Collectors.toList());
-        students.forEach(s -> { s.setCurrentLevel(targetLevel); s.setCurrentSemester(1); });
-        userRepository.saveAll(students);
-        return ResponseEntity.ok(Map.of("message", "Promoted " + students.size() + " students from Level "
-                + level + " to Level " + targetLevel, "count", students.size()));
+        return ResponseEntity.ok(SuperAdminController.applyBulkPromotion(students, level, targetLevel, academicRecordService, userRepository));
     }
 
     @PutMapping("/admin/students/promote-semester-all/{programId}/{level}")
@@ -268,11 +283,17 @@ public class CategoryController {
     }
 
     @PostMapping("/admin/enroll-student")
-    public ResponseEntity<?> adminEnrollStudent(@RequestBody Map<String, Long> body) {
+    public ResponseEntity<?> adminEnrollStudent(@RequestBody Map<String, Long> body, Principal principal) {
         Long studentId  = body.get("studentId");
         Long categoryId = body.get("categoryId");
         if (studentId == null || categoryId == null)
             return ResponseEntity.badRequest().body(Map.of("message", "studentId and categoryId are required."));
+        // HODs may only enrol students of their own department
+        User caller = principal == null ? null : userRepository.findByUsername(principal.getName()).orElse(null);
+        User student = userRepository.findById(studentId).orElse(null);
+        if (caller != null && caller.getRole() == Role.ADMIN && student != null
+                && !com.exam.service.comms.NotificationService.inDepartment(student, caller.getDepartment()))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "That student is not in your department."));
         try {
             return ResponseEntity.ok(categoryService.enrollStudentInCourse(studentId, categoryId));
         } catch (RuntimeException e) {
@@ -323,6 +344,7 @@ public class CategoryController {
             m.put("programId",       s.getProgram()    != null ? s.getProgram().getId()   : null);
             m.put("currentLevel",    s.getCurrentLevel()    != null ? s.getCurrentLevel()    : 0);
             m.put("currentSemester", s.getCurrentSemester() != null ? s.getCurrentSemester() : 0);
+            m.put("enabled",         s.isEnabled());
             return m;
         }).collect(Collectors.toList());
         return ResponseEntity.ok(result);
