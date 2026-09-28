@@ -16,6 +16,30 @@ import java.util.Map;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    /** Permission checks in services (e.g. "You don't manage this quiz", a feature switched off). */
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handle(org.springframework.security.access.AccessDeniedException ex) {
+        return body(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    /** Invalid input rejected by a service. */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handle(IllegalArgumentException ex) {
+        return body(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler({ResourceNotFoundException.class, jakarta.persistence.EntityNotFoundException.class})
+    public ResponseEntity<Map<String, Object>> notFound(RuntimeException ex) {
+        return body(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    private static ResponseEntity<Map<String, Object>> body(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(Map.of(
+                "status", status.value(),
+                "error", status.getReasonPhrase(),
+                "message", message != null ? message : ""));
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, Object>> handle(ResponseStatusException ex) {
         HttpStatusCode code = ex.getStatusCode();

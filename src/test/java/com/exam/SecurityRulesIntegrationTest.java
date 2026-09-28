@@ -170,6 +170,38 @@ class SecurityRulesIntegrationTest {
                 .andReturn().getResponse().getStatus()).isEqualTo(200);
     }
 
+    @Autowired com.exam.repository.DepartmentRepository departments;
+
+    @Test
+    void featureSwitchesAreEnforcedEndToEnd() throws Exception {
+        String signup = "{\"username\":\"newbie\",\"email\":\"n@example.com\",\"password\":\"secret123\",\"firstname\":\"N\",\"lastname\":\"B\"}";
+        try {
+            // Super Admin closes self sign-up: anonymous sign-up is refused, the public setting reflects it
+            assertThat(status(put("/api/features/STUDENT_SELF_SIGNUP").with(as(superAdmin)).content("{\"enabled\":false}"))).isEqualTo(200);
+            assertThat(mvc.perform(get("/api/v1/auth/public-settings")).andReturn().getResponse().getContentAsString())
+                    .contains("\"studentSelfSignup\":false");
+            int anon = mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(signup))
+                    .andReturn().getResponse().getStatus();
+            assertThat(anon).isEqualTo(403);
+            assertThat(users.findByUsername("newbie")).isEmpty();
+
+            // HODs can't touch system-wide switches
+            assertThat(status(put("/api/features/STUDENT_SELF_SIGNUP").with(as(hod)).content("{\"enabled\":true}"))).isEqualTo(403);
+        } finally {
+            status(put("/api/features/STUDENT_SELF_SIGNUP").with(as(superAdmin)).content("{\"enabled\":true}"));
+        }
+
+        // An HOD switches a department-level feature off for their own department only
+        com.exam.model.exam.Department d = new com.exam.model.exam.Department();
+        d.setName("Maths"); d.setCode("MTH");
+        d = departments.save(d);
+        hod.setDepartment(d);
+        users.save(hod);
+        assertThat(status(put("/api/features/STUDENT_TIMETABLE/departments/" + d.getId()).with(as(hod)).content("{\"enabled\":false}"))).isEqualTo(200);
+        assertThat(status(get("/api/features").with(as(hod)))).isEqualTo(200);
+        assertThat(status(get("/api/features").with(as(student)))).isEqualTo(403);
+    }
+
     @Test
     void repeatedWrongPasswordsLockTheAccount() throws Exception {
         String body = "{\"username\":\"stu\",\"password\":\"wrong\"}";

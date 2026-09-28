@@ -18,9 +18,16 @@ public class FeatureFlagController {
 
     @Autowired
     private SystemSettingService systemSettingService;
+    @Autowired
+    private com.exam.service.features.FeatureService featureService;
+    @Autowired
+    private com.exam.service.comms.CurrentUserService currentUserService;
 
+    /** Marks-sheet visibility plus every switchable feature's state for the signed-in user. */
     @GetMapping("/feature-flags")
-    public ResponseEntity<Map<String, Boolean>> getFeatureFlags() {
-        return ResponseEntity.ok(systemSettingService.getFeatureFlags());
+    public ResponseEntity<Map<String, Object>> getFeatureFlags() {
+        Map<String, Object> out = new java.util.LinkedHashMap<>(systemSettingService.getFeatureFlags());
+        out.put("features", featureService.flagsFor(currentUserService.current().orElse(null)));
+        return ResponseEntity.ok(out);
     }
 }

@@ -26,6 +26,7 @@ com\exam\repository\QuizUnlockRepository.class
 com\exam\repository\NotificationRepository.class
 com\exam\service\examops\QuestionBankService$BankQuestionRequest.class
 com\exam\service\llm\ClaudeEvaluationStrategy.class
+com\exam\model\features\Feature$Scope.class
 com\exam\helper\UserFoundException.class
 com\exam\controller\ExamOpsController$ProctoringEventRequest.class
 com\exam\controller\ExamOpsController.class
@@ -33,6 +34,7 @@ com\exam\SecurityApplication.class
 com\exam\model\exam\Category.class
 com\exam\config\RateLimitFilter$Limit.class
 com\exam\service\AttemptService$1.class
+com\exam\service\academic\GradingService$2.class
 com\exam\service\comms\AnnouncementService$CreateRequest.class
 com\exam\config\AuditInterceptor$Rule.class
 com\exam\auth\AuthenticationRequest$AuthenticationRequestBuilder.class
@@ -40,6 +42,7 @@ com\exam\service\comms\AnnouncementService$1.class
 com\exam\service\examops\TimetableService.class
 com\exam\model\examops\QuizUnlock.class
 com\exam\token\Token$TokenBuilder.class
+com\exam\model\features\Feature.class
 com\exam\controller\AcademicController.class
 com\exam\model\academic\AcademicSession.class
 com\exam\config\ApplicationConfig.class
@@ -52,11 +55,15 @@ com\exam\auth\AuthenticationResponse.class
 com\exam\controller\QuestionImageController.class
 com\exam\service\comms\NotificationService.class
 com\exam\config\AuditInterceptor.class
+com\exam\controller\FeatureController.class
+com\exam\model\features\DepartmentFeatureSetting.class
+com\exam\service\academic\GradingService$PresetInfo.class
 com\exam\service\comms\AnalyticsService.class
 com\exam\controller\CommsController.class
 com\exam\model\examops\ProctoringEvent.class
 com\exam\repository\RemarkRequestRepository.class
 com\exam\model\exam\Report.class
+com\exam\service\academic\GradingService$1.class
 com\exam\repository\AcademicSessionRepository.class
 com\exam\model\exam\AttemptStatus.class
 com\exam\model\examops\BankQuestion.class
@@ -64,6 +71,7 @@ com\exam\service\admin\AccountService.class
 com\exam\model\exam\Questions.class
 com\exam\controller\AuthenticationController.class
 com\exam\model\exam\Quiz.class
+com\exam\controller\FeatureController$UserAction.class
 com\exam\controller\ReportController.class
 com\exam\service\comms\AnnouncementService.class
 com\exam\repository\QuizAttemptRepository.class
@@ -72,9 +80,9 @@ com\exam\controller\FeatureFlagController.class
 com\exam\repository\AuditLogRepository.class
 com\exam\helper\ApiExceptionHandler.class
 com\exam\service\llm\EvaluationPersistenceHelper.class
+com\exam\model\academic\GradingPreset.class
 com\exam\service\academic\GradingService$ClassRow.class
 com\exam\service\SubjectiveEvaluationService.class
-com\exam\controller\DemoController.class
 com\exam\service\ReportEmailService.class
 com\exam\auth\AuthenticationResponse$AuthenticationResponseBuilder.class
 com\exam\service\examops\TimetableService$Slot.class
@@ -115,16 +123,19 @@ com\exam\DTO\AttemptDTO.class
 com\exam\model\User.class
 com\exam\service\examops\QuestionBankService.class
 com\exam\helper\UserNotFoundException.class
+com\exam\repository\DepartmentFeatureSettingRepository.class
 com\exam\service\llm\LLMEvaluationStrategyFactory.class
 com\exam\repository\ReportRepository.class
 com\exam\service\examops\ExamAccess$1.class
 com\exam\config\RateLimiter.class
 com\exam\service\QuestionImageService$PdfImage.class
 com\exam\controller\ExamOpsController$UserAction.class
+com\exam\repository\GradingPresetRepository.class
 com\exam\model\academic\DegreeClass.class
 com\exam\service\admin\AccountService$1.class
 com\exam\service\examops\RemarkService.class
 com\exam\model\comms\AnnouncementAudience.class
+com\exam\service\features\FeatureService.class
 com\exam\repository\QuestionsRepository.class
 com\exam\repository\QuizRepository.class
 com\exam\service\examops\QuestionBankService$DrawRequest.class
@@ -137,6 +148,7 @@ com\exam\config\QuizOwnershipInterceptor.class
 com\exam\config\MarksSheetAccessInterceptor.class
 com\exam\model\Role.class
 com\exam\service\QuestionImageService.class
+com\exam\controller\AcademicController$PresetRequest.class
 com\exam\repository\TokenRepository.class
 com\exam\controller\AcademicController$UserAction.class
 com\exam\service\llm\LLMEvaluationStrategy.class

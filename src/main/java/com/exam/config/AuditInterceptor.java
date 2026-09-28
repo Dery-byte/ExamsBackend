@@ -110,6 +110,11 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
             r("DELETE", ".*/api/academic/sessions/\\d+$",           "Deleted academic session"),
             r("PUT",    ".*/api/academic/grading$",                 "Changed grading scale / promotion rules"),
             r("POST",   ".*/api/academic/grading/recalculate$",     "Recalculated grades"),
+            r("POST",   ".*/api/academic/grading/presets$",         "Saved grading preset"),
+            r("DELETE", ".*/api/academic/grading/presets/[0-9]+$",  "Deleted grading preset"),
+            // Feature controls
+            r("PUT",    ".*/api/features/[A-Z_]+/departments/\\d+$", "Changed department feature setting"),
+            r("PUT",    ".*/api/features/[A-Z_]+$",               "Changed system-wide feature switch"),
             // Admin productivity
             r("POST",   ".*/api/admin-tools/import/students$",      "Imported students"),
             r("POST",   ".*/api/admin-tools/import/lecturers$",     "Imported lecturers"),

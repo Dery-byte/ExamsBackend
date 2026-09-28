@@ -28,9 +28,15 @@ private RegisteredCourseService registeredCourseService;
     }
 
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.exam.service.features.FeatureService featureService;
+
     @PostMapping("/registerCourse")
-    public ResponseEntity<Registered_courses> RegCourse(@RequestBody Registered_courses registered_courses, Principal principal){
+    public ResponseEntity<?> RegCourse(@RequestBody Registered_courses registered_courses, Principal principal){
         User user = (User) this.userDetailsService.loadUserByUsername(principal.getName());
+        if (!featureService.isOnFor(com.exam.model.features.Feature.STUDENT_COURSE_REGISTRATION, user))
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(java.util.Map.of("message",
+                    "Course registration is closed. Your department will enrol you in your courses."));
         registered_courses.setUser(user);
 
         LocalDate localDate = LocalDate.now();

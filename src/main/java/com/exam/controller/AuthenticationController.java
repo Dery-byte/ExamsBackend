@@ -78,10 +78,20 @@ public class AuthenticationController {
     }
 
 // STUDENT
+    @Autowired
+    private com.exam.service.features.FeatureService featureService;
+
     @PostMapping("/register")
     public ResponseEntity<?> register(
-            @RequestBody RegisterRequest request
+            @RequestBody RegisterRequest request,
+            Principal principal
     ) {
+        // Self sign-up can be closed by the Super Admin; staff adding students are unaffected
+        boolean staffCaller = principal != null && userRepository.findByUsername(principal.getName())
+                .map(u -> u.getRole() != Role.NORMAL).orElse(false);
+        if (!staffCaller && !featureService.isOnSystemWide(com.exam.model.features.Feature.STUDENT_SELF_SIGNUP))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(java.util.Map.of("message", "Self sign-up is closed. Please ask your department to create your account."));
         try {
             return ResponseEntity.ok(service.register(request));
         } catch (UserFoundException e) {

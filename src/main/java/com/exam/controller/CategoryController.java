@@ -181,8 +181,21 @@ public class CategoryController {
 
     // ── HOD (ADMIN) — STUDENT PROMOTION ──────────────────────────────────────
 
+    @Autowired private com.exam.service.features.FeatureService featureService;
+    @Autowired private com.exam.service.comms.CurrentUserService currentUserService;
+
+    /** 403 response when the feature is switched off for the caller, else null. */
+    private ResponseEntity<?> featureOff(com.exam.model.features.Feature feature) {
+        User u = currentUserService.current().orElse(null);
+        if (featureService.isOnFor(feature, u)) return null;
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message",
+                feature.label() + " has been turned off by the Super Admin."));
+    }
+
     @PutMapping("/admin/student/{id}/promote")
     public ResponseEntity<?> hodPromoteStudent(@PathVariable Long id, @RequestBody Map<String, Integer> body) {
+        ResponseEntity<?> off = featureOff(com.exam.model.features.Feature.HOD_PROMOTION);
+        if (off != null) return off;
         User student = userRepository.findById(id).orElse(null);
         if (student == null)
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Student not found."));
@@ -211,6 +224,8 @@ public class CategoryController {
     public ResponseEntity<?> hodPromoteAllAtLevel(
             @PathVariable Long programId, @PathVariable Integer level,
             @RequestBody Map<String, Integer> body) {
+        ResponseEntity<?> off = featureOff(com.exam.model.features.Feature.HOD_PROMOTION);
+        if (off != null) return off;
         Integer targetLevel = body.get("targetLevel");
         if (targetLevel == null)
             return ResponseEntity.badRequest().body(Map.of("message", "targetLevel is required."));
@@ -227,6 +242,8 @@ public class CategoryController {
     @PutMapping("/admin/students/promote-semester-all/{programId}/{level}")
     public ResponseEntity<?> hodPromoteSemesterAllAtLevel(
             @PathVariable Long programId, @PathVariable Integer level) {
+        ResponseEntity<?> off = featureOff(com.exam.model.features.Feature.HOD_PROMOTION);
+        if (off != null) return off;
         int maxSemesters = 2;
         try {
             com.exam.model.exam.Program program = programService.getEntityById(programId);
@@ -253,6 +270,8 @@ public class CategoryController {
     @PutMapping("/admin/students/demote-semester-all/{programId}/{level}")
     public ResponseEntity<?> hodDemoteSemesterAllAtLevel(
             @PathVariable Long programId, @PathVariable Integer level) {
+        ResponseEntity<?> off = featureOff(com.exam.model.features.Feature.HOD_PROMOTION);
+        if (off != null) return off;
         List<User> students = userRepository.findByRole(Role.NORMAL).stream()
                 .filter(s -> s.getProgram() != null && s.getProgram().getId().equals(programId))
                 .filter(s -> level.equals(s.getCurrentLevel()))

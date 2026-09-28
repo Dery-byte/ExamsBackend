@@ -43,6 +43,7 @@ public class AcademicController {
     @Autowired private PdfReportService pdfReportService;
     @Autowired private SystemSettingService systemSettingService;
     @Autowired private UserRepository userRepository;
+    @Autowired private com.exam.service.features.FeatureService featureService;
 
     // ── Sessions ─────────────────────────────────────────────────────────────
 
@@ -103,6 +104,25 @@ public class AcademicController {
     public ResponseEntity<?> updateGrading(@RequestBody GradingRequest req) {
         return withSuperAdmin(u -> ResponseEntity.ok(gradingService.update(req.bands, req.classes,
                 req.defaultCreditUnits, req.maxCarryoversForPromotion, req.minCgpaForPromotion)));
+    }
+
+    public static class PresetRequest {
+        public String name;
+        public String description;
+        public List<GradingService.BandRow> bands;
+        public List<GradingService.ClassRow> classes;
+    }
+
+    /** Save a grading scale as a named preset (typically the one being edited on the settings page). */
+    @PostMapping("/grading/presets")
+    public ResponseEntity<?> savePreset(@RequestBody PresetRequest req) {
+        return withSuperAdmin(u -> ResponseEntity.ok(gradingService.savePreset(req.name, req.description, req.bands, req.classes,
+                CurrentUserService.displayName(u))));
+    }
+
+    @DeleteMapping("/grading/presets/{id}")
+    public ResponseEntity<?> deletePreset(@PathVariable Long id) {
+        return withSuperAdmin(u -> ResponseEntity.ok(gradingService.deletePreset(id)));
     }
 
     /** Re-grades unpublished marks with the current scale. Published grades are kept. */
@@ -193,6 +213,7 @@ public class AcademicController {
     /** Students see results only while the Super Admin shows them report cards. */
     private void requireStudentResultsVisible(User u) {
         if (u.getRole() != Role.NORMAL) throw new AccessDeniedException("Only students have a personal transcript.");
+        featureService.require(com.exam.model.features.Feature.STUDENT_TRANSCRIPT, u);
         if (!systemSettingService.getBooleanSetting(SystemSettingService.MARKS_SHEET_VISIBLE_STUDENT, true))
             throw new AccessDeniedException("Results are not available to students at the moment.");
     }

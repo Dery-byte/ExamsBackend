@@ -41,14 +41,14 @@ public final class EndpointRules {
             .requestMatchers(HttpMethod.POST, p("/register/super-admin")).permitAll()
             .requestMatchers(HttpMethod.GET, p("/programs/my-department")).authenticated()
             .requestMatchers(HttpMethod.GET, p("/programs", "/programs/*", "/programs/department/*", "/departments")).permitAll()
-            .requestMatchers(HttpMethod.GET, p("/quiz/*/public-summary")).permitAll()
+            .requestMatchers(HttpMethod.GET, p("/quiz/*/public-summary", "/public-settings")).permitAll()
             // Question images are loaded by <img> tags, which can't send a token; ids are random UUIDs
             .requestMatchers(HttpMethod.GET, p("/question-images/**")).permitAll()
 
             // ── Super Admin ──────────────────────────────────────────────────
             .requestMatchers("/api/v1/super-admin/**").hasAuthority(SUPER_ADMIN)
             .requestMatchers(HttpMethod.POST, p("/register/admin")).hasAuthority(SUPER_ADMIN)
-            .requestMatchers(p("/demo-controller", "/all_users", "/quizGPT/debug/**", "/quizGPT/info")).hasAuthority(SUPER_ADMIN)
+            .requestMatchers(p("/quizGPT/debug/**", "/quizGPT/info")).hasAuthority(SUPER_ADMIN)
 
             // ── Super Admin + HODs ───────────────────────────────────────────
             .requestMatchers(HttpMethod.POST, p("/register/lecturer", "/add", "/sendMail", "/sendMail2", "/sendMailf", "/sms/**")).hasAnyAuthority(ADMINS)
@@ -59,7 +59,7 @@ public final class EndpointRules {
             .requestMatchers(HttpMethod.PUT, p("/update/lecturer/*", "/update/student/*", "/category/admin/updateCategory/*",
                     "/category/updateCategory", "/courses/*/assign/*", "/*/unassign", "/report-email-setting")).hasAnyAuthority(ADMINS)
             .requestMatchers(HttpMethod.DELETE, p("/lecturer/*", "/student/*", "/category/*")).hasAnyAuthority(ADMINS)
-            .requestMatchers("/api/analytics/**", "/api/admin-tools/**", "/api/accounts/**").hasAnyAuthority(ADMINS)
+            .requestMatchers("/api/analytics/**", "/api/admin-tools/**", "/api/accounts/**", "/api/features/**").hasAnyAuthority(ADMINS)
             .requestMatchers(HttpMethod.POST, "/api/announcements").hasAnyAuthority(ADMINS)
             .requestMatchers(HttpMethod.DELETE, "/api/announcements/*").hasAnyAuthority(ADMINS)
             .requestMatchers("/api/announcements/manage").hasAnyAuthority(ADMINS)

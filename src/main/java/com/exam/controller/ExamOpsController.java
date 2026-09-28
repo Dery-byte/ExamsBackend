@@ -31,6 +31,7 @@ public class ExamOpsController {
     @Autowired private QuestionBankService questionBankService;
     @Autowired private ProctoringService proctoringService;
     @Autowired private RemarkService remarkService;
+    @Autowired private com.exam.service.features.FeatureService featureService;
 
     // ── Timetable ────────────────────────────────────────────────────────────
 
@@ -40,45 +41,48 @@ public class ExamOpsController {
                                        @RequestParam(required = false) Long departmentId,
                                        @RequestParam(required = false) Long programId,
                                        @RequestParam(required = false) String level) {
-        return withUser(u -> ResponseEntity.ok(timetableService.timetable(u, from, to, departmentId, programId, level)));
+        return withUser(u -> {
+            if (u.getRole() == com.exam.model.Role.NORMAL) featureService.require(com.exam.model.features.Feature.STUDENT_TIMETABLE, u);
+            return ResponseEntity.ok(timetableService.timetable(u, from, to, departmentId, programId, level));
+        });
     }
 
     // ── Question bank ────────────────────────────────────────────────────────
 
     @GetMapping("/question-bank/courses")
     public ResponseEntity<?> bankCourses() {
-        return withUser(u -> ResponseEntity.ok(questionBankService.myCourses(u)));
+        return withUser(u -> { featureService.require(com.exam.model.features.Feature.QUESTION_BANK, u); return ResponseEntity.ok(questionBankService.myCourses(u)); });
     }
 
     @GetMapping("/question-bank/course/{courseId}")
     public ResponseEntity<?> bankForCourse(@PathVariable Long courseId) {
-        return withUser(u -> ResponseEntity.ok(questionBankService.list(u, courseId)));
+        return withUser(u -> { featureService.require(com.exam.model.features.Feature.QUESTION_BANK, u); return ResponseEntity.ok(questionBankService.list(u, courseId)); });
     }
 
     @PostMapping("/question-bank/course/{courseId}")
     public ResponseEntity<?> addBankQuestion(@PathVariable Long courseId, @RequestBody QuestionBankService.BankQuestionRequest req) {
-        return withUser(u -> ResponseEntity.ok(questionBankService.create(u, courseId, req)));
+        return withUser(u -> { featureService.require(com.exam.model.features.Feature.QUESTION_BANK, u); return ResponseEntity.ok(questionBankService.create(u, courseId, req)); });
     }
 
     @PutMapping("/question-bank/{id}")
     public ResponseEntity<?> updateBankQuestion(@PathVariable Long id, @RequestBody QuestionBankService.BankQuestionRequest req) {
-        return withUser(u -> ResponseEntity.ok(questionBankService.update(u, id, req)));
+        return withUser(u -> { featureService.require(com.exam.model.features.Feature.QUESTION_BANK, u); return ResponseEntity.ok(questionBankService.update(u, id, req)); });
     }
 
     @DeleteMapping("/question-bank/{id}")
     public ResponseEntity<?> deleteBankQuestion(@PathVariable Long id) {
-        return withUser(u -> { questionBankService.delete(u, id); return ResponseEntity.ok(Map.of("message", "Deleted.")); });
+        return withUser(u -> { featureService.require(com.exam.model.features.Feature.QUESTION_BANK, u); questionBankService.delete(u, id); return ResponseEntity.ok(Map.of("message", "Deleted.")); });
     }
 
     @PostMapping("/question-bank/import/quiz/{quizId}")
     public ResponseEntity<?> importQuiz(@PathVariable Long quizId, @RequestBody(required = false) Map<String, String> body) {
         Map<String, String> b = body == null ? Map.of() : body;
-        return withUser(u -> ResponseEntity.ok(questionBankService.importFromQuiz(u, quizId, b.get("topic"), b.get("difficulty"))));
+        return withUser(u -> { featureService.require(com.exam.model.features.Feature.QUESTION_BANK, u); return ResponseEntity.ok(questionBankService.importFromQuiz(u, quizId, b.get("topic"), b.get("difficulty"))); });
     }
 
     @PostMapping("/question-bank/draw/quiz/{quizId}")
     public ResponseEntity<?> drawIntoQuiz(@PathVariable Long quizId, @RequestBody QuestionBankService.DrawRequest req) {
-        return withUser(u -> ResponseEntity.ok(questionBankService.drawIntoQuiz(u, quizId, req)));
+        return withUser(u -> { featureService.require(com.exam.model.features.Feature.QUESTION_BANK, u); return ResponseEntity.ok(questionBankService.drawIntoQuiz(u, quizId, req)); });
     }
 
     // ── Proctoring ───────────────────────────────────────────────────────────

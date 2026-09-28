@@ -42,6 +42,8 @@ public class User implements UserDetails {
   private String lastname;
   @Column(unique = true, nullable = false)
   private String email;
+  /** Accepted in requests but never written to JSON (it's a hash, but still must not leak). */
+  @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
   private String password;
   @Column(unique = true, nullable = false)
   private String username;

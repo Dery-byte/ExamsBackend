@@ -30,6 +30,7 @@ public class CommsController {
     @Autowired private AnnouncementService announcementService;
     @Autowired private AnalyticsService analyticsService;
     @Autowired private AuditService auditService;
+    @Autowired private com.exam.service.features.FeatureService featureService;
 
     // ── Notifications ────────────────────────────────────────────────────────
 
@@ -86,6 +87,7 @@ public class CommsController {
                 dept = departmentId == null ? null : analyticsService.department(departmentId)
                         .orElseThrow(() -> new IllegalArgumentException("Department not found."));
             } else if (u.getRole() == Role.ADMIN) {
+                featureService.require(com.exam.model.features.Feature.HOD_ANALYTICS, u);
                 dept = u.getDepartment();
                 if (dept == null) throw new AccessDeniedException("Your account is not linked to a department.");
             } else {

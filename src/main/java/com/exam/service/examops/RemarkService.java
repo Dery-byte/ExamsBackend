@@ -35,10 +35,12 @@ public class RemarkService {
     @Autowired private ReportRepository reportRepository;
     @Autowired private NotificationService notificationService;
     @Autowired private com.exam.repository.UserRepository userRepository;
+    @Autowired private com.exam.service.features.FeatureService featureService;
 
     @Transactional
     public Map<String, Object> create(User student, Long reportId, String reason) {
         if (student.getRole() != Role.NORMAL) throw new AccessDeniedException("Only students can request a re-mark.");
+        featureService.require(com.exam.model.features.Feature.REMARK_REQUESTS, student);
         if (reason == null || reason.trim().length() < 10)
             throw new IllegalArgumentException("Please explain the reason (at least 10 characters).");
         Report report = reportRepository.findById(reportId)

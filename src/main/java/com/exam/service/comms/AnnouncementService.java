@@ -29,6 +29,7 @@ public class AnnouncementService {
     @Autowired private ProgramRepository programRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private NotificationService notificationService;
+    @Autowired private com.exam.service.features.FeatureService featureService;
 
     public static class CreateRequest {
         public String title;
@@ -44,6 +45,7 @@ public class AnnouncementService {
     public Map<String, Object> create(User author, CreateRequest req) {
         if (author.getRole() != Role.SUPER_ADMIN && author.getRole() != Role.ADMIN)
             throw new AccessDeniedException("Only the Super Admin and HODs can post announcements.");
+        featureService.require(com.exam.model.features.Feature.HOD_ANNOUNCEMENTS, author);
         if (req.title == null || req.title.isBlank() || req.body == null || req.body.isBlank())
             throw new IllegalArgumentException("Title and message are required.");
 

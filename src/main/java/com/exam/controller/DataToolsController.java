@@ -29,6 +29,7 @@ public class DataToolsController {
     @Autowired private ImportService importService;
     @Autowired private BulkEnrollService bulkEnrollService;
     @Autowired private AccountService accountService;
+    @Autowired private com.exam.service.features.FeatureService featureService;
 
     public static class ImportRequest {
         public List<Map<String, String>> rows;
@@ -38,7 +39,7 @@ public class DataToolsController {
     @PostMapping("/admin-tools/import/{type}")
     public ResponseEntity<?> importRows(@PathVariable String type, @RequestParam(defaultValue = "false") boolean commit,
                                         @RequestBody ImportRequest req) {
-        return withUser(u -> ResponseEntity.ok(importService.run(u, type, req.rows, commit)));
+        return withUser(u -> { featureService.require(com.exam.model.features.Feature.HOD_DATA_TOOLS, u); return ResponseEntity.ok(importService.run(u, type, req.rows, commit)); });
     }
 
     public static class BulkEnrollRequest {
@@ -49,12 +50,12 @@ public class DataToolsController {
 
     @PostMapping("/admin-tools/bulk-enroll")
     public ResponseEntity<?> bulkEnroll(@RequestParam(defaultValue = "false") boolean commit, @RequestBody BulkEnrollRequest req) {
-        return withUser(u -> ResponseEntity.ok(bulkEnrollService.enroll(u, req.programId, req.level, req.semester, commit)));
+        return withUser(u -> { featureService.require(com.exam.model.features.Feature.HOD_DATA_TOOLS, u); return ResponseEntity.ok(bulkEnrollService.enroll(u, req.programId, req.level, req.semester, commit)); });
     }
 
     @GetMapping("/admin-tools/results-summary")
     public ResponseEntity<?> resultsSummary(@RequestParam Long programId, @RequestParam(required = false) Integer level) {
-        return withUser(u -> ResponseEntity.ok(bulkEnrollService.resultsSummary(u, programId, level)));
+        return withUser(u -> { featureService.require(com.exam.model.features.Feature.HOD_DATA_TOOLS, u); return ResponseEntity.ok(bulkEnrollService.resultsSummary(u, programId, level)); });
     }
 
     @PostMapping("/accounts/{id}/deactivate")
