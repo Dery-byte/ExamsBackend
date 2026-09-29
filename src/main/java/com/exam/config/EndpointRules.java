@@ -18,6 +18,9 @@ public final class EndpointRules {
     public static final String SUPER_ADMIN = "SUPER_ADMIN";
     public static final String[] ADMINS = {"SUPER_ADMIN", "ADMIN"};
     public static final String[] STAFF = {"SUPER_ADMIN", "ADMIN", "LECTURER"};
+    public static final String DEVELOPER = "DEVELOPER";
+    /** Every role that uses the school system itself; the developer only has their own area. */
+    public static final String[] SYSTEM_USERS = {"SUPER_ADMIN", "ADMIN", "LECTURER", "NORMAL"};
 
     private static final String A = "/api/v1/auth";
 
@@ -37,18 +40,30 @@ public final class EndpointRules {
             .requestMatchers(HttpMethod.POST, p("/authenticate", "/register", "/logout",
                     "/forgotten-password", "/forgotten-password/**", "/reset-password", "/reset-password-with-token")).permitAll()
             .requestMatchers(HttpMethod.GET, p("/validate-reset-token")).permitAll()
+            // Developer sign-in by emailed code, and the status check uptime monitors call (both rate-limited)
+            .requestMatchers(HttpMethod.POST, p("/developer/request-code", "/developer/verify")).permitAll()
+            .requestMatchers(HttpMethod.GET, p("/status")).permitAll()
             // First Super Admin only; the controller refuses once one exists (unless a Super Admin calls it)
             .requestMatchers(HttpMethod.POST, p("/register/super-admin")).permitAll()
             .requestMatchers(HttpMethod.GET, p("/programs/my-department")).authenticated()
             .requestMatchers(HttpMethod.GET, p("/programs", "/programs/*", "/programs/department/*", "/departments")).permitAll()
-            .requestMatchers(HttpMethod.GET, p("/quiz/*/public-summary", "/public-settings")).permitAll()
+            .requestMatchers(HttpMethod.GET, p("/quiz/*/public-summary", "/public-settings", "/institution", "/institution/logo")).permitAll()
+            // Anyone holding a printed transcript / report card can check its code (rate-limited)
+            .requestMatchers(HttpMethod.GET, p("/verify/*")).permitAll()
             // Question images are loaded by <img> tags, which can't send a token; ids are random UUIDs
             .requestMatchers(HttpMethod.GET, p("/question-images/**")).permitAll()
+
+            // ── Developer: system mode, health, errors ───────────────────────
+            .requestMatchers("/api/v1/developer/**").hasAuthority(DEVELOPER)
+            // Things every signed-in person (the developer included) needs
+            .requestMatchers(HttpMethod.GET, p("/current-user", "/feature-flags")).authenticated()
+            .requestMatchers(HttpMethod.POST, p("/client-errors")).authenticated()
 
             // ── Super Admin ──────────────────────────────────────────────────
             .requestMatchers("/api/v1/super-admin/**").hasAuthority(SUPER_ADMIN)
             .requestMatchers(HttpMethod.POST, p("/register/admin")).hasAuthority(SUPER_ADMIN)
             .requestMatchers(p("/quizGPT/debug/**", "/quizGPT/info")).hasAuthority(SUPER_ADMIN)
+            .requestMatchers(HttpMethod.PUT, p("/changePassword")).hasAuthority(SUPER_ADMIN)   // sets another user's password by username
 
             // ── Super Admin + HODs ───────────────────────────────────────────
             .requestMatchers(HttpMethod.POST, p("/register/lecturer", "/add", "/sendMail", "/sendMail2", "/sendMailf", "/sms/**")).hasAnyAuthority(ADMINS)
@@ -85,18 +100,20 @@ public final class EndpointRules {
 
             // ── Marks sheets: admins run the workflow, staff enter marks, students read their own ─
             .requestMatchers(HttpMethod.POST, "/api/marks/sheet/activate", "/api/marks/sheet/*/publish", "/api/marks/sheet/*/revert",
+                    "/api/marks/sheet/*/schedule-publish",
                     "/api/marks/sheet/*/approve", "/api/marks/sheet/*/enroll-students").hasAnyAuthority(ADMINS)
             .requestMatchers(HttpMethod.PUT, "/api/marks/sheet/*").hasAnyAuthority(ADMINS)
-            .requestMatchers(HttpMethod.DELETE, "/api/marks/sheet/*").hasAnyAuthority(ADMINS)
+            .requestMatchers(HttpMethod.DELETE, "/api/marks/sheet/*", "/api/marks/sheet/*/schedule-publish").hasAnyAuthority(ADMINS)
             .requestMatchers(HttpMethod.GET, "/api/marks/sheet/all").hasAnyAuthority(ADMINS)
             .requestMatchers(HttpMethod.POST, "/api/marks/sheet/*/save", "/api/marks/sheet/*/submit",
                     "/api/marks/sheet/*/sync-marks/**", "/api/marks/sheet/*/sections").hasAnyAuthority(STAFF)
             .requestMatchers(HttpMethod.DELETE, "/api/marks/sheet/*/sections/*").hasAnyAuthority(STAFF)
+            .requestMatchers("/api/marks/sheet/*/term-remarks").hasAnyAuthority(STAFF)   // class teacher / HOD checked in the service
             .requestMatchers(HttpMethod.GET, "/api/marks/sheet/my-sheets", "/api/marks/sheet/*").hasAnyAuthority(STAFF)
 
             // ── Everything else (students' exam flow, own results, profile …): any signed-in user.
             //    Services check that students only reach their own data and quizzes they may take.
-            .requestMatchers(A + "/**").authenticated()
-            .anyRequest().authenticated();
+            .requestMatchers(A + "/**").hasAnyAuthority(SYSTEM_USERS)
+            .anyRequest().hasAnyAuthority(SYSTEM_USERS);
     }
 }

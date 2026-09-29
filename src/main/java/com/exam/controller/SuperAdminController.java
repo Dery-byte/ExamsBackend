@@ -232,6 +232,7 @@ public class SuperAdminController {
         String newPass = (String) body.get("password");
         if (newPass != null && !newPass.isBlank()) {
             user.setPassword(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(newPass));
+            user.setMustChangePassword(Boolean.TRUE);
         }
 
         if (body.containsKey("departmentId")) {

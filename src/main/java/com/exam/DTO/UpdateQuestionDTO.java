@@ -58,4 +58,7 @@ public class UpdateQuestionDTO {
      * The question FK will be set server-side in QuestionsService.
      */
     private List<MatchingPair> matchingPairs;
+
+    /** NUMERIC only. */
+    private Double tolerance;
 }

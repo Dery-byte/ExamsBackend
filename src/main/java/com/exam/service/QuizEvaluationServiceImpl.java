@@ -234,16 +234,10 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
                         ? Arrays.asList(persisted.getcorrect_answer())
                         : null;
 
-                if (correctList != null && givenList != null) {
-                    List<String> sortedCorrect = new java.util.ArrayList<>(correctList);
-                    List<String> sortedGiven   = new java.util.ArrayList<>(givenList);
-                    Collections.sort(sortedCorrect);
-                    Collections.sort(sortedGiven);
-
-                    if (sortedCorrect.equals(sortedGiven)) {
-                        correctAnswers++;
-                        marksGot += markPerQuestion;
-                    }
+                if (correctList != null && givenList != null
+                        && AnswerMatcher.isCorrect(type, persisted.getcorrect_answer(), persisted.getTolerance(), givenList)) {
+                    correctAnswers++;
+                    marksGot += markPerQuestion;
                 }
             }
 

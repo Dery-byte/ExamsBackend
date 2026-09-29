@@ -48,6 +48,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AuthenticationController {
 
+    @Autowired
+    private com.exam.config.ForcePasswordChangeInterceptor forcePasswordChange;
+
 
     @Autowired
     private final AuthenticationService service;
@@ -281,17 +284,27 @@ public ResponseEntity<?> logout(
                 user.isAccountNonLocked(),
                 user.getDepartment()
         );
+        response.setMustChangePassword(forcePasswordChange.mustChange(user));
         return ResponseEntity.ok(response);
     }
 
 
     //Change Password if logged In
     @PutMapping("/updatepassword")
-    String changePassword(Principal principal, @RequestBody User users){
+    public ResponseEntity<?> changePassword(Principal principal, @RequestBody Map<String, String> body){
         User user = (User) userDetailsService.loadUserByUsername(principal.getName());
-        user.setPassword(passwordEncoder.encode(users.getPassword()));
+        String next = body.get("password");
+        if (next == null || next.length() < 6)
+            return ResponseEntity.badRequest().body(Map.of("message", "Password must be at least 6 characters."));
+        String current = body.get("currentPassword");
+        if (current != null && !passwordEncoder.matches(current, user.getPassword()))
+            return ResponseEntity.badRequest().body(Map.of("message", "Your current password is not correct."));
+        if (passwordEncoder.matches(next, user.getPassword()))
+            return ResponseEntity.badRequest().body(Map.of("message", "Choose a password different from the current one."));
+        user.setPassword(passwordEncoder.encode(next));
+        user.setMustChangePassword(null);
         userRepository.save(user);
-        return "Password changed " + user.getPassword();
+        return ResponseEntity.ok(Map.of("message", "Password changed."));
     }
 
     // Update own profile — works for ANY role (ADMIN, LECTURER, NORMAL)
@@ -345,6 +358,7 @@ public ResponseEntity<?> logout(
             if (u.getUsername().equals(users.getUsername())) {
                 System.out.println("True");
                 u.setPassword(passwordEncoder.encode(users.getPassword()));
+                u.setMustChangePassword(Boolean.TRUE);
                 userRepository.save(u);
                 return "Successful password reset " + " for " + users.getUsername();
             }

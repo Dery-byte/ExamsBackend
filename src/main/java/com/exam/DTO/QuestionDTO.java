@@ -65,6 +65,9 @@ public class QuestionDTO {
 
     // ── New fields ─────────────────────────────────────────────────────────────
     private QuestionType questionType;
+
+    /** NUMERIC only. */
+    private Double tolerance;
     private List<MatchingPair> matchingPairs;   // populated only for MATCHING
 
     public QuestionDTO() {}

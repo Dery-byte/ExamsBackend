@@ -1,3 +1,4 @@
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\ErrorCaptureInterceptor.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\CategoryRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\MarksSheetAccessInterceptor.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\VoilationTimerRequestDTO.java
@@ -13,6 +14,8 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\User.
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\GPTRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\AnswerService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\TheoryQuestions.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\ForcePasswordChangeInterceptor.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\InstitutionLogoRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\GoogleGeminiConfig.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\llm\GeminiEvaluationStrategy.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\QuizTimerRequestDTO.java
@@ -29,7 +32,9 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Cat
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\TheoryProgressController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\ForgotPasswordUnifiedRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\comms\AuditService.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\DeveloperAccessInterceptor.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\StringArrayConverter.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\DeveloperController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\QuizDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\AttemptService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\QuizResultsController.java
@@ -40,6 +45,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Jwt
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\auth\RegisterRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\GeminiResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\TheoryProgress.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\monitoring\ErrorMonitorService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\json\StaffOnlySerializer.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\QuizProgressController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\LlmProvider.java
@@ -69,12 +75,14 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\SmsRequ
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\GradeBandRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\RedisConfig.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\examops\QuestionBankService.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\DocumentVerificationRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\CategoryController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\UpdateQuestionDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\TheoryQuestionsRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\StudentSemesterRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\TokenInfo.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\UserNotFoundException.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\academic\TermRemarkService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\examops\ProctoringService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\GeminiController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\SystemSetting.java
@@ -99,6 +107,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\GPTUsage.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\UserQuizProgressResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\OAuthAuthenicationSuccessHandler.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\TermReportRemarkRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\ProctoringEventRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\QuizEvaluationResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\ViolationResponse.java
@@ -118,12 +127,14 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\llm\GPTEvaluationStrategy.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\AnswerRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuizGeminiService.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\monitoring\DeveloperAuthService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\NumberOfTheoryToAnswerRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Impl\CategoryServcieImpl.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\CustomResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\ProgramPublicController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\Questions.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\token\TokenType.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\monitoring\HealthService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\TheoryQuestionDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\StudentCourseMarkRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\token\Token.java
@@ -141,6 +152,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\examops\RemarkRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\AnswerController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\examops\TimetableService.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\academic\InstitutionLogo.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\PdfReportController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\QuestionResponseDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\AnswerStatus.java
@@ -158,6 +170,8 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\comms
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\examops\ExamAccess.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\GPTMessage.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\llm\DeepSeekEvaluationStrategy.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\ScheduledResultRelease.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\academic\DocumentVerificationService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\QuizController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\QuizTimerController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\BulkQuestionUploadService.java
@@ -181,6 +195,8 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\QuizPublicSummaryDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\StudentCourseMark.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\DataToolsController.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\academic\SystemMode.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\DeveloperEmailRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuestionsService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\LecturerDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\LecturerUpdateDTO.java
@@ -193,6 +209,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\AcademicController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\NumberOfTheoryUpdateRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\admin\BulkEnrollService.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\academic\DocumentVerification.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\SemesterSheet.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\AutoCloseFraction.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\GPTChoice.java
@@ -210,8 +227,10 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuizTimerService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\GeminiConfig.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\academic\GradingPreset.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\academic\TermReportRemark.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\CategoryWithQuizzesDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\AttemptStatus.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\monitoring\DeveloperEmail.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\MarksEntryService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\TheoryProgressRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\QuizAttemptController.java
@@ -228,6 +247,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\QuizPro
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\JwtAuthenticationFilter.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\SameSiteCookieFilter.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\comms\Announcement.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\InstitutionController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\GradingPresetRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\academic\DegreeClass.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\UserFoundException.java
@@ -235,13 +255,16 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\acade
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\StudentResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\MatchingPair.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\Answer.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\AnswerMatcher.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\TheoryController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\BankQuestionRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\StudentSectionMarkRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\QuestionEvaluationResult.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\ErrorEventRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\academic\AcademicRecordService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\QuizStatus.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\QuestionSubmission.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\monitoring\ErrorEvent.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\Registered_coursesRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuizGPTService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\QuizGPTController.java
@@ -268,6 +291,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Imp
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\llm\ClaudeEvaluationStrategy.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\QuizOwnershipInterceptor.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\AcademicSessionRepository.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\academic\InstitutionService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\FeatureController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\QuizEvaluationResult.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\features\DepartmentFeatureSetting.java

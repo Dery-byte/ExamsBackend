@@ -55,6 +55,9 @@ public class BankQuestion {
     @Column(columnDefinition = "TEXT")
     private String[] correctAnswer;
 
+    /** NUMERIC only: allowed difference from the correct value. */
+    private Double tolerance;
+
     /** MATCHING only: JSON array of {prompt, answer} in display order. */
     @Column(columnDefinition = "TEXT")
     private String matchingPairsJson;

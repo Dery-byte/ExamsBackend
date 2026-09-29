@@ -172,6 +172,7 @@ public class ImportService {
         u.setUsername(role == Role.NORMAL ? opt(d, "studentid", "username", "indexnumber", "id") : opt(d, "staffid", "username", "id"));
         u.setPhone(opt(d, "phone", "phonenumber", "mobile"));
         u.setPassword(passwordEncoder.encode(password));
+        u.setMustChangePassword(Boolean.TRUE);
         u.setRole(role);
         u.setEnabled(true);
         if (role == Role.NORMAL) {

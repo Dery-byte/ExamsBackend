@@ -116,6 +116,10 @@ public class SemesterSheetDTO {
     public void setLevel(String level) { this.level = level; }
     public Integer getSemester() { return semester; }
     public void setSemester(Integer semester) { this.semester = semester; }
+    private java.time.Instant publishAt;
+    public java.time.Instant getPublishAt() { return publishAt; }
+    public void setPublishAt(java.time.Instant publishAt) { this.publishAt = publishAt; }
+
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public Long getClassTeacherId() { return classTeacherId; }

@@ -53,6 +53,8 @@ public class User implements UserDetails {
   /** False once the account is deactivated: the user can no longer sign in. */
   @Builder.Default
   private boolean enabled = true;
+  /** Set when staff chose this account's password; the owner must pick a new one at next sign-in. */
+  private Boolean mustChangePassword;
   private java.time.LocalDateTime deactivatedAt;
   @Column(length = 300)
   private String deactivationReason;
@@ -113,6 +115,10 @@ public class User implements UserDetails {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private Set<Category> categories = new HashSet<>();
+
+  public boolean requiresPasswordChange() {
+    return Boolean.TRUE.equals(mustChangePassword);
+  }
 
   @Override
 //  @JsonIgnore

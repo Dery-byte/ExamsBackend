@@ -697,6 +697,13 @@ public class QuestionsController {
                 && question.getMatchingPairs() != null) {
             question.getMatchingPairs().forEach(pair -> pair.setQuestion(question));
         }
+        if (com.exam.service.AnswerMatcher.isTyped(question.getQuestionType())) {
+            // FILL_BLANK / NUMERIC: validated answer key, no options
+            com.exam.service.AnswerMatcher.validateTyped(question.getQuestionType(), question.getcorrect_answer(), question.getTolerance());
+            question.setcorrect_answer(com.exam.service.AnswerMatcher.cleanAccepted(question.getcorrect_answer()));
+            question.setOption1(null); question.setOption2(null); question.setOption3(null); question.setOption4(null);
+            if (question.getQuestionType() != QuestionType.NUMERIC) question.setTolerance(null);
+        }
         return ResponseEntity.ok(questionsService.addQuestions(question));
     }
 
@@ -1057,16 +1064,19 @@ public class QuestionsController {
                 Collections.sort(correctList);
                 Collections.sort(sortedGiven);
 
-                if (!givenList.isEmpty() && correctList.equals(sortedGiven)) {
+                if (!givenList.isEmpty() && com.exam.service.AnswerMatcher.isCorrect(
+                        type, persisted.getcorrect_answer(), persisted.getTolerance(), givenList)) {
                     fullyCorrect = true;
                     earnedMark   = markPerQuestion;
                 }
-                // Determine AnswerStatus for MCQ / TRUE_FALSE
+                // Determine AnswerStatus (typed answers are either right or wrong)
                 String status;
                 if (givenList.isEmpty()) {
                     status = "SKIPPED";
                 } else if (fullyCorrect) {
                     status = "CORRECT";
+                } else if (com.exam.service.AnswerMatcher.isTyped(type)) {
+                    status = "WRONG";
                 } else {
                     // Check if at least one selected answer is correct (partial selection)
                     Set<String> correctSet  = new HashSet<>(correctList);
@@ -1080,6 +1090,7 @@ public class QuestionsController {
                 entry.put("option3",         persisted.getOption3());
                 entry.put("option4",         persisted.getOption4());
                 entry.put("correct_answer",  persisted.getcorrect_answer());
+                entry.put("tolerance",       persisted.getTolerance());
                 entry.put("selectedAnswers", req.getGivenAnswer());
                 entry.put("earnedMark",      earnedMark);
                 entry.put("isCorrect",       fullyCorrect);

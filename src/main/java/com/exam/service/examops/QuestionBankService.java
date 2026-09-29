@@ -43,6 +43,7 @@ public class QuestionBankService {
         public String option1, option2, option3, option4;
         public List<String> correctAnswer;
         public List<Map<String, String>> matchingPairs;   // [{prompt, answer}]
+        public Double tolerance;                          // NUMERIC only
     }
 
     /** Random draw: filters are optional; count is required. */
@@ -144,6 +145,7 @@ public class QuestionBankService {
             b.setOption1(q.getOption1()); b.setOption2(q.getOption2());
             b.setOption3(q.getOption3()); b.setOption4(q.getOption4());
             b.setCorrectAnswer(q.getcorrect_answer());
+            b.setTolerance(q.getTolerance());
             if (q.getQuestionType() == QuestionType.MATCHING) b.setMatchingPairsJson(pairsToJson(q.getMatchingPairs()));
             b.setAuthorId(u.getId());
             b.setAuthorName(CurrentUserService.displayName(u));
@@ -220,6 +222,17 @@ public class QuestionBankService {
             return;
         }
 
+        if (com.exam.service.AnswerMatcher.isTyped(type)) {
+            String[] accepted = req.correctAnswer == null ? new String[0] : req.correctAnswer.toArray(new String[0]);
+            com.exam.service.AnswerMatcher.validateTyped(type, accepted, req.tolerance);
+            b.setOption1(null); b.setOption2(null); b.setOption3(null); b.setOption4(null);
+            b.setCorrectAnswer(com.exam.service.AnswerMatcher.cleanAccepted(accepted));
+            b.setTolerance(type == QuestionType.NUMERIC ? req.tolerance : null);
+            b.setMatchingPairsJson(null);
+            return;
+        }
+        b.setTolerance(null);
+
         if (type == QuestionType.TRUE_FALSE) {
             b.setOption1("True"); b.setOption2("False"); b.setOption3(null); b.setOption4(null);
         } else {
@@ -246,6 +259,7 @@ public class QuestionBankService {
         q.setOption1(b.getOption1()); q.setOption2(b.getOption2());
         q.setOption3(b.getOption3()); q.setOption4(b.getOption4());
         q.setcorrect_answer(b.getCorrectAnswer());
+        q.setTolerance(b.getTolerance());
         if (b.getQuestionType() == QuestionType.MATCHING) {
             List<Map<String, String>> pairs = pairsFromJson(b.getMatchingPairsJson());
             List<MatchingPair> mp = new ArrayList<>();
@@ -271,6 +285,7 @@ public class QuestionBankService {
         m.put("option4", b.getOption4());
         m.put("correctAnswer", b.getCorrectAnswer() == null ? List.of() : Arrays.asList(b.getCorrectAnswer()));
         m.put("matchingPairs", pairsFromJson(b.getMatchingPairsJson()));
+        m.put("tolerance", b.getTolerance());
         m.put("authorName", b.getAuthorName());
         m.put("timesUsed", b.getTimesUsed());
         m.put("createdAt", b.getCreatedAt());

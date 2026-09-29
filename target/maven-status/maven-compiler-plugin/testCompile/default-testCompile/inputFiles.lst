@@ -9,8 +9,13 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\SecurityApp
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AcademicPdfRenderTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AcademicRecordServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\ImportAndAccountServiceTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\academic\DocumentVerificationCodeTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\GradingPresetTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuestionImageServiceTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\monitoring\ErrorPathGroupingTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAccessTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\ClassPositionTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\monitoring\DeveloperAuthServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AttemptServiceJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAutoOpenTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AnswerMatcherTest.java

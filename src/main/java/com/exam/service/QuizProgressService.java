@@ -41,7 +41,10 @@ public class QuizProgressService {
             options = new ArrayList<>();
             answer.setSelectedOptions(options);
         }
-        if (request.isChecked()) {
+        if (request.isReplace()) {
+            options.clear();
+            if (request.getOption() != null && !request.getOption().isBlank()) options.add(request.getOption());
+        } else if (request.isChecked()) {
             if (!options.contains(request.getOption())) {
                 options.add(request.getOption());
             }

@@ -11,4 +11,5 @@ public interface SemesterSheetRepository extends JpaRepository<SemesterSheet, Lo
     List<SemesterSheet> findByProgramIdAndLevelAndSemester(Long programId, String level, Integer semester);
     long countBySession_Id(Long sessionId);
     List<SemesterSheet> findBySessionIsNull();
+    List<SemesterSheet> findByStatusAndPublishAtLessThanEqual(String status, java.time.Instant at);
 }

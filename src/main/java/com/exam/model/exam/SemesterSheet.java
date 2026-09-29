@@ -37,6 +37,12 @@ public class SemesterSheet {
     @JoinColumn(name = "session_id")
     private com.exam.model.academic.AcademicSession session;
 
+    /** When set on an APPROVED sheet, results publish themselves at this moment. */
+    private java.time.Instant publishAt;
+
+    public java.time.Instant getPublishAt() { return publishAt; }
+    public void setPublishAt(java.time.Instant publishAt) { this.publishAt = publishAt; }
+
     public com.exam.model.academic.AcademicSession getSession() {
         return session;
     }

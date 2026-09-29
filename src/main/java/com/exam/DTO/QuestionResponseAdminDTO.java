@@ -24,6 +24,10 @@ public class QuestionResponseAdminDTO {
 
     private QuestionType questionType;
 
+    /** NUMERIC only. */
+
+    private Double tolerance;
+
     /**
      * For MATCHING questions: ordered list of pairs (prompt + answer).
      * NOTE: answers are included here because the frontend needs them to

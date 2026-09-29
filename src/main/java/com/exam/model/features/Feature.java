@@ -18,6 +18,10 @@ public enum Feature {
             "HODs can bulk-import students, lecturers and courses, bulk-enrol students and export results."),
     HOD_PROMOTION(Scope.SYSTEM, "HODs", "HODs can promote students",
             "HODs can move students in their department to the next level or semester."),
+    FORCE_PASSWORD_CHANGE(Scope.SYSTEM, "Everyone", "Force a password change on first sign-in",
+            "Accounts whose password was set by staff (imports, new lecturers and HODs, password resets by an admin) must choose their own password before using the system."),
+    DOCUMENT_VERIFICATION(Scope.SYSTEM, "Everyone", "Verification codes on transcripts and report cards",
+            "Each downloaded transcript or report card gets a unique code that anyone can check on the public verification page."),
     HOD_ANNOUNCEMENTS(Scope.SYSTEM, "HODs", "HODs can post announcements",
             "HODs can post announcements to their department."),
 

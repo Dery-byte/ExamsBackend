@@ -353,8 +353,35 @@ public class MarksEntryService {
                 throw new RuntimeException("Sheet must be approved before publishing.");
             }
             sheet.setStatus("PUBLISHED");
+            sheet.setPublishAt(null);
             semesterSheetRepository.save(sheet);
         }
+    }
+
+    /** Admin/SuperAdmin: publish an APPROVED sheet automatically at {@code at}. */
+    @Transactional
+    public SemesterSheet schedulePublish(Long sheetId, java.time.Instant at) {
+        SemesterSheet sheet = getSheetById(sheetId);
+        if (sheet == null) throw new IllegalArgumentException("Sheet not found.");
+        if (!"APPROVED".equals(sheet.getStatus()))
+            throw new IllegalArgumentException("Only an approved sheet can be scheduled for release.");
+        if (at == null || !at.isAfter(java.time.Instant.now()))
+            throw new IllegalArgumentException("Pick a release time in the future.");
+        sheet.setPublishAt(at);
+        return semesterSheetRepository.save(sheet);
+    }
+
+    @Transactional
+    public void cancelScheduledPublish(Long sheetId) {
+        SemesterSheet sheet = getSheetById(sheetId);
+        if (sheet == null) throw new IllegalArgumentException("Sheet not found.");
+        sheet.setPublishAt(null);
+        semesterSheetRepository.save(sheet);
+    }
+
+    /** Approved sheets whose release time has come. */
+    public List<SemesterSheet> sheetsDueForRelease() {
+        return semesterSheetRepository.findByStatusAndPublishAtLessThanEqual("APPROVED", java.time.Instant.now());
     }
 
     /**
@@ -366,6 +393,7 @@ public class MarksEntryService {
         SemesterSheet sheet = getSheetById(sheetId);
         if (sheet != null) {
             sheet.setStatus("ACTIVE");
+            sheet.setPublishAt(null);   // a returned sheet must be approved (and scheduled) again
             semesterSheetRepository.save(sheet);
         }
     }
@@ -387,6 +415,9 @@ public class MarksEntryService {
         if (myMark == null) return null;
 
         java.util.Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("sheetId",      sheetId);
+        data.put("studentId",    userId);
+        data.put("programId",    sheetDto.getProgramId());
         data.put("studentName",  myMark.getStudentName());
         data.put("username",     myMark.getUsername());
         data.put("programName",  sheetDto.getProgramName());
@@ -397,6 +428,52 @@ public class MarksEntryService {
         data.put("courseMarks",  myMark.getCourseMarks());
         data.put("generatedDate", java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy")));
         return data;
+    }
+
+    /** Approved or published sheets for one programme, level, term/semester and session (a "class" for that term). */
+    public List<Long> sheetIdsForTerm(Long programId, String level, Integer semester, String sessionName) {
+        if (programId == null) return List.of();
+        return semesterSheetRepository.findByProgramIdAndLevelAndSemester(programId, level, semester).stream()
+                .filter(s -> "APPROVED".equals(s.getStatus()) || "PUBLISHED".equals(s.getStatus()))
+                .filter(s -> java.util.Objects.equals(sessionName, s.getSession() != null ? s.getSession().getName() : null))
+                .map(SemesterSheet::getId)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Position in class for the report card: students are ranked by their average total score over
+     * every subject on the term's sheets. Returns {position, classSize}, or null when the student has no scores.
+     */
+    public int[] classPosition(Long userId, Long programId, String level, Integer semester, String sessionName) {
+        java.util.Map<Long, double[]> totals = new java.util.HashMap<>();   // studentId → {sum, count}
+        for (Long id : sheetIdsForTerm(programId, level, semester, sessionName)) {
+            com.exam.DTO.SemesterSheetDTO dto = getSheetData(id);
+            if (dto == null || dto.getStudentMarks() == null) continue;
+            for (com.exam.DTO.SemesterSheetDTO.StudentMarkDTO sm : dto.getStudentMarks()) {
+                if (sm.getCourseMarks() == null) continue;
+                for (com.exam.DTO.SemesterSheetDTO.CourseMarkDTO cm : sm.getCourseMarks()) {
+                    if (cm.getTotalScore() == null) continue;
+                    double[] t = totals.computeIfAbsent(sm.getStudentId(), k -> new double[2]);
+                    t[0] += cm.getTotalScore().doubleValue();
+                    t[1]++;
+                }
+            }
+        }
+        return rank(totals, userId);
+    }
+
+    /** Competition ranking (1, 2, 2, 4) by average; students without scores are left out. */
+    static int[] rank(java.util.Map<Long, double[]> totals, Long userId) {
+        double[] mine = totals.get(userId);
+        if (mine == null || mine[1] == 0) return null;
+        double myAvg = Math.round(mine[0] / mine[1] * 100) / 100.0;
+        int ahead = 0, size = 0;
+        for (double[] t : totals.values()) {
+            if (t[1] == 0) continue;
+            size++;
+            if (Math.round(t[0] / t[1] * 100) / 100.0 > myAvg) ahead++;
+        }
+        return new int[]{ahead + 1, size};
     }
 
     /**

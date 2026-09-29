@@ -485,6 +485,15 @@ public class ReportService {
 
                 if (selectedList.isEmpty()) {
                     status = AnswerStatus.SKIPPED;
+                } else if (AnswerMatcher.isTyped(type)) {
+                    attempted++;
+                    if (AnswerMatcher.isCorrect(type, question.getcorrect_answer(), question.getTolerance(), selectedList)) {
+                        status = AnswerStatus.CORRECT;
+                        correctAnswers++;
+                        marksGot += markPerQuestion;
+                    } else {
+                        status = AnswerStatus.WRONG;
+                    }
                 } else {
                     attempted++;
                     Set<String> correctSet  = new HashSet<>(correctList);
@@ -509,6 +518,7 @@ public class ReportService {
                 questionMap.put("option3",         question.getOption3());
                 questionMap.put("option4",         question.getOption4());
                 questionMap.put("correct_answer",  question.getcorrect_answer());
+                questionMap.put("tolerance",       question.getTolerance());
                 questionMap.put("selectedAnswers", selected);
                 questionMap.put("status",          status.name());
             }

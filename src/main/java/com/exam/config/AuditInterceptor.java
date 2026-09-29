@@ -30,7 +30,7 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
     public static final String AUDIT_DETAILS = "auditDetails";
 
     private static final Set<String> MUTATING = Set.of("POST", "PUT", "PATCH", "DELETE");
-    private static final Set<Role> AUDITED_ROLES = Set.of(Role.SUPER_ADMIN, Role.ADMIN, Role.LECTURER);
+    private static final Set<Role> AUDITED_ROLES = Set.of(Role.SUPER_ADMIN, Role.ADMIN, Role.LECTURER, Role.DEVELOPER);
 
     /** Noisy or non-business endpoints that are never recorded. */
     private static final List<Pattern> IGNORED = List.of(
@@ -55,6 +55,16 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
             r("POST",   ".*/marks/sheet/\\d+/approve$",             "Approved marks sheet"),
             r("POST",   ".*/marks/sheet/\\d+/publish$",             "Published marks sheet"),
             r("POST",   ".*/marks/sheet/\\d+/revert$",              "Returned marks sheet for corrections"),
+            r("POST",   ".*/marks/sheet/\\d+/schedule-publish$",    "Scheduled results release"),
+            r("PUT",    ".*/marks/sheet/\\d+/term-remarks$",        "Saved report-card remarks"),
+            r("PUT",    ".*/super-admin/institution$",               "Updated institution profile"),
+            r("PUT",    ".*/developer/mode$",                        "Changed the system mode"),
+            r("POST",   ".*/developer/errors/\\d+/resolve$",        "Changed an error's status"),
+            r("DELETE", ".*/developer/errors/resolved$",             "Cleared resolved errors"),
+            r("POST",   ".*/super-admin/institution/logo$",          "Uploaded institution logo"),
+            r("DELETE", ".*/super-admin/institution/logo$",          "Removed institution logo"),
+            r("POST",   ".*/super-admin/documents/\\d+/revoke$",    "Changed a document's verification status"),
+            r("DELETE", ".*/marks/sheet/\\d+/schedule-publish$",    "Cancelled scheduled results release"),
             r("POST",   ".*/marks/sheet/\\d+/enroll-students$",     "Enrolled students into marks sheet"),
             r("POST",   ".*/marks/sheet/\\d+/sync-marks/.*",        "Synced system marks"),
             r("POST",   ".*/marks/sheet/\\d+/sections$",            "Added marks sheet section"),

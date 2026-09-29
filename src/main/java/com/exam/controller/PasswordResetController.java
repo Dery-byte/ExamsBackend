@@ -867,6 +867,7 @@ public class PasswordResetController {
             // Now you can update the password
             String encodedPassword = passwordEncoder.encode(newPassword);
             user.setPassword(encodedPassword);
+            user.setMustChangePassword(null);
             userRepository.save(user);
 
             // Delete used token (one-time use)

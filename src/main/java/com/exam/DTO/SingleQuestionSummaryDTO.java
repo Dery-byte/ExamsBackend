@@ -46,6 +46,8 @@ public class SingleQuestionSummaryDTO {
     private List<String> correctAnswer;
     private List<String> givenAnswer;
     private QuestionType questionType;
+    /** NUMERIC only. */
+    private Double tolerance;
 
     // MATCHING pairs — ordered by pairOrder, empty list for non-MATCHING types
     private List<MatchingPairDTO> matchingPairs = new ArrayList<>();

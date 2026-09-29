@@ -378,6 +378,16 @@ public class QuestionsService {
             question.setOption4(null);
             question.setcorrect_answer(null);
 
+        } else if (AnswerMatcher.isTyped(question.getQuestionType())) {
+            // FILL_BLANK / NUMERIC: no options, only accepted answers (+ tolerance for numbers)
+            AnswerMatcher.validateTyped(question.getQuestionType(), dto.getCorrect_answer(), dto.getTolerance());
+            question.setOption1(null);
+            question.setOption2(null);
+            question.setOption3(null);
+            question.setOption4(null);
+            question.setcorrect_answer(AnswerMatcher.cleanAccepted(dto.getCorrect_answer()));
+            question.setTolerance(question.getQuestionType() == QuestionType.NUMERIC ? dto.getTolerance() : null);
+            question.getMatchingPairs().clear();
         } else {
             // MCQ or TRUE_FALSE
             question.setOption1(dto.getOption1());
@@ -385,6 +395,7 @@ public class QuestionsService {
             question.setOption3(dto.getOption3());
             question.setOption4(dto.getOption4());
             question.setcorrect_answer(dto.getCorrect_answer());
+            question.setTolerance(null);
             question.getMatchingPairs().clear();              // clear pairs if switching type
         }
 
@@ -409,6 +420,7 @@ public class QuestionsService {
             dto.setOption3(question.getOption3());
             dto.setOption4(question.getOption4());
             dto.setCorrect_answer(question.getcorrect_answer());
+            dto.setTolerance(question.getTolerance());
         }
         return dto;
     }
@@ -493,6 +505,7 @@ public class QuestionsService {
         dto.setContent(question.getContent());
         dto.setImage(question.getImage());
         dto.setQuestionType(question.getQuestionType());
+        dto.setTolerance(question.getTolerance());
 
         String[] given = question.getGivenAnswer();
         dto.setGivenAnswer(given != null ? Arrays.asList(given) : new ArrayList<>());
@@ -565,6 +578,7 @@ public class QuestionsService {
         dto.setContent(question.getContent());
         dto.setImage(question.getImage());
         dto.setQuestionType(question.getQuestionType());
+        dto.setTolerance(question.getTolerance());
 
         String[] correct = question.getcorrect_answer();
         dto.setCorrectAnswer(correct != null ? Arrays.asList(correct) : null);

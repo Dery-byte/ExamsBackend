@@ -26,7 +26,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
             new Limit("POST", "/api/v1/auth/forgotten-password",    10, 15 * MIN, "reset"),
             new Limit("POST", "/api/v1/auth/reset-password",        10, 15 * MIN, "reset"),
             new Limit("POST", "/api/v1/auth/reset-password-with-token", 10, 15 * MIN, "reset"),
-            new Limit("GET",  "/api/v1/auth/validate-reset-token",  30, 15 * MIN, "reset-check")
+            new Limit("GET",  "/api/v1/auth/validate-reset-token",  30, 15 * MIN, "reset-check"),
+            new Limit("GET",  "/api/v1/auth/verify",                60, 15 * MIN, "verify"),
+            new Limit("POST", "/api/v1/auth/developer/request-code",  5, 15 * MIN, "dev-code"),
+            new Limit("POST", "/api/v1/auth/developer/verify",       15, 15 * MIN, "dev-verify")
     );
 
     private final RateLimiter limiter;
@@ -41,7 +44,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         for (Limit l : LIMITS) {
             boolean matches = l.method().equalsIgnoreCase(request.getMethod())
-                    && (path.equals(l.pathSuffix()) || (l.bucket().equals("reset") && path.startsWith(l.pathSuffix() + "/")));
+                    && (path.equals(l.pathSuffix()) || ((l.bucket().equals("reset") || l.bucket().equals("verify")) && path.startsWith(l.pathSuffix() + "/")));
             if (!matches) continue;
             String key = "ip:" + l.bucket() + ":" + clientIp(request);
             if (!limiter.tryAcquire(key, l.max(), l.windowMs())) {

@@ -39,6 +39,9 @@ public class QuestionScoringService {
             case MATCHING   -> scoreMatching(question, givenAnswer);
             case MCQ,
                  TRUE_FALSE -> scoreSingleOrMulti(question, givenAnswer);
+            case FILL_BLANK,
+                 NUMERIC    -> new ScoreResult(AnswerMatcher.isCorrect(question.getQuestionType(),
+                                   question.getcorrect_answer(), question.getTolerance(), Arrays.asList(givenAnswer)) ? 1 : 0, 1);
         };
     }
 

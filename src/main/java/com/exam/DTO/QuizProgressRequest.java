@@ -20,6 +20,8 @@ public class QuizProgressRequest{
      * null means MCQ / TRUE_FALSE — use existing option/checked logic.
      */
     private Integer pairIndex;
+    /** Typed answers (FILL_BLANK / NUMERIC): replace the saved value instead of toggling it. */
+    private boolean replace;
 
     // Getters and Setters
 }

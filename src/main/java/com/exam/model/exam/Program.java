@@ -54,8 +54,9 @@ public class Program {
      */
     @Transient
     public List<Integer> getConfiguredLevels() {
+        int step = com.exam.model.academic.SystemMode.current().levelStep();   // schools: Form 1, 2, 3 …
         return IntStream.rangeClosed(1, durationYears)
-                .map(i -> i * 100)
+                .map(i -> i * step)
                 .boxed()
                 .collect(Collectors.toList());
     }
@@ -99,11 +100,11 @@ public class Program {
 
     /**
      * Returns the configured number of semesters for a given level.
-     * Defaults to 2 if not explicitly set.
+     * Defaults to 2 semesters (university) or 3 terms (schools) if not explicitly set.
      */
     @Transient
     public int getSemestersForLevel(int level) {
         java.util.Map<Integer, Integer> map = getSemestersPerLevelMap();
-        return map.getOrDefault(level, 2);
+        return map.getOrDefault(level, com.exam.model.academic.SystemMode.current().defaultPeriodsPerLevel());
     }
 }

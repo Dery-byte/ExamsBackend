@@ -65,6 +65,14 @@ public class AuthenticationService {
     private String frontendBaseUrl;
 
 // RESGISTER AS A STUDENT
+    /** True when a signed-in Super Admin, HOD or lecturer is creating the account (not a self sign-up). */
+    private static boolean createdByStaff() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .anyMatch(r -> r.equals("SUPER_ADMIN") || r.equals("ADMIN") || r.equals("LECTURER"));
+    }
+
     public AuthenticationResponse register(RegisterRequest request) throws UserFoundException {
         // Check duplicate username
         var userExist = userRepository.findByUsername(request.getUsername());
@@ -96,6 +104,7 @@ public class AuthenticationService {
                 .role(Role.NORMAL)
                 .program(program)
                 .currentLevel(request.getCurrentLevel())
+                .mustChangePassword(createdByStaff() ? Boolean.TRUE : null)
                 .build();
         var savedUser = userRepository.save(user);
         var jwtToken = jwtService.generateToken(user);
@@ -135,6 +144,7 @@ public class AuthenticationService {
                 .enabled(true)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.LECTURER)
+                .mustChangePassword(Boolean.TRUE)
                 .department(department)
                 .build();
         var savedUser = userRepository.save(user);
@@ -164,6 +174,7 @@ public class AuthenticationService {
                     .enabled(true)
                     .password(passwordEncoder.encode(request.getPassword()))
                     .role(Role.ADMIN)
+                    .mustChangePassword(Boolean.TRUE)
                     .build();
             var savedUser = userRepository.save(user);
             var jwtToken = jwtService.generateToken(user);
@@ -194,6 +205,7 @@ public class AuthenticationService {
                 .enabled(true)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.ADMIN)
+                .mustChangePassword(Boolean.TRUE)
                 .department(department)
                 .build();
         var savedUser = userRepository.save(user);
@@ -242,6 +254,19 @@ public class AuthenticationService {
                     .token(jwtToken)
                     .build();
         }
+    /** Starts a session for a user who proved who they are another way (the developer's emailed code). */
+    public String startSession(User user) {
+        var jwtToken = jwtService.generateToken(user);
+        revokeAllUserTokens(user);
+        saveUserToken(user, jwtToken);
+        return jwtToken;
+    }
+
+    /** Signs a user out everywhere (e.g. a developer whose access was removed). */
+    public void endSessions(User user) {
+        revokeAllUserTokens(user);
+    }
+
     private void saveUserToken(User user, String jwtToken) {
         var token = Token.builder()
                 .user(user)
@@ -321,6 +346,7 @@ public class AuthenticationService {
         }
         User user = token.getUser();
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setMustChangePassword(null);
         userRepository.save(user);
 
         token.setValidatedAt(LocalDateTime.now());

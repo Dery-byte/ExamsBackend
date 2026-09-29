@@ -140,6 +140,7 @@ public class MarksEntryController {
             dto.setLevel(sheet.getLevel());
             dto.setSemester(sheet.getSemester());
             dto.setStatus(sheet.getStatus());
+            dto.setPublishAt(sheet.getPublishAt());
             dto.setClassTeacherId(sheet.getClassTeacher() != null ? sheet.getClassTeacher().getId() : null);
             dto.setClassTeacherName(sheet.getClassTeacher() != null
                 ? sheet.getClassTeacher().getFirstname() + " " + sheet.getClassTeacher().getLastname()
@@ -172,6 +173,7 @@ public class MarksEntryController {
             dto.setLevel(sheet.getLevel());
             dto.setSemester(sheet.getSemester());
             dto.setStatus(sheet.getStatus());
+            dto.setPublishAt(sheet.getPublishAt());
             dto.setClassTeacherId(sheet.getClassTeacher() != null ? sheet.getClassTeacher().getId() : null);
             dto.setClassTeacherName(sheet.getClassTeacher() != null
                 ? sheet.getClassTeacher().getFirstname() + " " + sheet.getClassTeacher().getLastname()
@@ -230,6 +232,26 @@ public class MarksEntryController {
         SemesterSheet sheet = marksEntryService.getSheetById(sheetId);
         if (sheet != null) notificationService.sheetPublished(sheet);
         return ResponseEntity.ok().build();
+    }
+
+    /** Admin/SuperAdmin: release an approved sheet's results automatically. Body: {"publishAt": "2026-10-01T09:00:00Z"} */
+    @PostMapping("/{sheetId}/schedule-publish")
+    public ResponseEntity<?> schedulePublish(@PathVariable Long sheetId, @RequestBody java.util.Map<String, String> body) {
+        java.time.Instant at;
+        try { at = java.time.Instant.parse(body.getOrDefault("publishAt", "")); }
+        catch (Exception e) { return ResponseEntity.badRequest().body(java.util.Map.of("message", "Invalid release time.")); }
+        try {
+            SemesterSheet sheet = marksEntryService.schedulePublish(sheetId, at);
+            return ResponseEntity.ok(java.util.Map.of("message", "Release scheduled.", "publishAt", sheet.getPublishAt().toString()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{sheetId}/schedule-publish")
+    public ResponseEntity<?> cancelScheduledPublish(@PathVariable Long sheetId) {
+        marksEntryService.cancelScheduledPublish(sheetId);
+        return ResponseEntity.ok(java.util.Map.of("message", "Scheduled release cancelled."));
     }
 
     /** Admin/SuperAdmin: revert a SUBMITTED sheet back to ACTIVE so the lecturer can correct marks */

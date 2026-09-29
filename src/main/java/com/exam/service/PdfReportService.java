@@ -41,6 +41,10 @@ public class PdfReportService {
     @Autowired private NumberOfTheoryToAnswerService numberOfTheoryToAnswerService;
     @Autowired private TemplateEngine templateEngine;
     @Autowired private QuestionImageService questionImageService;
+    @Autowired private com.exam.service.academic.InstitutionService institutionService;
+    @Autowired private com.exam.service.academic.DocumentVerificationService verificationService;
+    @Autowired @Lazy private com.exam.service.academic.TermRemarkService termRemarkService;
+    @Autowired @Lazy private MarksEntryService marksEntryService;
 
     private static final int IMG_MAX_W_PT = 380;
     private static final int IMG_MAX_H_PT = 200;
@@ -243,6 +247,18 @@ public class PdfReportService {
             String[] keys    = {"option1","option2","option3","option4"};
             String[] letters = {"A","B","C","D"};
             List<OptionDto> opts = new ArrayList<>();
+            if ("FILL_BLANK".equals(qType) || "NUMERIC".equals(qType)) {
+                // Typed answers: show what the student wrote and what was accepted
+                String given = selected != null && selected.length > 0 && selected[0] != null ? selected[0] : "(no answer)";
+                String key = correct == null ? "" : String.join(" / ", correct);
+                Object tol = q.get("tolerance");
+                if ("NUMERIC".equals(qType) && tol != null && ((Number) tol).doubleValue() > 0) key += " (± " + tol + ")";
+                opts.add(new OptionDto("Your answer", given, "CORRECT".equals(status), true));
+                opts.add(new OptionDto("Accepted", key, true, false));
+                dtos.add(new McqDto(num++, String.valueOf(q.getOrDefault("content", "")),
+                        questionImageService.loadForPdf((String) q.get("image"), IMG_MAX_W_PT, IMG_MAX_H_PT), status, opts));
+                continue;
+            }
             for (int i = 0; i < keys.length; i++) {
                 Object v = q.get(keys[i]);
                 if (v == null) continue;
@@ -392,13 +408,13 @@ public class PdfReportService {
         ctx.setVariable("creditUnits",  data.get("creditUnits"));
         ctx.setVariable("watermarkBase64", generateDiagonalWatermarkBase64(candidateId != null ? candidateId : "UCC"));
 
-        try {
-            ClassPathResource imgFile = new ClassPathResource("static/images/ucc-logo.png");
-            byte[] bytes = org.springframework.util.StreamUtils.copyToByteArray(imgFile.getInputStream());
-            ctx.setVariable("uccLogoBase64", "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes));
-        } catch (Exception e) {
-            ctx.setVariable("uccLogoBase64", "");
-        }
+        applyInstitution(ctx);
+        addTermExtras(data);
+        ctx.setVariable("semesterName", data.get("semesterName"));
+        ctx.setVariable("position",     data.get("position"));
+        ctx.setVariable("classSize",    data.get("classSize"));
+        ctx.setVariable("remark",       data.get("remark"));
+        issueCode(ctx, com.exam.model.academic.DocumentVerification.Type.REPORT_CARD, data, termSummary(data));
 
         String html  = templateEngine.process("semester-report-card", ctx);
         Document doc = Jsoup.parse(html);
@@ -414,6 +430,85 @@ public class PdfReportService {
         return out.toByteArray();
     }
 
+    // ── Institution, verification codes, position and remarks on academic documents ──
+
+    private void applyInstitution(Context ctx) {
+        ctx.setVariable("uccLogoBase64", institutionService.logoDataUrl());
+        ctx.setVariable("institutionName", institutionService.name());
+        ctx.setVariable("institutionShort", institutionService.shortName());
+        ctx.setVariable("institutionSubtitle", institutionService.subtitle());
+        ctx.setVariable("isSchool", institutionService.isSchool());
+        ctx.setVariable("terms", institutionService.terms());
+        // Printed inside a CSS string in the page footer
+        ctx.setVariable("pageFooterName", institutionService.name().replaceAll("[\"\\\\]", ""));
+        ctx.setVariable("verificationCode", null);
+        ctx.setVariable("verifyUrl", null);
+    }
+
+    /** Adds semesterName, position/classSize (when switched on) and the term's remarks to a report's data. */
+    private void addTermExtras(Map<String, Object> data) {
+        data.put("semesterName", institutionService.semesterName(data.get("semester")));
+        Long studentId = toLong(data.get("studentId"));
+        Long programId = toLong(data.get("programId"));
+        if (studentId == null) return;
+        String level = Objects.toString(data.get("level"), null);
+        Integer semester = toLong(data.get("semester")) == null ? null : toLong(data.get("semester")).intValue();
+        String session = (String) data.get("sessionName");
+        try {
+            if (institutionService.showPosition()) {
+                int[] pos = marksEntryService.classPosition(studentId, programId, level, semester, session);
+                if (pos != null) {
+                    data.put("position", ordinal(pos[0]));
+                    data.put("classSize", pos[1]);
+                }
+            }
+            List<Long> sheetIds = new ArrayList<>(marksEntryService.sheetIdsForTerm(programId, level, semester, session));
+            Long sheetId = toLong(data.get("sheetId"));
+            if (sheetId != null && !sheetIds.contains(sheetId)) sheetIds.add(sheetId);
+            termRemarkService.forStudent(sheetIds, studentId).ifPresent(r -> data.put("remark", r));
+        } catch (Exception e) {
+            System.err.println("[PDF-SVC] position/remarks skipped: " + e.getMessage());
+        }
+    }
+
+    private String termSummary(Map<String, Object> data) {
+        Map<String, String> terms = institutionService.terms();
+        StringBuilder sb = new StringBuilder();
+        sb.append(terms.get("level")).append(' ').append(Objects.toString(data.get("level"), "-"))
+          .append(", ").append(institutionService.semesterName(data.get("semester")));
+        if (data.get("sessionName") != null) sb.append(' ').append(data.get("sessionName"));
+        if (data.get("courseMarks") instanceof List<?> marks)
+            sb.append(" · ").append(marks.size()).append(' ').append(marks.size() == 1 ? terms.get("course").toLowerCase() : terms.get("courses").toLowerCase());
+        if (data.get("gpa") != null) sb.append(" · GPA ").append(data.get("gpa"));
+        if (data.get("position") != null) sb.append(" · Position ").append(data.get("position")).append(" of ").append(data.get("classSize"));
+        return sb.toString();
+    }
+
+    private void issueCode(Context ctx, com.exam.model.academic.DocumentVerification.Type type, Map<String, Object> who, String summary) {
+        try {
+            verificationService.issue(type, toLong(who.get("studentId")), Objects.toString(who.get("studentName"), null),
+                    Objects.toString(who.get("username"), null), Objects.toString(who.get("programName"), null), summary)
+                .ifPresent(issued -> {
+                    ctx.setVariable("verificationCode", issued.code());
+                    ctx.setVariable("verifyUrl", issued.url());
+                });
+        } catch (Exception e) {
+            // A document without a code is better than no document
+            System.err.println("[PDF-SVC] verification code not issued: " + e.getMessage());
+        }
+    }
+
+    static String ordinal(int n) {
+        int mod100 = n % 100;
+        String suffix = (mod100 >= 11 && mod100 <= 13) ? "th" : switch (n % 10) { case 1 -> "st"; case 2 -> "nd"; case 3 -> "rd"; default -> "th"; };
+        return n + suffix;
+    }
+
+    private static Long toLong(Object o) {
+        if (o instanceof Number n) return n.longValue();
+        try { return o == null ? null : Long.parseLong(o.toString().trim()); } catch (NumberFormatException e) { return null; }
+    }
+
     /**
      * Generates the student's academic transcript (see AcademicRecordService#transcript).
      */
@@ -422,13 +517,17 @@ public class PdfReportService {
         ctx.setVariable("t", transcript);
         ctx.setVariable("generatedDate", java.time.LocalDate.now().format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
         ctx.setVariable("watermarkBase64", generateDiagonalWatermarkBase64(candidateId != null ? candidateId : "UCC"));
-        try {
-            ClassPathResource imgFile = new ClassPathResource("static/images/ucc-logo.png");
-            byte[] bytes = org.springframework.util.StreamUtils.copyToByteArray(imgFile.getInputStream());
-            ctx.setVariable("uccLogoBase64", "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes));
-        } catch (Exception e) {
-            ctx.setVariable("uccLogoBase64", "");
-        }
+        applyInstitution(ctx);
+        StringBuilder summary = new StringBuilder("CGPA ").append(Objects.toString(transcript.get("cgpa"), "-"))
+                .append(" · ").append(Objects.toString(transcript.get("creditsEarned"), "0")).append(" credit units earned");
+        if (transcript.get("degreeClass") != null) summary.append(" · ").append(transcript.get("degreeClass"));
+        if (Boolean.TRUE.equals(transcript.get("includesApproved"))) summary.append(" · includes approved results not yet published");
+        Map<String, Object> who = new HashMap<>();
+        who.put("studentId", transcript.get("studentId"));
+        who.put("studentName", transcript.get("studentName"));
+        who.put("username", transcript.get("username"));
+        who.put("programName", transcript.get("program"));
+        issueCode(ctx, com.exam.model.academic.DocumentVerification.Type.TRANSCRIPT, who, summary.toString());
 
         String html  = templateEngine.process("transcript", ctx);
         Document doc = Jsoup.parse(html);
@@ -454,12 +553,14 @@ public class PdfReportService {
         ctx.setVariable("generatedDate", java.time.LocalDate.now().format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
         ctx.setVariable("watermarkBase64", generateDiagonalWatermarkBase64(candidateId != null ? candidateId : "UCC"));
 
-        try {
-            ClassPathResource imgFile = new ClassPathResource("static/images/ucc-logo.png");
-            byte[] bytes = org.springframework.util.StreamUtils.copyToByteArray(imgFile.getInputStream());
-            ctx.setVariable("uccLogoBase64", "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes));
-        } catch (Exception e) {
-            ctx.setVariable("uccLogoBase64", "");
+        applyInstitution(ctx);
+        for (java.util.Map<String, Object> report : allData) addTermExtras(report);
+        if (!allData.isEmpty()) {
+            java.util.Map<String, Object> last = allData.get(allData.size() - 1);
+            String summary = allData.size() + " " + (institutionService.isSchool() ? "term" : "semester") + (allData.size() == 1 ? "" : "s")
+                    + (last.get("cgpa") != null ? " · latest CGPA " + last.get("cgpa") : "")
+                    + " · up to " + termSummary(last);
+            issueCode(ctx, com.exam.model.academic.DocumentVerification.Type.CUMULATIVE_REPORT, allData.get(0), summary);
         }
 
         String html  = templateEngine.process("combined-semester-report-card", ctx);

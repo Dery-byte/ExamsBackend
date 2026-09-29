@@ -215,6 +215,9 @@ public class Questions {
     @OrderBy("pairOrder ASC")
     private List<MatchingPair> matchingPairs = new ArrayList<>();
 
+    // ── NUMERIC only: how far the student's number may be from the correct one ───
+    private Double tolerance;
+
     // ── Relationship ───────────────────────────────────────────────────────────
     @ManyToOne(cascade = CascadeType.MERGE)
     private Quiz quiz;
@@ -305,5 +308,7 @@ public class Questions {
     public void setMatchingPairs(List<MatchingPair> matchingPairs) { this.matchingPairs = matchingPairs; }
 
     public Quiz getQuiz() { return quiz; }
+    public Double getTolerance() { return tolerance; }
+    public void setTolerance(Double tolerance) { this.tolerance = tolerance; }
     public void setQuiz(Quiz quiz) { this.quiz = quiz; }
 }

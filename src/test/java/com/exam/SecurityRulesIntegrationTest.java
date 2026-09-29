@@ -43,7 +43,10 @@ class SecurityRulesIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired UserRepository users;
 
-    private User student, other, lecturer, hod, superAdmin;
+    private User student, other, lecturer, hod, superAdmin, developer;
+    @Autowired com.exam.service.monitoring.ErrorMonitorService errorMonitor;
+    @Autowired com.exam.repository.ErrorEventRepository errorEvents;
+    @Autowired com.exam.repository.DeveloperEmailRepository developerEmails;
 
     @BeforeEach
     void setUp() {
@@ -53,6 +56,11 @@ class SecurityRulesIntegrationTest {
         lecturer = save("lec", Role.LECTURER);
         hod = save("hod", Role.ADMIN);
         superAdmin = save("sa", Role.SUPER_ADMIN);
+        developer = save("dev", Role.DEVELOPER);
+        developerEmails.deleteAll();
+        var row = new com.exam.model.monitoring.DeveloperEmail();
+        row.setEmail("DEV@example.com");   // matched case-insensitively
+        developerEmails.save(row);
     }
 
     private User save(String name, Role role) {
@@ -77,6 +85,10 @@ class SecurityRulesIntegrationTest {
 
     /** Allowed = passed security (the controller may still reject the empty test body). */
     private static boolean allowed(int s) { return s != 401 && s != 403; }
+
+    private int json(MockHttpServletRequestBuilder req, String body) throws Exception {
+        return mvc.perform(req.contentType(MediaType.APPLICATION_JSON).content(body)).andReturn().getResponse().getStatus();
+    }
 
     @Test
     void publicEndpointsNeedNoSignIn() throws Exception {
@@ -211,5 +223,66 @@ class SecurityRulesIntegrationTest {
                     .andReturn().getResponse().getStatus();
         }
         assertThat(last).isEqualTo(429);
+    }
+
+    @Test
+    void theDeveloperOnlyReachesTheirOwnArea() throws Exception {
+        // sign-in by code and the status check are public
+        assertThat(allowed(status(post("/api/v1/auth/developer/request-code")))).isTrue();
+        assertThat(status(get("/api/v1/auth/status"))).isEqualTo(200);
+        assertThat(status(get("/api/v1/developer/health"))).isEqualTo(401);
+
+        assertThat(status(get("/api/v1/developer/health").with(as(developer)))).isEqualTo(200);
+        assertThat(status(get("/api/v1/developer/mode").with(as(developer)))).isEqualTo(200);
+        assertThat(status(get("/api/v1/developer/errors").with(as(developer)))).isEqualTo(200);
+        assertThat(allowed(status(get("/api/v1/auth/current-user").with(as(developer))))).isTrue();
+        // …but nothing of the school system itself
+        assertThat(status(get("/api/v1/auth/getRegCourses").with(as(developer)))).isEqualTo(403);
+        assertThat(status(get("/api/v1/auth/users").with(as(developer)))).isEqualTo(403);
+        assertThat(status(get("/api/marks/sheet/all").with(as(developer)))).isEqualTo(403);
+        assertThat(status(get("/api/notifications").with(as(developer)))).isEqualTo(403);
+        assertThat(status(get("/api/v1/super-admin/settings").with(as(developer)))).isEqualTo(403);
+
+        assertThat(status(get("/api/v1/developer/developers").with(as(developer)))).isEqualTo(200);
+        // Developers are only ever added in the database: there is no endpoint for it, for anyone
+        assertThat(status(post("/api/v1/developer/developers").with(as(developer)))).isIn(404, 405);
+        assertThat(status(post("/api/v1/super-admin/developers/first").with(as(superAdmin)))).isEqualTo(404);
+
+        // and nobody else reaches the developer's area, not even the Super Admin
+        assertThat(status(get("/api/v1/developer/health").with(as(superAdmin)))).isEqualTo(403);
+        assertThat(status(put("/api/v1/developer/mode").with(as(superAdmin)).content("{\"mode\":\"SHS\"}"))).isEqualTo(403);
+    }
+
+    @Test
+    void theDeveloperSwitchesTheSystemMode() throws Exception {
+        try {
+            assertThat(json(put("/api/v1/developer/mode").with(as(developer)), "{\"mode\":\"SHS\"}")).isEqualTo(200);
+            String info = mvc.perform(get("/api/v1/auth/institution")).andReturn().getResponse().getContentAsString();
+            assertThat(info).contains("\"mode\":\"SHS\"").contains("\"course\":\"Subject\"").contains("\"level\":\"Form\"");
+            assertThat(com.exam.model.academic.SystemMode.current().defaultPeriodsPerLevel()).isEqualTo(3);
+            assertThat(json(put("/api/v1/developer/mode").with(as(developer)), "{\"mode\":\"NOPE\"}")).isEqualTo(400);
+        } finally {
+            json(put("/api/v1/developer/mode").with(as(developer)), "{\"mode\":\"UNIVERSITY\"}");
+        }
+    }
+
+    @Test
+    void repeatedFailuresAreGroupedIntoOneError() {
+        var req = new org.springframework.mock.web.MockHttpServletRequest("POST", "/api/remarks/5/respond");
+        var req2 = new org.springframework.mock.web.MockHttpServletRequest("POST", "/api/remarks/9/respond");
+        errorMonitor.recordRequest(req, 500, new IllegalStateException("force initializing collection loading"));
+        errorMonitor.recordRequest(req, 500, new IllegalStateException("counted once per request"));
+        errorMonitor.recordRequest(req2, 500, new IllegalStateException("force initializing collection loading"));
+        var events = errorEvents.findAll().stream().filter(e -> "POST /api/remarks/{id}/respond".equals(e.getLocation())).toList();
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).getOccurrences()).isEqualTo(2);
+        assertThat(events.get(0).isResolved()).isFalse();
+    }
+
+    @Test
+    void deletingTheDeveloperRowEndsTheirAccess() throws Exception {
+        assertThat(status(get("/api/v1/developer/health").with(as(developer)))).isEqualTo(200);
+        developerEmails.deleteAll();
+        assertThat(status(get("/api/v1/developer/health").with(as(developer)))).isEqualTo(403);
     }
 }
