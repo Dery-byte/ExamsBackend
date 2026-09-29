@@ -1,4 +1,5 @@
 com\exam\service\AnswerMatcherTest.class
+com\exam\service\examops\QuestionBankTheoryTest.class
 com\exam\service\GradingPresetTest.class
 com\exam\service\academic\DocumentVerificationCodeTest.class
 com\exam\service\AttemptServiceJpaTest.class

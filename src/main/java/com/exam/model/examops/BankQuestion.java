@@ -11,7 +11,8 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * A reusable objective question stored per course. Drawing it into a quiz copies it into a
+ * A reusable question stored per course: objective (MCQ, true/false, matching, typed answers) or
+ * theory (written answer, marked against a marking guide). Drawing it into a quiz copies it into a
  * normal {@code Questions} row, so later edits to the bank never change a quiz already set.
  */
 @Entity
@@ -20,6 +21,9 @@ import java.time.LocalDateTime;
 public class BankQuestion {
 
     public enum Difficulty { EASY, MEDIUM, HARD }
+
+    /** OBJECTIVE questions go to Section A (auto-marked); THEORY questions to Section B (written answers). */
+    public enum Section { OBJECTIVE, THEORY }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,6 +44,18 @@ public class BankQuestion {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private QuestionType questionType = QuestionType.MCQ;
+
+    /** Null on rows saved before theory questions existed: those are objective. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Section section = Section.OBJECTIVE;
+
+    /** THEORY only: marks the question is worth. */
+    private Double marks;
+
+    /** THEORY only: what a good answer contains; used by the marker and the AI evaluator. */
+    @Column(length = 5000)
+    private String markingGuide;
 
     @Column(length = 5000, nullable = false)
     private String content;
@@ -70,4 +86,8 @@ public class BankQuestion {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    public boolean isTheory() {
+        return section == Section.THEORY;
+    }
 }

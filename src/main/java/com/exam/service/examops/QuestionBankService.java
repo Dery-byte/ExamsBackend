@@ -32,18 +32,21 @@ public class QuestionBankService {
     @Autowired private QuizRepository quizRepository;
     @Autowired private QuestionsRepository questionsRepository;
     @Autowired private QuestionImageService questionImageService;
+    @Autowired private com.exam.repository.TheoryQuestionsRepository theoryRepository;
 
     /** Create / update payload. */
     public static class BankQuestionRequest {
         public String topic;
         public String difficulty;          // EASY | MEDIUM | HARD
-        public String questionType;        // MCQ | TRUE_FALSE | MATCHING
+        public String questionType;        // MCQ | TRUE_FALSE | MATCHING | FILL_BLANK | NUMERIC | THEORY
         public String content;
         public String image;
         public String option1, option2, option3, option4;
         public List<String> correctAnswer;
         public List<Map<String, String>> matchingPairs;   // [{prompt, answer}]
         public Double tolerance;                          // NUMERIC only
+        public Double marks;                              // THEORY only
+        public String markingGuide;                       // THEORY only
     }
 
     /** Random draw: filters are optional; count is required. */
@@ -118,7 +121,7 @@ public class QuestionBankService {
         bankRepository.delete(b);
     }
 
-    /** Copies every objective question of a quiz into its course's bank, skipping ones already there. */
+    /** Copies every question of a quiz (objective and theory) into its course's bank, skipping ones already there. */
     @Transactional
     public Map<String, Object> importFromQuiz(User u, Long quizId, String topic, String difficulty) {
         Quiz quiz = quiz(quizId);
@@ -128,7 +131,7 @@ public class QuestionBankService {
         ExamAccess.requireCourse(u, course);
 
         Set<String> existing = bankRepository.findByCourse_CidOrderByCreatedAtDesc(course.getCid()).stream()
-                .map(b -> fingerprint(b.getQuestionType(), b.getContent())).collect(Collectors.toSet());
+                .map(QuestionBankService::fingerprint).collect(Collectors.toSet());
         BankQuestion.Difficulty diff = parseDifficulty(difficulty);
         String cleanTopic = blankToNull(topic) != null ? topic.trim() : quiz.getTitle();
 
@@ -152,6 +155,23 @@ public class QuestionBankService {
             bankRepository.save(b);
             added++;
         }
+        for (com.exam.model.exam.TheoryQuestions t : theoryRepository.findByQuiz(quiz)) {
+            if (!existing.add(theoryFingerprint(t.getQuestion()))) { skipped++; continue; }
+            BankQuestion b = new BankQuestion();
+            b.setCourse(course);
+            b.setTopic(cleanTopic);
+            b.setDifficulty(diff);
+            b.setSection(BankQuestion.Section.THEORY);
+            b.setQuestionType(QuestionType.MCQ);   // unused for theory; the column is required
+            b.setContent(t.getQuestion());
+            b.setImage(questionImageService.copy(t.getImage()));
+            b.setMarks(parseMarks(t.getMarks()));
+            b.setMarkingGuide(blankToNull(t.getEvaluationCriteria()));
+            b.setAuthorId(u.getId());
+            b.setAuthorName(CurrentUserService.displayName(u));
+            bankRepository.save(b);
+            added++;
+        }
         return Map.of("added", added, "skipped", skipped);
     }
 
@@ -168,9 +188,11 @@ public class QuestionBankService {
 
         Set<String> inQuiz = questionsRepository.findByQuiz_qId(quizId).stream()
                 .map(q -> fingerprint(q.getQuestionType(), q.getContent())).collect(Collectors.toSet());
+        Set<com.exam.model.exam.TheoryQuestions> theoryInQuiz = theoryRepository.findByQuiz(quiz);
+        theoryInQuiz.forEach(t -> inQuiz.add(theoryFingerprint(t.getQuestion())));
 
         List<BankQuestion> pool = bankRepository.findByCourse_CidOrderByCreatedAtDesc(course.getCid()).stream()
-                .filter(b -> !inQuiz.contains(fingerprint(b.getQuestionType(), b.getContent())))
+                .filter(b -> !inQuiz.contains(fingerprint(b)))
                 .collect(Collectors.toCollection(ArrayList::new));
 
         List<BankQuestion> chosen;
@@ -182,34 +204,64 @@ public class QuestionBankService {
             if (count < 1 || count > 200) throw new IllegalArgumentException("Choose between 1 and 200 questions.");
             String topic = blankToNull(req.topic);
             BankQuestion.Difficulty diff = blankToNull(req.difficulty) == null ? null : parseDifficulty(req.difficulty);
-            QuestionType type = blankToNull(req.questionType) == null ? null : QuestionType.valueOf(req.questionType);
+            String type = blankToNull(req.questionType);
             pool.removeIf(b -> (topic != null && !topic.equalsIgnoreCase(Objects.toString(b.getTopic(), "")))
                     || (diff != null && b.getDifficulty() != diff)
-                    || (type != null && b.getQuestionType() != type));
+                    || (type != null && !type.equals(typeName(b))));
             if (pool.size() < count)
                 throw new IllegalArgumentException("Only " + pool.size() + " matching question(s) are available that aren't already in this quiz.");
             Collections.shuffle(pool);
             chosen = pool.subList(0, count);
         }
 
+        // Theory questions get the next free number (Q4 after Q1–Q3): the exam groups parts by that prefix
+        int nextNo = theoryInQuiz.stream().mapToInt(t -> questionNumber(t.getQuesNo())).max().orElse(0) + 1;
+        int objective = 0, theory = 0;
         for (BankQuestion b : chosen) {
-            questionsRepository.save(toQuizQuestion(b, quiz));
+            if (b.isTheory()) {
+                theoryRepository.save(toTheoryQuestion(b, quiz, "Q" + nextNo++));
+                theory++;
+            } else {
+                questionsRepository.save(toQuizQuestion(b, quiz));
+                objective++;
+            }
             b.setTimesUsed(b.getTimesUsed() + 1);
         }
         bankRepository.saveAll(chosen);
-        return Map.of("added", chosen.size(), "totalInQuiz", questionsRepository.findByQuiz_qId(quizId).size());
+        return Map.of("added", chosen.size(), "addedObjective", objective, "addedTheory", theory,
+                "totalInQuiz", questionsRepository.findByQuiz_qId(quizId).size(),
+                "theoryInQuiz", theoryRepository.findByQuiz(quiz).size());
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private void apply(BankQuestion b, BankQuestionRequest req) {
         if (req.content == null || req.content.isBlank()) throw new IllegalArgumentException("Question text is required.");
-        QuestionType type = blankToNull(req.questionType) == null ? QuestionType.MCQ : QuestionType.valueOf(req.questionType);
-        b.setQuestionType(type);
         b.setTopic(blankToNull(req.topic) == null ? null : req.topic.trim());
         b.setDifficulty(parseDifficulty(req.difficulty));
         b.setContent(req.content.trim());
         b.setImage(blankToNull(req.image));
+
+        if ("THEORY".equals(req.questionType)) {
+            if (req.marks == null || req.marks <= 0 || req.marks > 1000)
+                throw new IllegalArgumentException("Give the theory question its marks (more than 0).");
+            b.setSection(BankQuestion.Section.THEORY);
+            b.setQuestionType(QuestionType.MCQ);   // unused for theory; the column is required
+            b.setMarks(req.marks);
+            b.setMarkingGuide(blankToNull(req.markingGuide) == null ? null : req.markingGuide.trim());
+            b.setOption1(null); b.setOption2(null); b.setOption3(null); b.setOption4(null);
+            b.setCorrectAnswer(null);
+            b.setTolerance(null);
+            b.setMatchingPairsJson(null);
+            return;
+        }
+        b.setSection(BankQuestion.Section.OBJECTIVE);
+        b.setMarks(null);
+        b.setMarkingGuide(null);
+        QuestionType type;
+        try { type = blankToNull(req.questionType) == null ? QuestionType.MCQ : QuestionType.valueOf(req.questionType); }
+        catch (IllegalArgumentException e) { throw new IllegalArgumentException("Unknown question type."); }
+        b.setQuestionType(type);
 
         if (type == QuestionType.MATCHING) {
             List<Map<String, String>> pairs = req.matchingPairs == null ? List.of() : req.matchingPairs.stream()
@@ -271,12 +323,48 @@ public class QuestionBankService {
         return q;
     }
 
+    private com.exam.model.exam.TheoryQuestions toTheoryQuestion(BankQuestion b, Quiz quiz, String quesNo) {
+        com.exam.model.exam.TheoryQuestions t = new com.exam.model.exam.TheoryQuestions();
+        t.setQuiz(quiz);
+        t.setQuesNo(quesNo);
+        t.setQuestion(b.getContent());
+        t.setImage(questionImageService.copy(b.getImage()));
+        t.setMarks(formatMarks(b.getMarks()));
+        t.setEvaluationCriteria(b.getMarkingGuide());
+        t.setIsCompulsory(false);
+        return t;
+    }
+
+    /** "MCQ", "MATCHING" … or "THEORY": the type the UI and the draw filter use. */
+    static String typeName(BankQuestion b) {
+        return b.isTheory() ? "THEORY" : b.getQuestionType().name();
+    }
+
+    /** "Q12b" → 12; anything without a number → 0. */
+    static int questionNumber(String quesNo) {
+        if (quesNo == null) return 0;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)").matcher(quesNo);
+        return m.find() ? Integer.parseInt(m.group(1)) : 0;
+    }
+
+    private static Double parseMarks(String s) {
+        try { return s == null || s.isBlank() ? null : Double.parseDouble(s.trim()); }
+        catch (NumberFormatException e) { return null; }
+    }
+
+    private static String formatMarks(Double m) {
+        if (m == null) return "0";
+        return m == Math.rint(m) ? String.valueOf(m.longValue()) : String.valueOf(m);
+    }
+
     private Map<String, Object> toDto(BankQuestion b) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", b.getId());
         m.put("topic", b.getTopic());
         m.put("difficulty", b.getDifficulty().name());
-        m.put("questionType", b.getQuestionType().name());
+        m.put("questionType", typeName(b));
+        m.put("marks", b.getMarks());
+        m.put("markingGuide", b.getMarkingGuide());
         m.put("content", b.getContent());
         m.put("image", b.getImage());
         m.put("option1", b.getOption1());
@@ -305,6 +393,18 @@ public class QuestionBankService {
         if (json == null || json.isBlank()) return List.of();
         try { return JSON.readValue(json, new TypeReference<List<Map<String, String>>>() {}); }
         catch (Exception e) { return List.of(); }
+    }
+
+    private static String fingerprint(BankQuestion b) {
+        return b.isTheory() ? theoryFingerprint(b.getContent()) : fingerprint(b.getQuestionType(), b.getContent());
+    }
+
+    private static String theoryFingerprint(String content) {
+        return "THEORY|" + normaliseText(content);
+    }
+
+    private static String normaliseText(String s) {
+        return s == null ? "" : s.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").trim().toLowerCase();
     }
 
     private static String fingerprint(QuestionType type, String content) {

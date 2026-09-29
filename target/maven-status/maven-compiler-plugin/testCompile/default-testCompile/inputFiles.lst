@@ -4,6 +4,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\Fea
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\SecurityRulesIntegrationTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizTimerServiceClockTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\PdfImageRenderTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\examops\QuestionBankTheoryTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AttemptServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\SecurityApplicationTests.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AcademicPdfRenderTest.java

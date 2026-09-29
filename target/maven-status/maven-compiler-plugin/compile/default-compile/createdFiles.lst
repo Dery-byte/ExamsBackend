@@ -42,6 +42,7 @@ com\exam\controller\FeatureFlagController.class
 com\exam\repository\AuditLogRepository.class
 com\exam\service\monitoring\HealthService.class
 com\exam\helper\ApiExceptionHandler.class
+com\exam\model\examops\BankQuestion$Section.class
 com\exam\model\academic\GradingPreset.class
 com\exam\service\academic\GradingService$ClassRow.class
 com\exam\service\SubjectiveEvaluationService.class
