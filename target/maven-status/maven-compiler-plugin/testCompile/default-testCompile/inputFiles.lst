@@ -12,6 +12,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\Aca
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\ImportAndAccountServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\academic\DocumentVerificationCodeTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\GradingPresetTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\IndexNumberRangeTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuestionImageServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\monitoring\ErrorPathGroupingTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAccessTest.java

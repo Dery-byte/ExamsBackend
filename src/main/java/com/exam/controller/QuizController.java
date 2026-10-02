@@ -169,7 +169,7 @@ public class QuizController {
     public List<Quiz> activeQuizzesOfCategory(@PathVariable("cid") Long cid, Principal principal){
         Category category =new Category();
         category.setCid(cid);
-        return this.quizService.filterForCaller(this.quizService.getActiveQuizzesofCategory(category), principal);
+        return this.quizService.filterForCallerNotingIndexRange(this.quizService.getActiveQuizzesofCategory(category), principal);
     }
 
 //    QUIZZES TAKEN BY STUDENTS

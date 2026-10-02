@@ -287,6 +287,7 @@ package com.exam.service;
 
 import com.exam.DTO.QuizDTO;
 import com.exam.DTO.QuizUpdateRequest;
+import com.exam.helper.IndexNumberRange;
 import com.exam.model.QuizStatus;
 import com.exam.model.Role;
 import com.exam.model.User;
@@ -333,6 +334,7 @@ public class QuizService {
 
     public Quiz addQuiz(Quiz quiz) {
         quiz.setPrograms(resolveAllowedPrograms(quiz.getProgramIds(), categoryOf(quiz), true));
+        applyIndexRange(quiz, quiz.getIndexRangeStart(), quiz.getIndexRangeEnd());
         quiz.setMaxAttempts(validMaxAttempts(quiz.getMaxAttempts()));
         normalizeAutoClose(quiz);
         stampPublishedAt(quiz, false);
@@ -350,6 +352,7 @@ public class QuizService {
 
         quiz.setUser(currentUser);
         quiz.setPrograms(resolveAllowedPrograms(quiz.getProgramIds(), categoryOf(quiz), true));
+        applyIndexRange(quiz, quiz.getIndexRangeStart(), quiz.getIndexRangeEnd());
         quiz.setMaxAttempts(validMaxAttempts(quiz.getMaxAttempts()));
         normalizeAutoClose(quiz);
         stampPublishedAt(quiz, false);
@@ -370,6 +373,7 @@ public class QuizService {
         User user = resolveUser(principal);
         quiz.setUser(user);
         quiz.setPrograms(resolveAllowedPrograms(quiz.getProgramIds(), categoryOf(quiz), false));
+        applyIndexRange(quiz, quiz.getIndexRangeStart(), quiz.getIndexRangeEnd());
         quiz.setMaxAttempts(validMaxAttempts(quiz.getMaxAttempts()));
         normalizeAutoClose(quiz);
         stampPublishedAt(quiz, false);
@@ -408,7 +412,8 @@ public class QuizService {
                 .sorted()
                 .toList();
         String courseTitle = quiz.getCategory() != null ? quiz.getCategory().getTitle() : null;
-        return new com.exam.DTO.QuizPublicSummaryDTO(quiz.getqId(), quiz.getTitle(), courseTitle, programNames);
+        return new com.exam.DTO.QuizPublicSummaryDTO(quiz.getqId(), quiz.getTitle(), courseTitle, programNames,
+                quiz.getIndexRangeStart(), quiz.getIndexRangeEnd());
     }
 
     public List<Quiz> getQuizzesOfCategory(Category category) {
@@ -511,6 +516,13 @@ public class QuizService {
             quiz.setPrograms(resolveAllowedPrograms(req.getProgramIds(), quiz.getCategory(), requireSelection));
         }
 
+        // ── Allowed index-number range (null = leave that end unchanged, blank = clear it) ──
+        if (req.getIndexRangeStart() != null || req.getIndexRangeEnd() != null) {
+            applyIndexRange(quiz,
+                    req.getIndexRangeStart() != null ? req.getIndexRangeStart() : quiz.getIndexRangeStart(),
+                    req.getIndexRangeEnd()   != null ? req.getIndexRangeEnd()   : quiz.getIndexRangeEnd());
+        }
+
         return new QuizDTO(quizRepository.save(quiz));
     }
 
@@ -602,6 +614,16 @@ public class QuizService {
             }
         }
         return programs;
+    }
+
+    // ── Allowed index-number range ────────────────────────────────────────────
+
+    /** Validates and stores the index-number range (both blank = no limit); 400 if it isn't a usable range. */
+    private void applyIndexRange(Quiz quiz, String start, String end) {
+        String error = IndexNumberRange.validationError(start, end);
+        if (error != null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, error);
+        quiz.setIndexRangeStart(IndexNumberRange.normalize(start));
+        quiz.setIndexRangeEnd(IndexNumberRange.normalize(end));
     }
 
     /** A lecturer can turn auto-close on without picking a fraction; default that to HALF rather than reject it. */
@@ -736,7 +758,7 @@ public class QuizService {
         quizRepository.findByAutoCloseTrueAndActiveTrueAndStatus(QuizStatus.OPEN).forEach(this::ensureAutoClosed);
     }
 
-    // ── Student access (program + course enrollment) ────────────────────────────
+    // ── Student access (program + course enrollment + index-number range) ──────
 
     /** A quiz with no programs is open to everyone; otherwise the student's program must be listed. */
     private boolean isOpenToStudent(Quiz quiz, User student) {
@@ -756,10 +778,22 @@ public class QuizService {
         return registeredCoursesRepository.countByCategoryAndUser(quiz.getCategory(), student) > 0;
     }
 
+    /** A quiz with no index-number range is open to every index number; otherwise the student's username must fall inside it. */
+    private boolean isInIndexRange(Quiz quiz, User student) {
+        return IndexNumberRange.contains(quiz.getIndexRangeStart(), quiz.getIndexRangeEnd(), student.getUsername());
+    }
+
+    private static String outsideIndexRangeMessage(Quiz quiz, User student) {
+        return "This quiz is only for index numbers " + quiz.getIndexRangeStart() + " to " + quiz.getIndexRangeEnd()
+                + ". Your index number (" + student.getUsername() + ") is not in this range, so you cannot take it."
+                + " If you think this is a mistake, please contact your lecturer.";
+    }
+
     /** Null if the student may access this quiz; otherwise the reason they may not, for the error message. */
     private String accessDenialReason(Quiz quiz, User student) {
         if (!isOpenToStudent(quiz, student)) return "This quiz is not available for your program";
         if (!isEnrolledInCourse(quiz, student)) return "You are not enrolled in the course this quiz belongs to";
+        if (!isInIndexRange(quiz, student)) return outsideIndexRangeMessage(quiz, student);
         return null;
     }
 
@@ -777,7 +811,24 @@ public class QuizService {
         return quizzes.stream().filter(q -> accessDenialReason(q, student) == null).toList();
     }
 
-    /** Throws 403 if the caller is a student who may not access this quiz (program or non-enrollment). */
+    /**
+     * Like {@link #filterForCaller}, except a quiz the student is kept out of only by its index-number
+     * range stays in the list with {@link Quiz#getAccessNotice()} set — so the course's quiz list can
+     * tell them why they can't start it, rather than the quiz silently missing.
+     */
+    public List<Quiz> filterForCallerNotingIndexRange(List<Quiz> quizzes, Principal principal) {
+        User student = studentOrNull(principal);
+        if (student == null) return quizzes;
+        return quizzes.stream()
+                .filter(q -> isOpenToStudent(q, student) && isEnrolledInCourse(q, student))
+                .map(q -> {
+                    q.setAccessNotice(isInIndexRange(q, student) ? null : outsideIndexRangeMessage(q, student));
+                    return q;
+                })
+                .toList();
+    }
+
+    /** Throws 403 if the caller is a student who may not access this quiz (program, non-enrollment or index range). */
     public void assertStudentMayAccess(Long quizId, Principal principal) {
         assertStudentMayAccess(getQuiz(quizId), studentOrNull(principal));
     }

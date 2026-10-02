@@ -51,6 +51,7 @@ public class TimetableService {
                 .filter(q -> !q.getQuizDate().isBefore(start) && !q.getQuizDate().isAfter(end))
                 .filter(q -> student
                         ? q.getCategory() != null && myCourseIds.contains(q.getCategory().getCid()) && (q.isActive() || q.isAutoOpen())
+                            && com.exam.helper.IndexNumberRange.contains(q.getIndexRangeStart(), q.getIndexRangeEnd(), u.getUsername())
                         : ExamAccess.canManageQuiz(u, q))
                 .map(this::slot)
                 .filter(s -> departmentId == null || deptMatches(s.quiz(), departmentId))

@@ -68,6 +68,7 @@ com\exam\repository\TermReportRemarkRepository.class
 com\exam\config\DeveloperAccessInterceptor.class
 com\exam\model\academic\DocumentVerification.class
 com\exam\DTO\AttemptDTO.class
+com\exam\helper\IndexNumberRange$Parts.class
 com\exam\model\User.class
 com\exam\service\examops\QuestionBankService.class
 com\exam\service\llm\LLMEvaluationStrategyFactory.class
@@ -130,6 +131,7 @@ com\exam\model\academic\DocumentVerification$Type.class
 com\exam\model\features\DepartmentFeatureSetting.class
 com\exam\controller\DeveloperController.class
 com\exam\service\academic\GradingService$PresetInfo.class
+com\exam\helper\IndexNumberRange.class
 com\exam\model\examops\ProctoringEvent.class
 com\exam\repository\RemarkRequestRepository.class
 com\exam\model\exam\Report.class

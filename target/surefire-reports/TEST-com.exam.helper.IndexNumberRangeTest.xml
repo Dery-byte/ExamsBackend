@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="com.exam.service.AcademicRecordServiceTest" time="0.316" tests="8" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="com.exam.helper.IndexNumberRangeTest" time="0.339" tests="7" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="21"/>
     <property name="sun.cpu.isalist" value="amd64"/>
@@ -59,12 +59,11 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="65.0"/>
   </properties>
-  <testcase name="missingCreditUnitsUseTheDefault" classname="com.exam.service.AcademicRecordServiceTest" time="0.212"/>
-  <testcase name="gpaIsWeightedByCreditUnits" classname="com.exam.service.AcademicRecordServiceTest" time="0"/>
-  <testcase name="failedCourseIsCarriedOverUntilPassed" classname="com.exam.service.AcademicRecordServiceTest" time="0"/>
-  <testcase name="scaleValidationRejectsGapsAndDuplicates" classname="com.exam.service.AcademicRecordServiceTest" time="0.047"/>
-  <testcase name="promotionRulesHoldBackStudentsWithTooManyCarryovers" classname="com.exam.service.AcademicRecordServiceTest" time="0.016"/>
-  <testcase name="studentsOnlySeePublishedResults" classname="com.exam.service.AcademicRecordServiceTest" time="0.016"/>
-  <testcase name="legacyScaleKeepsTheOldLetters" classname="com.exam.service.AcademicRecordServiceTest" time="0.007"/>
-  <testcase name="noRulesMeansEveryoneIsEligible" classname="com.exam.service.AcademicRecordServiceTest" time="0.003"/>
+  <testcase name="noRangeMeansEveryoneIsIn" classname="com.exam.helper.IndexNumberRangeTest" time="0.251"/>
+  <testcase name="ignoresCaseSpacesAndLeadingZeros" classname="com.exam.helper.IndexNumberRangeTest" time="0"/>
+  <testcase name="includesBothEndsAndEverythingBetween" classname="com.exam.helper.IndexNumberRangeTest" time="0.002"/>
+  <testcase name="normalizesToTrimmedUpperCase" classname="com.exam.helper.IndexNumberRangeTest" time="0.011"/>
+  <testcase name="excludesSerialsOutsideTheRange" classname="com.exam.helper.IndexNumberRangeTest" time="0.001"/>
+  <testcase name="validatesRanges" classname="com.exam.helper.IndexNumberRangeTest" time="0.021"/>
+  <testcase name="excludesOtherProgramsAndYears" classname="com.exam.helper.IndexNumberRangeTest" time="0"/>
 </testsuite>

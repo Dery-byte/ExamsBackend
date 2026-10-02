@@ -12,5 +12,8 @@ public record QuizPublicSummaryDTO(
         String title,
         String courseTitle,
         /** Names of the programs allowed to take this quiz; empty means open to every program. */
-        List<String> programNames
+        List<String> programNames,
+        /** Allowed index-number range; both null means no range limit. */
+        String indexRangeStart,
+        String indexRangeEnd
 ) {}

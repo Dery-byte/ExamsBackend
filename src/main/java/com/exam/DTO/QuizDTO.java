@@ -47,6 +47,10 @@ public class QuizDTO {
 
     private Integer maxAttempts = 1;
 
+    /** Index-number range allowed to take the quiz; both null means no range limit. */
+    private String indexRangeStart;
+    private String indexRangeEnd;
+
     /** Auto-publish and auto-open the quiz once quizDate + startTime is reached. */
     private boolean autoOpen;
 
@@ -91,6 +95,8 @@ public class QuizDTO {
         this.enableDevToolsBlocking = quiz.getEnableDevToolsBlocking();
         this.llmProvider = quiz.getLlmProvider();
         this.maxAttempts = quiz.getMaxAttempts() == null ? 1 : quiz.getMaxAttempts();
+        this.indexRangeStart = quiz.getIndexRangeStart();
+        this.indexRangeEnd = quiz.getIndexRangeEnd();
         this.autoOpen = quiz.isAutoOpen();
         this.publishedAt = quiz.getPublishedAt();
         this.autoClose = quiz.isAutoClose();
@@ -310,6 +316,22 @@ public class QuizDTO {
 
     public void setEnableDevToolsBlocking(Boolean enableDevToolsBlocking) {
         this.enableDevToolsBlocking = enableDevToolsBlocking;
+    }
+
+    public String getIndexRangeStart() {
+        return indexRangeStart;
+    }
+
+    public void setIndexRangeStart(String indexRangeStart) {
+        this.indexRangeStart = indexRangeStart;
+    }
+
+    public String getIndexRangeEnd() {
+        return indexRangeEnd;
+    }
+
+    public void setIndexRangeEnd(String indexRangeEnd) {
+        this.indexRangeEnd = indexRangeEnd;
     }
 
     public Integer getMaxAttempts() {

@@ -194,6 +194,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\Endp
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\NumberOfTheoryToAnswer.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\QuizPublicSummaryDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\StudentCourseMark.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\IndexNumberRange.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\DataToolsController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\academic\SystemMode.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\DeveloperEmailRepository.java

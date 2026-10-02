@@ -125,6 +125,57 @@ class QuizServiceAccessTest {
         assertThat(visible).containsExactly(quiz);
     }
 
+    // ── index-number range ───────────────────────────────────────────────────────
+
+    @Test
+    void studentInsideTheIndexRangeIsAllowed() {
+        student.setUsername("ps/ict/17/0005");
+        quiz.setIndexRangeStart("PS/ICT/17/0001");
+        quiz.setIndexRangeEnd("PS/ICT/17/0009");
+        when(registeredCoursesRepository.countByCategoryAndUser(course, student)).thenReturn(1L);
+
+        service.assertStudentMayAccess(quiz, student);   // does not throw
+    }
+
+    @Test
+    void studentOutsideTheIndexRangeIsDeniedWithTheRangeAndTheirIndexNumber() {
+        student.setUsername("PS/ICT/17/0012");
+        quiz.setIndexRangeStart("PS/ICT/17/0001");
+        quiz.setIndexRangeEnd("PS/ICT/17/0009");
+        when(registeredCoursesRepository.countByCategoryAndUser(course, student)).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.assertStudentMayAccess(quiz, student))
+                .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
+                    assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+                    assertThat(e.getReason())
+                            .contains("PS/ICT/17/0001 to PS/ICT/17/0009")
+                            .contains("PS/ICT/17/0012");
+                });
+    }
+
+    @Test
+    void courseListKeepsOutOfRangeQuizzesButNotesWhy() {
+        student.setUsername("PS/ICT/17/0012");
+        Quiz inRange = new Quiz();
+        inRange.setqId(12L);
+        inRange.setCategory(course);
+        inRange.setIndexRangeStart("PS/ICT/17/0010");
+        inRange.setIndexRangeEnd("PS/ICT/17/0020");
+        quiz.setIndexRangeStart("PS/ICT/17/0001");
+        quiz.setIndexRangeEnd("PS/ICT/17/0009");
+
+        when(userRepository.findByUsername("PS/ICT/17/0012")).thenReturn(Optional.of(student));
+        when(registeredCoursesRepository.countByCategoryAndUser(course, student)).thenReturn(1L);
+        Principal principal = () -> "PS/ICT/17/0012";
+
+        assertThat(service.filterForCaller(List.of(quiz, inRange), principal)).containsExactly(inRange);
+
+        List<Quiz> listed = service.filterForCallerNotingIndexRange(List.of(quiz, inRange), principal);
+        assertThat(listed).containsExactly(quiz, inRange);
+        assertThat(quiz.getAccessNotice()).contains("PS/ICT/17/0001 to PS/ICT/17/0009");
+        assertThat(inRange.getAccessNotice()).isNull();
+    }
+
     // ── public summary (shown on the shared link's sign-in page, before login) ────
 
     @Test

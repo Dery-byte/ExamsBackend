@@ -211,6 +211,25 @@ public class Quiz {
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private List<Long> programIds = new ArrayList<>();
 
+    /**
+     * Optional index-number (username) range of the students allowed to take this quiz, e.g.
+     * PS/ICT/17/0001 to PS/ICT/17/0009. Both null means every student who otherwise qualifies.
+     * Stored normalised (trimmed, upper-case); see {@link com.exam.helper.IndexNumberRange}.
+     */
+    @Column(name = "index_range_start", length = 64)
+    private String indexRangeStart;
+
+    @Column(name = "index_range_end", length = 64)
+    private String indexRangeEnd;
+
+    /**
+     * Per-request note for the calling student, set when this quiz is listed to them but their
+     * index number is outside {@link #indexRangeStart}..{@link #indexRangeEnd}. Never stored.
+     */
+    @Transient
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private String accessNotice;
+
      @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
      @JsonIgnore
      private Set<Questions> questions = new HashSet<>();
@@ -373,6 +392,30 @@ public class Quiz {
 
     public void setProgramIds(List<Long> programIds) {
         this.programIds = programIds;
+    }
+
+    public String getIndexRangeStart() {
+        return indexRangeStart;
+    }
+
+    public void setIndexRangeStart(String indexRangeStart) {
+        this.indexRangeStart = indexRangeStart;
+    }
+
+    public String getIndexRangeEnd() {
+        return indexRangeEnd;
+    }
+
+    public void setIndexRangeEnd(String indexRangeEnd) {
+        this.indexRangeEnd = indexRangeEnd;
+    }
+
+    public String getAccessNotice() {
+        return accessNotice;
+    }
+
+    public void setAccessNotice(String accessNotice) {
+        this.accessNotice = accessNotice;
     }
 
     public Set<Questions> getQuestions() {

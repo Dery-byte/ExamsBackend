@@ -59,6 +59,10 @@ public class QuizUpdateRequest {
     /** How many times each student may take the quiz. Null means no change. */
     private Integer maxAttempts;
 
+    /** Index-number range allowed to take the quiz. Null means no change; blank clears that end. */
+    private String indexRangeStart;
+    private String indexRangeEnd;
+
     /** Auto-publish and auto-open the quiz once quizDate + startTime is reached. */
     private boolean autoOpen;
 
@@ -306,6 +310,22 @@ public class QuizUpdateRequest {
 
     public void setProgramIds(java.util.List<Long> programIds) {
         this.programIds = programIds;
+    }
+
+    public String getIndexRangeStart() {
+        return indexRangeStart;
+    }
+
+    public void setIndexRangeStart(String indexRangeStart) {
+        this.indexRangeStart = indexRangeStart;
+    }
+
+    public String getIndexRangeEnd() {
+        return indexRangeEnd;
+    }
+
+    public void setIndexRangeEnd(String indexRangeEnd) {
+        this.indexRangeEnd = indexRangeEnd;
     }
 
     public boolean isAutoOpen() {
