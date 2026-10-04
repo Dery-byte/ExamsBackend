@@ -32,7 +32,9 @@ public enum Feature {
     STUDENT_TIMETABLE(Scope.DEPARTMENT, "Students", "Exam timetable for students",
             "Students see the Exam Timetable page with their upcoming assessments."),
     STUDENT_TRANSCRIPT(Scope.DEPARTMENT, "Students", "Student transcripts and CGPA",
-            "Students can view and download their transcript. (Report cards also need the Marks Sheet switch for students.)"),
+            "Students can view and download their transcript and CGPA. (Also needs the Marks Sheet switch for students.)"),
+    STUDENT_REPORT_CARD(Scope.DEPARTMENT, "Students", "Student report cards",
+            "Students can view and download their report cards (published results). (Also needs the Marks Sheet switch for students.)"),
     QUESTION_BANK(Scope.DEPARTMENT, "Staff", "Question bank",
             "Lecturers and HODs keep reusable questions per course and draw them into quizzes.");
 

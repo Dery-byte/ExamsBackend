@@ -46,6 +46,7 @@ public class NotificationService {
     @Autowired private Registered_coursesRepository registeredCoursesRepository;
     @Autowired private StudentCourseMarkRepository studentCourseMarkRepository;
     @Autowired private SystemSettingService systemSettingService;
+    @Autowired private com.exam.service.features.FeatureService featureService;
 
     // ── Sending ───────────────────────────────────────────────────────────────
 
@@ -127,7 +128,9 @@ public class NotificationService {
                     sheetLabel(sheet) + " results have been published.", "/lect/manual-marks");
             if (!systemSettingService.getBooleanSetting(SystemSettingService.MARKS_SHEET_VISIBLE_STUDENT, true)) return;
             List<User> students = studentCourseMarkRepository.findBySemesterSheetId(sheet.getId()).stream()
-                    .map(StudentCourseMark::getStudent).filter(Objects::nonNull).toList();
+                    .map(StudentCourseMark::getStudent).filter(Objects::nonNull)
+                    .filter(s -> featureService.isOnFor(com.exam.model.features.Feature.STUDENT_REPORT_CARD, s))   // their department shows report cards
+                    .toList();
             notify(students, SHEET_PUBLISHED, "Semester results published",
                     "Your Level " + sheet.getLevel() + " Semester " + sheet.getSemester() + " results are now available.",
                     "/user-dashboard/report-cards");

@@ -185,6 +185,37 @@ class SecurityRulesIntegrationTest {
     @Autowired com.exam.repository.DepartmentRepository departments;
 
     @Test
+    void departmentCanHideReportCardsFromItsStudents() throws Exception {
+        com.exam.model.exam.Department d = new com.exam.model.exam.Department();
+        d.setName("Physics"); d.setCode("PHY");
+        d = departments.save(d);
+        hod.setDepartment(d);
+        users.save(hod);
+        student.setDepartment(d);
+        users.save(student);
+        String url = "/api/features/STUDENT_REPORT_CARD/departments/" + d.getId();
+        try {
+            assertThat(allowed(status(get("/api/marks/sheet/my-marks/all").with(as(student))))).isTrue();
+
+            assertThat(json(put(url).with(as(hod)), "{\"enabled\":false}")).isEqualTo(200);   // status() would send "{}"
+            var refused = mvc.perform(get("/api/marks/sheet/my-marks/all").with(as(student))).andReturn().getResponse();
+            assertThat(refused.getStatus()).isEqualTo(403);
+            assertThat(refused.getContentAsString()).contains("Student report cards have been turned off by your department.");
+            assertThat(status(get("/api/marks/sheet/report-card/all/pdf").with(as(student)))).isEqualTo(403);
+            assertThat(mvc.perform(get("/api/v1/auth/feature-flags").with(as(student))).andReturn().getResponse().getContentAsString())
+                    .contains("\"STUDENT_REPORT_CARD\":false")
+                    .contains("\"STUDENT_TRANSCRIPT\":true");                                 // the transcript switch is separate
+
+            // A student in another department, and the department's staff, are unaffected
+            assertThat(allowed(status(get("/api/marks/sheet/my-marks/all").with(as(other))))).isTrue();
+            assertThat(allowed(status(get("/api/marks/sheet/all").with(as(hod))))).isTrue();
+        } finally {
+            json(put(url).with(as(superAdmin)), "{\"enabled\":true}");
+        }
+        assertThat(allowed(status(get("/api/marks/sheet/my-marks/all").with(as(student))))).isTrue();
+    }
+
+    @Test
     void featureSwitchesAreEnforcedEndToEnd() throws Exception {
         String signup = "{\"username\":\"newbie\",\"email\":\"n@example.com\",\"password\":\"secret123\",\"firstname\":\"N\",\"lastname\":\"B\"}";
         try {
