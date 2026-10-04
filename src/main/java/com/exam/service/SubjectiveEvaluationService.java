@@ -56,19 +56,28 @@ public class SubjectiveEvaluationService {
 
         // Reject a submission that will be refused anyway before spending an LLM call on it.
         attemptService.assertTheoryMaySubmit(user, quiz);
+        return grade(request, user, quiz);
+    }
 
+    /** The quiz a theory submission belongs to (read from the submission itself). */
+    public Quiz quizOf(GeminiRequest request) {
+        List<QuestionSubmission> submissions = helper.parseSubmissions(request);
+        if (submissions.isEmpty()) {
+            throw new IllegalArgumentException("No question submissions found in request");
+        }
+        Long quizId = Long.valueOf(submissions.get(0).getQuizId());
+        return quizRepository.findById(quizId)
+                .orElseThrow(() -> new IllegalArgumentException("Quiz not found: " + quizId));
+    }
+
+    /**
+     * Marks the answers with the quiz's LLM provider and saves the result. Called by the background
+     * marking worker; AttemptService.recordTheory is the authoritative check against double marking.
+     */
+    public QuizEvaluationResponse grade(GeminiRequest request, User user, Quiz quiz) {
         LlmProvider provider = quiz.getLlmProvider() != null ? quiz.getLlmProvider() : LlmProvider.GPT;
         log.info("Subjective evaluation — quizId={}, provider={}, user={}",
-                 quizId, provider, user.getUsername());
-                 
-        System.out.println("\n=======================================================");
-        System.out.println("🚀 STARTING SUBJECTIVE QUIZ EVALUATION");
-        System.out.println("=======================================================");
-        System.out.println("👉 Quiz ID      : " + quizId);
-        System.out.println("👉 Student      : " + user.getUsername());
-        System.out.println("👉 LLM Provider : " + provider.name());
-        System.out.println("=======================================================\n");
-
+                 quiz.getqId(), provider, user.getUsername());
         LLMEvaluationStrategy strategy = factory.getStrategy(provider);
         return strategy.evaluate(request, user);
     }

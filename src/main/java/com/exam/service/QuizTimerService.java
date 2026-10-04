@@ -159,16 +159,20 @@ import com.exam.DTO.ViolationTimerResponseDTO;
 import com.exam.DTO.VoilationTimerRequestDTO;
 import com.exam.helper.ResourceNotFoundException;
 import com.exam.model.QuizTimer;
+import com.exam.model.exam.AttemptStatus;
 import com.exam.model.exam.NumberOfTheoryToAnswer;
 import com.exam.model.exam.Quiz;
 import com.exam.repository.NumberOfTheoryToAnswerRepository;
+import com.exam.repository.QuizAttemptRepository;
 import com.exam.repository.QuizRepository;
 import com.exam.repository.QuizTimerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -178,6 +182,7 @@ public class QuizTimerService {
     @Autowired private QuizRepository quizRepository;
     @Autowired private NumberOfTheoryToAnswerRepository numberOfTheoryToAnswerRepository;
     @Autowired private com.exam.service.SystemSettingService systemSettingService;
+    @Autowired private QuizAttemptRepository quizAttemptRepository;
 
     /** Allowance for network latency when a client reports a little more time than the server expects. */
     private static final int SAVE_TOLERANCE_SECONDS = 5;
@@ -188,8 +193,7 @@ public class QuizTimerService {
      */
     private int effectiveRemaining(QuizTimer t) {
         int remaining = t.getRemainingTime() == null ? 0 : t.getRemainingTime();
-        if (t.getUpdatedAt() == null
-                || !systemSettingService.getBooleanSetting(com.exam.service.SystemSettingService.EXAM_CLOCK_RUNS_WHILE_AWAY, true)) {
+        if (t.getUpdatedAt() == null || !clockRunsWhileAway()) {
             return remaining;
         }
         long away = java.time.Duration.between(t.getUpdatedAt(), LocalDateTime.now()).getSeconds();
@@ -219,16 +223,8 @@ public class QuizTimerService {
         }
         int maxAllowedSeconds = maxAllowedSeconds(quizId);
 
-        // -----------------------------
-        // Debug logs
-        System.out.println("=======================================================");
-        System.out.println(">>> [saveQuizTimer] quizId: " + quizId + ", userId: " + userId);
-        System.out.println(">>> Max allowed seconds: " + maxAllowedSeconds);
-        System.out.println(">>> Reported remaining time: " + request.getRemainingTime());
-
         // Anti-tamper: client must not report more time than allowed
         if (request.getRemainingTime() > maxAllowedSeconds) {
-            System.out.println(">>> ERROR: Reported remaining time exceeds allowed max!");
             throw new IllegalArgumentException(
                     "Reported remaining time exceeds total quiz duration");
         }
@@ -256,8 +252,6 @@ public class QuizTimerService {
         response.setUpdatedAt(saved.getUpdatedAt());
         response.setTotalViolationCount(saved.getTotalViolationCount());
         response.setStatus("saved");
-
-        System.out.println(">>> [saveQuizTimer] Timer saved successfully");
 
         return response;
     }
@@ -311,65 +305,58 @@ public class QuizTimerService {
     // ─────────────────────────────────────────────
     //  VIOLATION DELAY
     // ─────────────────────────────────────────────
+    //
+    // Violation saves never touch updatedAt: that is the exam clock's checkpoint time, and moving it
+    // without a new remainingTime would hand the student back the seconds since the last checkpoint.
 
-
-
-
-
-
-
-
-
-
-
+    /**
+     * Starts (or clears, with 0) a violation lock-out. The client sends the length once, when the
+     * lock-out starts; the server stores when it ends. No per-second saves are needed, and a student
+     * who signs in again — on any device — resumes the same lock-out.
+     */
     @Transactional
     public ViolationTimerResponseDTO saveViolationDelayTime(Long quizId, Long userId,
                                                             VoilationTimerRequestDTO requestDTO) {
-        QuizTimer timer = quizTimerRepository
-                .findByUserIdAndQuiz_qId(userId, quizId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "QuizTimer not found for userId: " + userId + " quizId: " + quizId));
-        timer.setViolationDelayTime(requestDTO.getViolationDelayTime());
-        timer.setUpdatedAt(LocalDateTime.now());
-        QuizTimer saved = quizTimerRepository.save(timer);
+        int seconds = requestDTO.getViolationDelayTime() == null ? 0 : Math.max(0, requestDTO.getViolationDelayTime());
         ViolationTimerResponseDTO response = new ViolationTimerResponseDTO();
-        response.setViolationDelayTime(saved.getViolationDelayTime());
+        Optional<QuizTimer> found = seconds > 0
+                ? timerForViolation(userId, quizId)
+                : quizTimerRepository.findForUpdate(userId, quizId);
+        found.ifPresent(timer -> {
+            timer.setViolationDelayTime(seconds);
+            timer.setViolationDelayUntil(seconds > 0 ? LocalDateTime.now().plusSeconds(seconds) : null);
+            quizTimerRepository.save(timer);
+        });
+        response.setViolationDelayTime(found.isPresent() ? seconds : 0);
         return response;
     }
 
-
-
-
-
-
-
-
-
-
-
-
+    /** Seconds of lock-out still to serve (0 when none). */
     @Transactional(readOnly = true)
     public ViolationTimerResponseDTO getViolationDelayTime(Long quizId, Long userId) {
-        QuizTimer timer = quizTimerRepository
-                .findByUserIdAndQuiz_qId(userId, quizId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "QuizTimer not found for userId: " + userId + " quizId: " + quizId));
-
         ViolationTimerResponseDTO response = new ViolationTimerResponseDTO();
-        response.setViolationDelayTime(timer.getViolationDelayTime());
+        response.setViolationDelayTime(quizTimerRepository.findByUserIdAndQuiz_qId(userId, quizId)
+                .map(this::remainingDelay)
+                .orElse(0));
         return response;
     }
 
-
-
-
-
-
-
-
-
-
-
+    /**
+     * The lock-out runs on the same rules as the exam clock: while the student is away it keeps
+     * running if the exam clock does; otherwise it only ran until the last clock checkpoint.
+     */
+    private int remainingDelay(QuizTimer t) {
+        LocalDateTime until = t.getViolationDelayUntil();
+        int length = t.getViolationDelayTime() == null ? 0 : Math.max(0, t.getViolationDelayTime());
+        if (until == null) return 0;
+        LocalDateTime servedUntil = LocalDateTime.now();
+        if (!clockRunsWhileAway() && t.getUpdatedAt() != null) {
+            LocalDateTime started = until.minusSeconds(length);
+            servedUntil = t.getUpdatedAt().isAfter(started) ? t.getUpdatedAt() : started;
+        }
+        long left = Duration.between(servedUntil, until).getSeconds();
+        return (int) Math.max(0, Math.min(length, left));
+    }
 
     // ─────────────────────────────────────────────
     //  VIOLATION COUNT
@@ -377,34 +364,28 @@ public class QuizTimerService {
 
     public ViolationTimerResponseDTO saveViolationCount(Long quizId, Long userId,
                                                         VoilationTimerRequestDTO request) {
-        // A violation can arrive before the first timer checkpoint. Seed a new row with the full
-        // duration, not 0 — a 0 here would make the next checkpoint clamp the exam clock to 5 s.
-        if (quizTimerRepository.findByUserIdAndQuiz_qId(userId, quizId).isEmpty()) {
-            quizTimerRepository.insertIfAbsent(userId, quizId, maxAllowedSeconds(quizId), LocalDateTime.now());
-        }
-        QuizTimer timer = lockTimer(userId, quizId);
-
-        timer.setTotalViolationCount(request.getTotalViolationCount());
-        timer.setUpdatedAt(LocalDateTime.now());
-        quizTimerRepository.save(timer);
-
+        int count = recordViolationCount(quizId, userId,
+                request.getTotalViolationCount() == null ? 0 : request.getTotalViolationCount());
         ViolationTimerResponseDTO response = new ViolationTimerResponseDTO();
-        response.setTotalViolationCount(timer.getTotalViolationCount());
+        response.setTotalViolationCount(count);
         return response;
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
+    /**
+     * Stores the student's violation count for the attempt in progress and returns the stored count.
+     * The count only goes up, so a late or repeated save (the client retries failed ones) can never
+     * undo a violation.
+     */
+    public int recordViolationCount(Long quizId, Long userId, int violationNumber) {
+        return timerForViolation(userId, quizId).map(timer -> {
+            int current = timer.getTotalViolationCount() == null ? 0 : timer.getTotalViolationCount();
+            if (violationNumber > current) {
+                timer.setTotalViolationCount(violationNumber);
+                quizTimerRepository.save(timer);
+            }
+            return Math.max(current, violationNumber);
+        }).orElse(0);
+    }
 
     @Transactional(readOnly = true)
     public ViolationTimerResponseDTO getViolationCount(Long quizId, Long userId) {
@@ -413,7 +394,7 @@ public class QuizTimerService {
                 .orElse(null);
 
         ViolationTimerResponseDTO response = new ViolationTimerResponseDTO();
-        response.setTotalViolationCount(timer != null ? timer.getTotalViolationCount() : 0);
+        response.setTotalViolationCount(timer != null && timer.getTotalViolationCount() != null ? timer.getTotalViolationCount() : 0);
         return response;
     }
 
@@ -425,6 +406,26 @@ public class QuizTimerService {
         return quizTimerRepository.findForUpdate(userId, quizId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "QuizTimer not found for userId: " + userId + " quizId: " + quizId));
+    }
+
+    /**
+     * The student's timer row, locked, for recording a violation. A violation can arrive before the
+     * first clock checkpoint, so the row is created then — seeded with the full duration, not 0 (a 0
+     * would make the next checkpoint clamp the exam clock to 5 s). Never created once the attempt is
+     * over: a retried save arriving after submission must not leave a stale row for the next attempt.
+     */
+    private Optional<QuizTimer> timerForViolation(Long userId, Long quizId) {
+        if (quizTimerRepository.findByUserIdAndQuiz_qId(userId, quizId).isEmpty()) {
+            if (!quizAttemptRepository.existsByUser_IdAndQuiz_qIdAndStatus(userId, quizId, AttemptStatus.IN_PROGRESS)) {
+                return Optional.empty();
+            }
+            quizTimerRepository.insertIfAbsent(userId, quizId, maxAllowedSeconds(quizId), LocalDateTime.now());
+        }
+        return quizTimerRepository.findForUpdate(userId, quizId);
+    }
+
+    private boolean clockRunsWhileAway() {
+        return systemSettingService.getBooleanSetting(com.exam.service.SystemSettingService.EXAM_CLOCK_RUNS_WHILE_AWAY, true);
     }
 
     /** Full exam length in seconds: the quiz time plus the time allowed for every theory section. */

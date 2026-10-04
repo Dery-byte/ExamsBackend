@@ -34,6 +34,9 @@ public class QuizGPTController {
     @Autowired
     private TheoryQuestionsRepository theoryQuestionsRepository;
 
+    @Autowired
+    private com.exam.service.TheoryGradingQueue theoryGradingQueue;
+
     /**
      * Evaluate quiz answers using GPT
      * POST /api/quiz/gpt/evaluate
@@ -97,9 +100,11 @@ public class QuizGPTController {
                         .body(createErrorResponse("Request contents cannot be empty"));
             }
 
-//            logger.info("=== CALLING SERVICE ===");
-            QuizEvaluationResponse response = subjectiveEvaluationService.evaluate(request, currentUser);
-            return ResponseEntity.ok(response);
+            // Stored and marked in the background (see TheoryGradingQueue): the student gets an
+            // answer at once instead of waiting on the AI provider. Results follow lecturer review.
+            var job = theoryGradingQueue.submit(request, currentUser);
+            return ResponseEntity.status(HttpStatus.ACCEPTED)
+                    .body(Map.of("status", "QUEUED", "jobId", job.getId()));
         } catch (org.springframework.web.server.ResponseStatusException e) {
             throw e;   // e.g. 409 attempt limit — let ApiExceptionHandler return it with its message
         } catch (IllegalArgumentException e) {

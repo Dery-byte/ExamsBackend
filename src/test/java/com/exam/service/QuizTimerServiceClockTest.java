@@ -3,9 +3,12 @@ package com.exam.service;
 import com.exam.DTO.QuizTimerRequestDTO;
 import com.exam.DTO.QuizTimerResponseDTO;
 import com.exam.DTO.VoilationTimerRequestDTO;
+import com.exam.DTO.ViolationTimerResponseDTO;
 import com.exam.model.QuizTimer;
+import com.exam.model.exam.AttemptStatus;
 import com.exam.model.exam.Quiz;
 import com.exam.repository.NumberOfTheoryToAnswerRepository;
+import com.exam.repository.QuizAttemptRepository;
 import com.exam.repository.QuizRepository;
 import com.exam.repository.QuizTimerRepository;
 import com.exam.repository.UserRepository;
@@ -24,6 +27,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,6 +44,7 @@ class QuizTimerServiceClockTest {
     @Mock QuizRepository quizRepository;
     @Mock NumberOfTheoryToAnswerRepository numberOfTheoryToAnswerRepository;
     @Mock SystemSettingService systemSettingService;
+    @Mock QuizAttemptRepository quizAttemptRepository;
     @InjectMocks QuizTimerService service;
 
     private QuizTimer timer;
@@ -59,6 +64,7 @@ class QuizTimerServiceClockTest {
         when(quizTimerRepository.findByUserIdAndQuiz_qId(7L, 1L)).thenReturn(Optional.of(timer));
         when(quizTimerRepository.findForUpdate(7L, 1L)).thenReturn(Optional.of(timer));
         when(quizTimerRepository.insertIfAbsent(eq(7L), eq(1L), anyInt(), any())).thenReturn(0);   // row exists
+        when(quizAttemptRepository.existsByUser_IdAndQuiz_qIdAndStatus(7L, 1L, AttemptStatus.IN_PROGRESS)).thenReturn(true);
     }
 
     private void clockRunsWhileAway(boolean on) {
@@ -152,5 +158,76 @@ class QuizTimerServiceClockTest {
 
         // Seeding with 0 would clamp every later checkpoint to 5 s and expire the exam
         verify(quizTimerRepository).insertIfAbsent(eq(7L), eq(1L), eq(3600), any());
+    }
+
+    @Test
+    void lateViolationAfterSubmissionDoesNotRecreateTheRow() {
+        when(quizTimerRepository.findByUserIdAndQuiz_qId(7L, 1L)).thenReturn(Optional.empty());
+        when(quizAttemptRepository.existsByUser_IdAndQuiz_qIdAndStatus(7L, 1L, AttemptStatus.IN_PROGRESS)).thenReturn(false);
+
+        int count = service.recordViolationCount(1L, 7L, 2);
+
+        assertThat(count).isZero();
+        verify(quizTimerRepository, never()).insertIfAbsent(anyLong(), anyLong(), anyInt(), any());
+    }
+
+    @Test
+    void violationCountNeverGoesDown() {
+        timer.setTotalViolationCount(3);
+
+        int count = service.recordViolationCount(1L, 7L, 2);   // a retried, older save arriving late
+
+        assertThat(count).isEqualTo(3);
+        assertThat(timer.getTotalViolationCount()).isEqualTo(3);
+    }
+
+    @Test
+    void violationSavesLeaveTheExamClockCheckpointAlone() {
+        LocalDateTime checkpoint = LocalDateTime.now().minusSeconds(40);
+        timer.setRemainingTime(1200);
+        timer.setUpdatedAt(checkpoint);
+
+        service.recordViolationCount(1L, 7L, 1);
+        VoilationTimerRequestDTO delay = new VoilationTimerRequestDTO();
+        delay.setViolationDelayTime(30);
+        service.saveViolationDelayTime(1L, 7L, delay);
+
+        // Moving updatedAt would hand the student back the 40 s since the checkpoint
+        assertThat(timer.getUpdatedAt()).isEqualTo(checkpoint);
+    }
+
+    @Test
+    void lockOutIsSavedOnceAndResumesFromTheServer() {
+        clockRunsWhileAway(true);
+        VoilationTimerRequestDTO delay = new VoilationTimerRequestDTO();
+        delay.setViolationDelayTime(60);
+        service.saveViolationDelayTime(1L, 7L, delay);
+
+        // e.g. signing in on another device 20 s later
+        timer.setViolationDelayUntil(timer.getViolationDelayUntil().minusSeconds(20));
+        ViolationTimerResponseDTO res = service.getViolationDelayTime(1L, 7L);
+
+        assertThat(res.getViolationDelayTime()).isBetween(39, 40);
+    }
+
+    @Test
+    void lockOutPausesWithTheClockWhileAway() {
+        clockRunsWhileAway(false);
+        LocalDateTime now = LocalDateTime.now();
+        timer.setViolationDelayTime(60);
+        timer.setViolationDelayUntil(now.plusSeconds(60 - 600));   // started 10 minutes ago …
+        timer.setUpdatedAt(now.minusSeconds(600 - 15));            // … last seen 15 s into it
+
+        ViolationTimerResponseDTO res = service.getViolationDelayTime(1L, 7L);
+
+        assertThat(res.getViolationDelayTime()).isBetween(44, 45);
+    }
+
+    @Test
+    void noLockOutWhenNoneWasStarted() {
+        clockRunsWhileAway(true);
+        assertThat(service.getViolationDelayTime(1L, 7L).getViolationDelayTime()).isZero();
+        when(quizTimerRepository.findByUserIdAndQuiz_qId(7L, 1L)).thenReturn(Optional.empty());
+        assertThat(service.getViolationDelayTime(1L, 7L).getViolationDelayTime()).isZero();
     }
 }

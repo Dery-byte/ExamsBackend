@@ -58,6 +58,22 @@ public class AttemptService {
     /** How long a correct quiz password stays valid for starting an attempt. */
     private static final int UNLOCK_VALID_HOURS = 6;
 
+    /**
+     * Set while background marking runs: theory marks go to this attempt even though the student
+     * has finished it (marking happens after submission).
+     */
+    private static final ThreadLocal<Long> GRADING_ATTEMPT = new ThreadLocal<>();
+
+    /** Runs background theory marking so its marks are recorded on the given attempt. */
+    public static <T> T recordingTheoryFor(Long attemptId, java.util.function.Supplier<T> marking) {
+        GRADING_ATTEMPT.set(attemptId);
+        try {
+            return marking.get();
+        } finally {
+            GRADING_ATTEMPT.remove();
+        }
+    }
+
     // ── Student: status / begin / finish ─────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -88,7 +104,10 @@ public class AttemptService {
         begin(caller, quiz);
     }
 
-    /** Marks the attempt in progress as finished. No-op if none is in progress. */
+    /**
+     * Marks the attempt in progress as finished (no-op if none is) and clears the exam session —
+     * clock, saved answers, theory drafts — so the exam page needs one request, not four.
+     */
     @Transactional
     public void finish(User student, Quiz quiz) {
         User s = lock(student);
@@ -98,6 +117,20 @@ public class AttemptService {
             a.setSubmittedAt(LocalDateTime.now());
             attempts.save(a);
         });
+        resetSessionState(s, quiz);
+    }
+
+    /**
+     * For a theory submission about to be queued for marking: checks it is allowed and returns the
+     * attempt the marks will belong to (starting the very first attempt, as recordTheory would).
+     */
+    @Transactional
+    public Long attemptForTheorySubmission(User student, Quiz quiz) {
+        assertTheoryMaySubmit(student, quiz);
+        User s = lock(student);
+        List<QuizAttempt> all = load(s.getId(), quiz.getqId());
+        materializeLegacy(s, quiz, all);
+        return startOrResume(s, quiz, all).getId();
     }
 
     // ── Recording submissions (called from the marking pipelines) ────────────
@@ -201,7 +234,12 @@ public class AttemptService {
         List<QuizAttempt> all = load(s.getId(), quiz.getqId());
         materializeLegacy(s, quiz, all);
 
-        QuizAttempt a = active(all).orElse(null);
+        Long gradingAttempt = objective ? null : GRADING_ATTEMPT.get();
+        QuizAttempt a = gradingAttempt != null
+                ? all.stream().filter(x -> gradingAttempt.equals(x.getId())).findFirst()
+                    .orElseThrow(() -> conflict("The attempt being marked no longer exists."))
+                : active(all).orElse(null);
+        if (a != null && a.getStatus() == AttemptStatus.VOIDED) throw conflict("This attempt was voided.");
         if (a == null) {
             // A genuine new attempt always goes through begin(). Auto-starting is only for the very
             // first attempt (e.g. a session that began before this feature existed). Otherwise a
@@ -219,7 +257,7 @@ public class AttemptService {
             a.setMarksB(scale(marks));
             a.setTheorySubmitted(true);
         }
-        if (isComplete(quiz, a)) {
+        if (isComplete(quiz, a) && a.getStatus() == AttemptStatus.IN_PROGRESS) {
             a.setStatus(AttemptStatus.SUBMITTED);
             a.setSubmittedAt(LocalDateTime.now());
         }

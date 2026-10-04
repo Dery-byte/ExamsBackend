@@ -59,6 +59,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\ExamOpsController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\RegisteredCoursesController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Impl\OpenAIService.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\TheoryGradingJobRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\TokenRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\comms\CurrentUserService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\QuizProgressRequest.java
@@ -75,6 +76,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\SendSms
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\SmsRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\GradeBandRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\RedisConfig.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\TheoryGradingQueue.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\examops\QuestionBankService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\DocumentVerificationRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\CategoryController.java
@@ -189,6 +191,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Qui
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\AuditInterceptor.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\CategoryRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\ForgotPasswordRequest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\TheoryGradingJob.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Impl\MailService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\GPTResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\EndpointRules.java

@@ -1,7 +1,9 @@
 package com.exam.controller;
 
 import com.exam.exception.ErrorMessage;
+import com.exam.model.Role;
 import com.exam.model.User;
+import com.exam.service.QuizTimerService;
 import com.exam.service.comms.CurrentUserService;
 import com.exam.service.examops.*;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +34,7 @@ public class ExamOpsController {
     @Autowired private ProctoringService proctoringService;
     @Autowired private RemarkService remarkService;
     @Autowired private com.exam.service.features.FeatureService featureService;
+    @Autowired private QuizTimerService quizTimerService;
 
     // ── Timetable ────────────────────────────────────────────────────────────
 
@@ -98,12 +101,18 @@ public class ExamOpsController {
         public Integer violationNumber;
     }
 
-    /** Called by the exam page each time a violation is detected. */
+    /**
+     * Called by the exam page each time a violation is detected. A numbered violation also stores the
+     * student's violation count (one request per violation), so it carries over to any device.
+     */
     @PostMapping("/proctoring/events")
     public ResponseEntity<?> recordEvent(@RequestBody ProctoringEventRequest req, HttpServletRequest http) {
         if (req.quizId == null) return ResponseEntity.badRequest().body(new ErrorMessage("quizId is required."));
         return withUser(u -> {
             proctoringService.record(u, req.quizId, req.type, req.violationNumber, clientIp(http));
+            if (req.violationNumber != null && u.getRole() == Role.NORMAL) {
+                quizTimerService.recordViolationCount(req.quizId, u.getId(), req.violationNumber);
+            }
             return ResponseEntity.ok().build();
         });
     }

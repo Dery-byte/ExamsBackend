@@ -124,6 +124,7 @@ com\exam\service\academic\DocumentVerificationService.class
 com\exam\controller\AcademicController.class
 com\exam\model\academic\AcademicSession.class
 com\exam\controller\AcademicController$GradingRequest.class
+com\exam\model\exam\TheoryGradingJob.class
 com\exam\repository\UserRepository.class
 com\exam\model\User$UserBuilder.class
 com\exam\model\comms\Announcement.class
@@ -144,6 +145,7 @@ com\exam\model\exam\Quiz.class
 com\exam\controller\FeatureController$UserAction.class
 com\exam\service\academic\InstitutionService.class
 com\exam\service\comms\AnnouncementService.class
+com\exam\model\exam\TheoryGradingJob$Status.class
 com\exam\repository\QuizAttemptRepository.class
 com\exam\model\comms\Notification.class
 com\exam\service\llm\EvaluationPersistenceHelper.class
@@ -156,6 +158,7 @@ com\exam\DTO\AttemptStatusDTO.class
 com\exam\service\academic\GradingService.class
 com\exam\model\exam\AutoCloseFraction.class
 com\exam\service\examops\QuestionBankService$UploadRequest.class
+com\exam\repository\TheoryGradingJobRepository.class
 com\exam\service\llm\GeminiEvaluationStrategy.class
 com\exam\controller\DataToolsController$UserAction.class
 com\exam\model\examops\RemarkRequest.class
@@ -165,6 +168,7 @@ com\exam\service\ReportService.class
 com\exam\repository\AnnouncementRepository.class
 com\exam\model\exam\LlmProvider.class
 com\exam\service\AuthenticationService.class
+com\exam\service\TheoryGradingQueue.class
 com\exam\controller\DataToolsController$BulkEnrollRequest.class
 com\exam\controller\DataToolsController$ImportRequest.class
 com\exam\service\comms\AuditService.class

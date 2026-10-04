@@ -29,6 +29,7 @@ public class QuizAttemptController {
     @Autowired private AttemptService  attemptService;
     @Autowired private UserRepository  userRepository;
     @Autowired private QuizRepository  quizRepository;
+    @Autowired private com.exam.service.TheoryGradingQueue theoryGradingQueue;
 
     // ── Student ──────────────────────────────────────────────────────────────
 
@@ -57,6 +58,19 @@ public class QuizAttemptController {
     @GetMapping("/quiz/{quizId}")
     public List<AttemptDTO> attemptsForQuiz(@PathVariable Long quizId, Principal principal) {
         return attemptService.attemptsForQuiz(quizId, caller(principal));
+    }
+
+    /** Theory submissions still being marked by AI, and those whose marking failed (with the reason). */
+    @GetMapping("/quiz/{quizId}/marking")
+    public Map<String, Object> markingStatus(@PathVariable Long quizId, Principal principal) {
+        return theoryGradingQueue.markingStatus(quizId, caller(principal));
+    }
+
+    /** Re-queues one failed theory submission for marking. */
+    @PostMapping("/quiz/{quizId}/marking/{jobId}/retry")
+    public ResponseEntity<Void> retryMarking(@PathVariable Long quizId, @PathVariable Long jobId, Principal principal) {
+        theoryGradingQueue.retry(quizId, jobId, caller(principal));
+        return ResponseEntity.noContent().build();
     }
 
     /** Allow one student to take the quiz again. Body: { "reason": "optional note" }. */

@@ -28,8 +28,13 @@ public class QuizTimer {
     @Column(name = "remaining_time", nullable = false)
     private Integer remainingTime; // in seconds
 
+    /** Length in seconds of the current (or last) violation lock-out. */
     @Column(name = "violation_delay_time")
     private Integer violationDelayTime;
+
+    /** When the current violation lock-out ends; null when none has been started. */
+    @Column(name = "violation_delay_until")
+    private LocalDateTime violationDelayUntil;
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
@@ -48,6 +53,14 @@ public class QuizTimer {
 
     public Integer getViolationDelayTime() {
         return violationDelayTime;
+    }
+
+    public LocalDateTime getViolationDelayUntil() {
+        return violationDelayUntil;
+    }
+
+    public void setViolationDelayUntil(LocalDateTime violationDelayUntil) {
+        this.violationDelayUntil = violationDelayUntil;
     }
 
     public void setViolationDelayTime(Integer violationDelayTime) {

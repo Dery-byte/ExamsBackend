@@ -4,6 +4,7 @@ package com.exam.service;
 import com.exam.DTO.TheoryQuestionDTO;
 import com.exam.DTO.TheoryQuestionResponseDTO;
 import com.exam.DTO.TheoryUpdateRequest;
+import com.exam.helper.ResourceNotFoundException;
 import com.exam.helper.TheoryGroups;
 import com.exam.model.exam.Questions;
 import com.exam.model.exam.Quiz;
@@ -111,7 +112,9 @@ public class TheoryService {
 
 
     public TheoryQuestions getQuestions(Long quesId){
-        return this.theoryQuestionsRepository.findById(quesId).get();
+        // 404, not a 500: the question may have been deleted while a staff page still listed it
+        return this.theoryQuestionsRepository.findById(quesId)
+                .orElseThrow(() -> new ResourceNotFoundException("Theory question " + quesId + " no longer exists."));
     }
 
     public Set<TheoryQuestions> getQuestionsForSpecificQuiz(Quiz quiz){

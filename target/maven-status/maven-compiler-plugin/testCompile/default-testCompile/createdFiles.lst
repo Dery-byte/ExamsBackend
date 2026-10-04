@@ -17,6 +17,7 @@ com\exam\service\examops\QuestionBankTheoryTest.class
 com\exam\service\academic\DocumentVerificationCodeTest.class
 com\exam\service\AttemptServiceJpaTest.class
 com\exam\service\QuestionTypeChangeTest.class
+com\exam\service\TheoryGradingQueueTest.class
 com\exam\service\AcademicPdfRenderTest.class
 com\exam\SecurityApplicationTests.class
 com\exam\service\QuizTimerServiceClockTest.class
