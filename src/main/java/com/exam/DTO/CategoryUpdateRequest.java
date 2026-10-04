@@ -15,6 +15,8 @@ public class CategoryUpdateRequest {
     private String level;
     private java.util.List<Long> programIds;
     private Integer creditUnits;
+    /** Null leaves it unchanged. */
+    private Boolean openToEveryone;
     //private Long userId;
     // Constructors
 //    public CategoryUpdateRequest() {

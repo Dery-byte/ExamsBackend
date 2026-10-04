@@ -775,6 +775,7 @@ public class QuizService {
      */
     private boolean isEnrolledInCourse(Quiz quiz, User student) {
         if (quiz.getCategory() == null) return true;
+        if (quiz.getCategory().opensToEveryone()) return true;   // open global course: no registration needed
         return registeredCoursesRepository.countByCategoryAndUser(quiz.getCategory(), student) > 0;
     }
 

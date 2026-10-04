@@ -114,6 +114,12 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
                 .anyMatch(a -> "SUPER_ADMIN".equals(a.getAuthority()) || "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
     }
 
+    private static void checkNewCourseOpenToEveryone(Category category) {
+        boolean requested = category.isOpenToEveryone();
+        category.setOpenToEveryone(false);
+        applyOpenToEveryone(category, requested);
+    }
+
     private static void requireProgramUnlessSuperAdmin(Category category) {
         if (isGlobal(category) && !currentUserIsSuperAdmin()) {
             throw new AccessDeniedException(
@@ -139,9 +145,36 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
         category.setPrograms(resolved);
     }
 
+    /**
+     * "Open to everyone" (quizzes for every student, no registration) is only for global courses
+     * and only the Super Admin may switch it. Null leaves it as it is; a course that is no longer
+     * global loses it.
+     */
+    static void applyOpenToEveryone(Category category, Boolean requested) {
+        if (requested != null && requested != category.isOpenToEveryone() && !currentUserIsSuperAdmin()) {
+            throw new AccessDeniedException("Only the Super Admin can open a course to everyone.");
+        }
+        boolean open = requested != null ? requested : category.isOpenToEveryone();
+        if (open && !isGlobal(category)) {
+            if (requested != null && requested) {
+                throw new IllegalArgumentException("Only a global course (no programs) can be open to everyone.");
+            }
+            open = false;   // programs were added: it is no longer a global course
+        }
+        category.setOpenToEveryone(open);
+    }
+
+    /** Open global courses, for the "General" section of every student's quiz page. */
+    public List<Category> getOpenToEveryoneCourses() {
+        return categoryRepository.findByOpenToEveryoneTrue().stream()
+                .filter(Category::opensToEveryone)
+                .collect(Collectors.toList());
+    }
+
     public Category addCategory(Category category){
         resolveAndNormalize(category);
         requireProgramUnlessSuperAdmin(category);
+        checkNewCourseOpenToEveryone(category);
         return this.categoryRepository.save(category);
     }
 
@@ -151,6 +184,7 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
     public Category lecturerAddCategory(Category category) {
         resolveAndNormalize(category);
         requireProgramUnlessSuperAdmin(category);
+        checkNewCourseOpenToEveryone(category);
         String username = SecurityContextHolder.getContext()
                 .getAuthentication()
                 .getName();
@@ -171,6 +205,7 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
         category.setLevel(request.getLevel());
         category.setCourseCode(request.getCourseCode());
         applyProgramIds(category, request.getProgramIds());
+        applyOpenToEveryone(category, request.getOpenToEveryone());
         if (request.getCreditUnits() != null) category.setCreditUnits(validCreditUnits(request.getCreditUnits()));
         Category savedCategory = categoryRepository.save(category);
         return convertToDTO(savedCategory);
@@ -185,6 +220,7 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
         dto.setLevel(String.valueOf(category.getLevel()));
         dto.setCourseCode(String.valueOf(category.getCourseCode()));
         dto.setCreditUnits(category.getCreditUnits());
+        dto.setOpenToEveryone(category.opensToEveryone());
 //        dto.setId(category.getId());
         dto.setTitle(category.getTitle());
         dto.setDescription(category.getDescription());
@@ -209,6 +245,7 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
         category.setLevel(request.getLevel());
         category.setCourseCode(request.getCourseCode());
         applyProgramIds(category, request.getProgramIds());
+        applyOpenToEveryone(category, request.getOpenToEveryone());
         if (request.getCreditUnits() != null) category.setCreditUnits(validCreditUnits(request.getCreditUnits()));
         // User field is NOT touched, so it remains unchanged
         Category updated = categoryRepository.save(category);

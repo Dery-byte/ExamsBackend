@@ -11,6 +11,8 @@ import java.util.List;
 
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, Long> {
+
+    List<Category> findByOpenToEveryoneTrue();
     // Fetch categories for a given user ID
     List<Category> findByUser_Id(Long userId);
 

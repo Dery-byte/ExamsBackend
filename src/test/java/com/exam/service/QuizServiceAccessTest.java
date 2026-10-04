@@ -87,6 +87,27 @@ class QuizServiceAccessTest {
     }
 
     @Test
+    void courseOpenToEveryoneNeedsNoRegistration() {
+        course.setOpenToEveryone(true);   // a global course (no programs) the Super Admin opened
+        when(registeredCoursesRepository.countByCategoryAndUser(course, student)).thenReturn(0L);
+
+        service.assertStudentMayAccess(quiz, student);   // does not throw
+        when(userRepository.findByUsername("ada")).thenReturn(Optional.of(student));
+        assertThat(service.filterForCaller(List.of(quiz), () -> "ada")).containsExactly(quiz);
+    }
+
+    @Test
+    void openFlagCountsOnlyWhileTheCourseIsGlobal() {
+        course.setOpenToEveryone(true);
+        course.setPrograms(Set.of(Program.builder().id(7L).name("CS").code("CS").durationYears(4).department(null).build()));
+        when(registeredCoursesRepository.countByCategoryAndUser(course, student)).thenReturn(0L);
+
+        assertThatThrownBy(() -> service.assertStudentMayAccess(quiz, student))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getReason()).isEqualTo("You are not enrolled in the course this quiz belongs to"));
+    }
+
+    @Test
     void programRestrictionIsCheckedBeforeEnrollmentSoItsMessageWins() {
         Program allowed = Program.builder().id(99L).name("Other Program").code("OTH").durationYears(4)
                 .department(null).build();

@@ -46,6 +46,13 @@ public class Category {
     @Transient
     private java.util.List<Long> programIds = new java.util.ArrayList<>();
 
+    /**
+     * Only for a global course (no programs), set by the Super Admin: its quizzes are open to every
+     * student on the system, with no course registration needed.
+     */
+    @Column(name = "open_to_everyone")
+    private Boolean openToEveryone;
+
     @OneToMany(mappedBy = "category",cascade = CascadeType.ALL)
     @JsonIgnore
     private Set<Quiz> quizzes = new LinkedHashSet<>();
@@ -157,5 +164,18 @@ public class Category {
 
     public void setProgramIds(java.util.List<Long> programIds) {
         this.programIds = programIds;
+    }
+
+    public boolean isOpenToEveryone() {
+        return Boolean.TRUE.equals(openToEveryone);
+    }
+
+    public void setOpenToEveryone(Boolean openToEveryone) {
+        this.openToEveryone = openToEveryone;
+    }
+
+    /** True when every student may take this course's quizzes without registering. */
+    public boolean opensToEveryone() {
+        return isOpenToEveryone() && (programs == null || programs.isEmpty());
     }
 }

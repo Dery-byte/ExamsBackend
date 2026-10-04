@@ -18,6 +18,7 @@ public class CategoryDTO {
     private String level;
     private String semester;
     private Integer creditUnits;
+    private boolean openToEveryone;
 
     private java.util.List<Long> programIds;
     private java.util.List<String> programNames;
@@ -43,6 +44,7 @@ public class CategoryDTO {
         this.level = category.getLevel();
         this.semester = category.getSemester() != null ? category.getSemester().toString() : null;
         this.creditUnits = category.getCreditUnits();
+        this.openToEveryone = category.opensToEveryone();
         if (category.getPrograms() != null) {
             this.programIds = category.getPrograms().stream().map(p -> p.getId()).collect(java.util.stream.Collectors.toList());
             this.programNames = category.getPrograms().stream().map(p -> p.getName()).collect(java.util.stream.Collectors.toList());

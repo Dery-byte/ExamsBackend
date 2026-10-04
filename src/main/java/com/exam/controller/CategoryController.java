@@ -174,6 +174,12 @@ public class CategoryController {
         }
     }
 
+    /** Global courses the Super Admin opened to everyone: every student sees their quizzes, no registration needed. */
+    @GetMapping("/categories/open-to-everyone")
+    public ResponseEntity<List<Category>> getOpenToEveryoneCourses() {
+        return ResponseEntity.ok(categoryService.getOpenToEveryoneCourses());
+    }
+
     @GetMapping("/categories/for-student")
     public ResponseEntity<List<Category>> getCoursesForStudent(Principal principal) {
         return ResponseEntity.ok(categoryService.getCoursesForStudent(principal));
