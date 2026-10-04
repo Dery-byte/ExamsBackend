@@ -366,14 +366,8 @@ public class QuestionsService {
                 : QuestionType.MCQ);                          // default to MCQ
 
         if (question.getQuestionType() == QuestionType.MATCHING) {
-            // Replace existing pairs entirely (orphanRemoval handles deletes)
-            question.getMatchingPairs().clear();
-            if (dto.getMatchingPairs() != null) {
-                for (MatchingPair pair : dto.getMatchingPairs()) {
-                    pair.setQuestion(question);               // set FK
-                    question.getMatchingPairs().add(pair);
-                }
-            }
+            // Replace the pairs with the edited list (orphanRemoval deletes the dropped ones)
+            applyMatchingPairs(question, dto.getMatchingPairs());
             // Clear MCQ fields — not needed for MATCHING
             question.setOption1(null);
             question.setOption2(null);
@@ -412,6 +406,37 @@ public class QuestionsService {
 
         Questions updated = questionsRepository.save(question);
         return toDTO(updated);
+    }
+
+    /**
+     * Makes the question's pairs match the edited list, in its order. The client's objects are
+     * copied, never attached: a pair whose id belongs to this question is updated in place; any other
+     * entry — no id, an id sent twice, or an id from another question — becomes a new pair. Attaching
+     * the client's objects directly failed when the same pair arrived twice ("Multiple representations
+     * of the same entity").
+     */
+    static void applyMatchingPairs(Questions question, List<MatchingPair> edited) {
+        Map<Long, MatchingPair> existing = new HashMap<>();
+        for (MatchingPair p : question.getMatchingPairs()) {
+            if (p.getId() != null) existing.put(p.getId(), p);
+        }
+        List<MatchingPair> result = new ArrayList<>();
+        if (edited != null) {
+            for (MatchingPair in : edited) {
+                if (in == null) continue;
+                MatchingPair pair = in.getId() == null ? null : existing.remove(in.getId());
+                if (pair == null) {
+                    pair = new MatchingPair();
+                    pair.setQuestion(question);
+                }
+                pair.setPrompt(in.getPrompt());
+                pair.setAnswer(in.getAnswer());
+                pair.setPairOrder(in.getPairOrder() != null ? in.getPairOrder() : result.size());
+                result.add(pair);
+            }
+        }
+        question.getMatchingPairs().clear();
+        question.getMatchingPairs().addAll(result);
     }
 
     /** The answer fields an edit must carry for its (possibly new) type. */

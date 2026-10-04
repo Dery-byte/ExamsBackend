@@ -107,6 +107,7 @@ com\exam\controller\LlmProviderController.class
 com\exam\service\academic\AcademicRecordService.class
 com\exam\service\academic\AcademicStartup.class
 com\exam\repository\QuizUnlockRepository.class
+com\exam\config\JacksonConfig.class
 com\exam\service\examops\QuestionBankService$BankQuestionRequest.class
 com\exam\repository\ErrorEventRepository.class
 com\exam\helper\UserFoundException.class
@@ -134,6 +135,7 @@ com\exam\model\academic\DocumentVerification$Type.class
 com\exam\model\features\DepartmentFeatureSetting.class
 com\exam\controller\DeveloperController.class
 com\exam\service\academic\GradingService$PresetInfo.class
+com\exam\config\JacksonConfig$IgnoreHibernateProxyInternals.class
 com\exam\helper\IndexNumberRange.class
 com\exam\model\examops\ProctoringEvent.class
 com\exam\repository\RemarkRequestRepository.class

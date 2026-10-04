@@ -25,5 +25,7 @@ com\exam\helper\TheoryGroupsTest.class
 com\exam\service\PdfImageRenderTest.class
 com\exam\helper\TheoryCriteriaVisibilityTest.class
 com\exam\service\QuestionImageServiceTest.class
+com\exam\config\JacksonProxyJpaTest.class
 com\exam\RemarkFlowIntegrationTest.class
 com\exam\SecurityRulesIntegrationTest.class
+com\exam\service\MatchingPairsLoadJpaTest.class

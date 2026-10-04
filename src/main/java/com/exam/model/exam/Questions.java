@@ -173,6 +173,8 @@
 package com.exam.model.exam;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -211,7 +213,10 @@ public class Questions {
     private QuestionType questionType = QuestionType.MCQ;
 
     // ── Matching pairs (only populated when questionType = MATCHING) ───────────
+    // Loaded by a separate query (one for all questions loaded together), never joined into the
+    // question's own query: joined with the quiz's programs, every pair came back once per program
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @Fetch(FetchMode.SUBSELECT)
     @OrderBy("pairOrder ASC")
     private List<MatchingPair> matchingPairs = new ArrayList<>();
 

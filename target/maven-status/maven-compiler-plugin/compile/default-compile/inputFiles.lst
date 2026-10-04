@@ -257,6 +257,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\academic\DegreeClass.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\UserFoundException.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\academic\GradeBand.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\JacksonConfig.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\StudentResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\MatchingPair.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\Answer.java
