@@ -351,6 +351,9 @@ public class QuestionsService {
     public QuestionDTO updateQuestion(UpdateQuestionDTO dto) {
         Questions question = questionsRepository.findById(dto.getQuesId())
                 .orElseThrow(() -> new RuntimeException("Question not found"));
+        // The type may change on edit, so check the answer fields against the new type before touching anything
+        // (an old image file is deleted below, which a rollback would not undo).
+        validateUpdate(dto);
 
         question.setContent(dto.getContent());
         String newImage = (dto.getImage() == null || dto.getImage().isBlank()) ? null : dto.getImage();
@@ -388,8 +391,16 @@ public class QuestionsService {
             question.setcorrect_answer(AnswerMatcher.cleanAccepted(dto.getCorrect_answer()));
             question.setTolerance(question.getQuestionType() == QuestionType.NUMERIC ? dto.getTolerance() : null);
             question.getMatchingPairs().clear();
+        } else if (question.getQuestionType() == QuestionType.TRUE_FALSE) {
+            question.setOption1("True");
+            question.setOption2("False");
+            question.setOption3(null);
+            question.setOption4(null);
+            question.setcorrect_answer(dto.getCorrect_answer());
+            question.setTolerance(null);
+            question.getMatchingPairs().clear();
         } else {
-            // MCQ or TRUE_FALSE
+            // MCQ
             question.setOption1(dto.getOption1());
             question.setOption2(dto.getOption2());
             question.setOption3(dto.getOption3());
@@ -402,6 +413,41 @@ public class QuestionsService {
         Questions updated = questionsRepository.save(question);
         return toDTO(updated);
     }
+
+    /** The answer fields an edit must carry for its (possibly new) type. */
+    static void validateUpdate(UpdateQuestionDTO dto) {
+        if (dto.getContent() == null || dto.getContent().replaceAll("<[^>]*>", "").replace("&nbsp;", " ").isBlank())
+            throw new IllegalArgumentException("Question text is required.");
+        QuestionType type = dto.getQuestionType() != null ? dto.getQuestionType() : QuestionType.MCQ;
+        String[] correct = dto.getCorrect_answer() == null ? new String[0] : dto.getCorrect_answer();
+        switch (type) {
+            case MATCHING -> {
+                List<MatchingPair> pairs = dto.getMatchingPairs() == null ? List.of() : dto.getMatchingPairs();
+                for (MatchingPair p : pairs)
+                    if (p == null || isBlank(p.getPrompt()) || isBlank(p.getAnswer()))
+                        throw new IllegalArgumentException("Every matching pair needs both a prompt and its match.");
+                if (pairs.size() < 2) throw new IllegalArgumentException("A matching question needs at least 2 pairs.");
+            }
+            case FILL_BLANK, NUMERIC -> AnswerMatcher.validateTyped(type, dto.getCorrect_answer(), dto.getTolerance());
+            case TRUE_FALSE -> {
+                if (correct.length != 1 || !("True".equals(correct[0]) || "False".equals(correct[0])))
+                    throw new IllegalArgumentException("Choose True or False as the correct answer.");
+            }
+            case MCQ -> {
+                List<String> options = new ArrayList<>();
+                for (String o : new String[]{dto.getOption1(), dto.getOption2(), dto.getOption3(), dto.getOption4()})
+                    if (!isBlank(o)) options.add(o);
+                if (isBlank(dto.getOption1()) || isBlank(dto.getOption2()))
+                    throw new IllegalArgumentException("A multiple-choice question needs at least options A and B.");
+                if (correct.length == 0) throw new IllegalArgumentException("Mark at least one option as correct.");
+                for (String c : correct)
+                    if (!options.contains(c))
+                        throw new IllegalArgumentException("The correct answer \"" + c + "\" is not one of the options. Mark the correct option again.");
+            }
+        }
+    }
+
+    private static boolean isBlank(String s) { return s == null || s.isBlank(); }
 
     // ── toDTO (admin / internal use — includes correct answers) ──────────────
 

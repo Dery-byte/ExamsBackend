@@ -4,6 +4,7 @@ package com.exam.service;
 import com.exam.DTO.TheoryQuestionDTO;
 import com.exam.DTO.TheoryQuestionResponseDTO;
 import com.exam.DTO.TheoryUpdateRequest;
+import com.exam.helper.TheoryGroups;
 import com.exam.model.exam.Questions;
 import com.exam.model.exam.Quiz;
 import com.exam.model.exam.TheoryQuestions;
@@ -156,9 +157,9 @@ public class TheoryService {
         dto.setQuesNo(q.getQuesNo());
         dto.setQuestion(q.getQuestion());
         dto.setMarks((q.getMarks()));
-        dto.setPrefix(q.getQuesNo());
+        dto.setPrefix(TheoryGroups.key(q.getQuesNo()));
         dto.setCompulsory(q.getIsCompulsory());
-        dto.setEvaluationCriteria(q.getEvaluationCriteria());
+        dto.setEvaluationCriteria(q.getEvaluationCriteria());   // serialized for staff only (see the DTO)
         dto.setImage(q.getImage());
 
         // givenAnswer starts null for unanswered questions —
@@ -192,9 +193,11 @@ public class TheoryService {
 
 
     // SETTING QUIZ AS COMPULSORY SERVICE
+    // Matches whole groups only, so "Q1" never touches Q10, Q11 … (see TheoryGroups).
     public void updateCompulsoryStatusByPrefix(Long quizId, String prefix, Boolean isCompulsory) {
-        List<TheoryQuestions> questions = theoryQuestionsRepository
-                .findByQuiz_qIdAndQuesNoStartingWith(quizId, prefix);
+        List<TheoryQuestions> questions = theoryQuestionsRepository.findByQuiz_qId(quizId).stream()
+                .filter(q -> TheoryGroups.sameGroup(q.getQuesNo(), prefix))
+                .collect(Collectors.toList());
         questions.forEach(question -> {
             question.setIsCompulsory(isCompulsory);
         });

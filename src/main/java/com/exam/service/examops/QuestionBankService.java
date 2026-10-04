@@ -49,6 +49,18 @@ public class QuestionBankService {
         public String markingGuide;                       // THEORY only
     }
 
+    /** Bulk upload: the questions from a JSON file, plus the topic / difficulty for items that don't set their own. */
+    public static class UploadRequest {
+        public String topic;
+        public String difficulty;
+        public List<Object> questions;
+        /** Optional: only items of these types ("MCQ", "TRUE_FALSE" … "THEORY") are uploaded; the rest are ignored. */
+        public List<String> types;
+    }
+
+    /** Most questions a single upload may contain. */
+    static final int MAX_UPLOAD = 500;
+
     /** Random draw: filters are optional; count is required. */
     public static class DrawRequest {
         public String topic;
@@ -176,6 +188,71 @@ public class QuestionBankService {
     }
 
     /**
+     * Adds the questions of an uploaded JSON file to a course's bank. The file uses the same format as a
+     * quiz bulk upload: objective items ({questionType, content, option1…4, correct_answer, matchingPairs,
+     * tolerance}) and theory items ({question, marks, evaluationCriteria}, or questionType "THEORY"), mixed
+     * freely. An item may set its own topic and difficulty; otherwise the upload's apply. Quiz-only fields
+     * (quesNo, isCompulsory, image) are ignored.
+     * <p>
+     * When {@code types} is given, only items of those types are uploaded and the rest are ignored (not
+     * checked). Error messages always number questions by their position in the file.
+     * <p>
+     * All or nothing: one invalid item rejects the whole file with a message naming it. Questions already
+     * in the bank, or repeated within the file, are skipped.
+     */
+    @Transactional
+    public Map<String, Object> upload(User u, Long courseId, UploadRequest req) {
+        Category course = course(courseId);
+        ExamAccess.requireCourse(u, course);
+        if (req == null) throw new IllegalArgumentException("The file has no questions in it.");
+        List<Object> items = req.questions == null ? List.of() : req.questions;
+        if (items.isEmpty()) throw new IllegalArgumentException("The file has no questions in it.");
+        Set<String> wanted = req.types == null ? Set.of() : req.types.stream()
+                .filter(t -> blankToNull(t) != null).map(t -> t.trim().toUpperCase(Locale.ROOT)).collect(Collectors.toSet());
+
+        // Pass 1: keep the chosen types (file positions are kept for messages)
+        List<Integer> chosen = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            if (!(items.get(i) instanceof Map<?, ?> item))
+                throw new IllegalArgumentException("Question " + (i + 1) + ": each question must be written inside { }.");
+            String type;
+            try { type = uploadType(item); }
+            catch (IllegalArgumentException e) { throw new IllegalArgumentException("Question " + (i + 1) + ": " + e.getMessage()); }
+            if (wanted.isEmpty() || wanted.contains(type)) chosen.add(i);
+        }
+        if (chosen.isEmpty()) throw new IllegalArgumentException("None of the questions in the file are of the type(s) you selected.");
+        if (chosen.size() > MAX_UPLOAD)
+            throw new IllegalArgumentException("Upload at most " + MAX_UPLOAD + " questions at a time (" + chosen.size() + " chosen).");
+        String defaultTopic = blankToNull(req.topic) == null ? null : req.topic.trim();
+        String defaultDifficulty = parseDifficulty(req.difficulty).name();
+
+        // Pass 2: check and save
+        Set<String> existing = bankRepository.findByCourse_CidOrderByCreatedAtDesc(course.getCid()).stream()
+                .map(QuestionBankService::fingerprint).collect(Collectors.toSet());
+        int added = 0, skipped = 0;
+        for (int i : chosen) {
+            String label = "Question " + (i + 1);
+            Map<?, ?> item = (Map<?, ?>) items.get(i);
+            BankQuestion b = new BankQuestion();
+            try {
+                BankQuestionRequest r = fromUpload(item, defaultTopic, defaultDifficulty);
+                if (!snippet(r.content).isEmpty()) label += " (\"" + snippet(r.content) + "\")";
+                requireCorrectAnswersMatchOptions(r);
+                apply(b, r);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(label + ": " + e.getMessage());
+            }
+            if (!existing.add(fingerprint(b))) { skipped++; continue; }
+            b.setCourse(course);
+            b.setAuthorId(u.getId());
+            b.setAuthorName(CurrentUserService.displayName(u));
+            bankRepository.save(b);
+            added++;
+        }
+        return Map.of("added", added, "skipped", skipped, "ignored", items.size() - chosen.size());
+    }
+
+    /**
      * Copies bank questions into a quiz: either the hand-picked ids, or {@code count} random
      * questions matching the filters. Questions whose text is already in the quiz are skipped.
      */
@@ -300,6 +377,128 @@ public class QuestionBankService {
         if (correct.isEmpty()) throw new IllegalArgumentException("Mark at least one option as correct.");
         b.setCorrectAnswer(correct.toArray(new String[0]));
         b.setMatchingPairsJson(null);
+    }
+
+    // ── Upload helpers ───────────────────────────────────────────────────────
+
+    /**
+     * An uploaded item's type: "THEORY" for questionType "THEORY" or a quiz theory item ("question" with
+     * no "content"); otherwise its questionType in capitals, "MCQ" when missing. The upload dialog's
+     * type picker applies the same rule (QuestionBank.tsx, uploadItemType); keep the two in step.
+     */
+    static String uploadType(Map<?, ?> m) {
+        String type = blankToNull(text(m, "questionType"));
+        if (type == null) return m.containsKey("question") && !m.containsKey("content") ? "THEORY" : "MCQ";
+        return type.trim().toUpperCase(Locale.ROOT);
+    }
+
+    /** One uploaded item (quiz bulk-upload format) as a create request. */
+    static BankQuestionRequest fromUpload(Map<?, ?> m, String defaultTopic, String defaultDifficulty) {
+        BankQuestionRequest r = new BankQuestionRequest();
+        String type = uploadType(m);
+        r.topic = text(m, "topic") != null ? text(m, "topic") : defaultTopic;
+        r.difficulty = text(m, "difficulty") != null ? text(m, "difficulty") : defaultDifficulty;
+
+        if ("THEORY".equals(type)) {
+            r.questionType = "THEORY";
+            r.content = text(m, "question") != null ? text(m, "question") : text(m, "content");
+            r.marks = marks(m.get("marks"));
+            r.markingGuide = text(m, "evaluationCriteria") != null ? text(m, "evaluationCriteria") : text(m, "markingGuide");
+            return r;
+        }
+        r.questionType = type;
+        r.content = text(m, "content");
+        r.option1 = text(m, "option1"); r.option2 = text(m, "option2");
+        r.option3 = text(m, "option3"); r.option4 = text(m, "option4");
+        r.correctAnswer = texts(m, m.containsKey("correct_answer") ? "correct_answer" : "correctAnswer");
+        r.matchingPairs = pairs(m.get("matchingPairs"));
+        r.tolerance = number(m.get("tolerance"), "tolerance");
+        return r;
+    }
+
+    /**
+     * The bank editor drops a correct answer that matches no option; in a file that is almost always a
+     * typo ("keyboard" for "Keyboard"), so say so instead of saving a question with a missing answer.
+     */
+    private static void requireCorrectAnswersMatchOptions(BankQuestionRequest r) {
+        List<String> options;
+        if ("TRUE_FALSE".equals(r.questionType)) options = List.of("True", "False");
+        else if ("MCQ".equals(r.questionType)) {
+            options = new ArrayList<>(Arrays.asList(r.option1, r.option2, r.option3, r.option4));
+            options.removeIf(o -> blankToNull(o) == null);
+        } else return;
+        for (String c : r.correctAnswer == null ? List.<String>of() : r.correctAnswer)
+            if (!options.contains(c))
+                throw new IllegalArgumentException("the correct answer \"" + c + "\" doesn't match any option exactly "
+                        + ("TRUE_FALSE".equals(r.questionType) ? "(use \"True\" or \"False\")." : "(check spelling and capital letters)."));
+    }
+
+    /** A scalar field as text; null when absent. */
+    private static String text(Map<?, ?> m, String field) {
+        Object v = m.get(field);
+        if (v == null) return null;
+        if (v instanceof String s) return s;
+        if (v instanceof Number || v instanceof Boolean) return String.valueOf(v);
+        throw new IllegalArgumentException("\"" + field + "\" must be plain text, not a list or a { } block.");
+    }
+
+    /** A field holding one answer or a list of them. */
+    private static List<String> texts(Map<?, ?> m, String field) {
+        Object v = m.get(field);
+        if (v == null) return List.of();
+        if (!(v instanceof List<?> list)) return List.of(text(m, field));
+        List<String> out = new ArrayList<>();
+        for (Object o : list) {
+            if (o == null) continue;
+            if (o instanceof Map || o instanceof List)
+                throw new IllegalArgumentException("\"" + field + "\" must be a list of answers, e.g. [\"Keyboard\"].");
+            out.add(String.valueOf(o));
+        }
+        return out;
+    }
+
+    /** matchingPairs as [{prompt, answer}] in pairOrder (file order when pairOrder is missing). */
+    private static List<Map<String, String>> pairs(Object v) {
+        if (v == null) return null;
+        if (!(v instanceof List<?> list)) throw new IllegalArgumentException("\"matchingPairs\" must be a list of { prompt, answer } pairs.");
+        List<Map<String, String>> pairs = new ArrayList<>();
+        List<Double> order = new ArrayList<>();
+        for (int i = 0; i < list.size(); i++) {
+            if (!(list.get(i) instanceof Map<?, ?> p))
+                throw new IllegalArgumentException("each matching pair must be written as { \"prompt\": …, \"answer\": … }.");
+            Map<String, String> pair = new HashMap<>();
+            pair.put("prompt", text(p, "prompt"));
+            pair.put("answer", text(p, "answer"));
+            pairs.add(pair);
+            Double pairOrder = number(p.get("pairOrder"), "pairOrder");
+            order.add(pairOrder == null ? i : pairOrder);
+        }
+        List<Integer> idx = new ArrayList<>();
+        for (int i = 0; i < pairs.size(); i++) idx.add(i);
+        idx.sort(Comparator.comparingDouble(order::get));
+        return idx.stream().map(pairs::get).collect(Collectors.toList());
+    }
+
+    /** Theory marks: 4, "4" or "4 marks"; null when missing or unreadable (the save then asks for marks). */
+    private static Double marks(Object v) {
+        if (v instanceof Number n) return n.doubleValue();
+        if (!(v instanceof String s)) return null;
+        String digits = s.replaceAll("[^\\d.]", "");
+        try { return digits.isEmpty() ? null : Double.parseDouble(digits); }
+        catch (NumberFormatException e) { return null; }
+    }
+
+    private static Double number(Object v, String field) {
+        if (v == null || (v instanceof String s && s.isBlank())) return null;
+        if (v instanceof Number n) return n.doubleValue();
+        try { return Double.parseDouble(String.valueOf(v).trim()); }
+        catch (NumberFormatException e) { throw new IllegalArgumentException("\"" + field + "\" must be a number."); }
+    }
+
+    /** The first words of a question, for error messages. */
+    private static String snippet(String content) {
+        String plain = content == null ? "" : content.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").trim();
+        return plain.length() > 40 ? plain.substring(0, 40) + "…" : plain;
     }
 
     private Questions toQuizQuestion(BankQuestion b, Quiz quiz) {

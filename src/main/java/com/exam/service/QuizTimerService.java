@@ -159,26 +159,22 @@ import com.exam.DTO.ViolationTimerResponseDTO;
 import com.exam.DTO.VoilationTimerRequestDTO;
 import com.exam.helper.ResourceNotFoundException;
 import com.exam.model.QuizTimer;
-import com.exam.model.User;
 import com.exam.model.exam.NumberOfTheoryToAnswer;
 import com.exam.model.exam.Quiz;
 import com.exam.repository.NumberOfTheoryToAnswerRepository;
 import com.exam.repository.QuizRepository;
 import com.exam.repository.QuizTimerRepository;
-import com.exam.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @Transactional
 public class QuizTimerService {
 
     @Autowired private QuizTimerRepository quizTimerRepository;
-    @Autowired private UserRepository userRepository;
     @Autowired private QuizRepository quizRepository;
     @Autowired private NumberOfTheoryToAnswerRepository numberOfTheoryToAnswerRepository;
     @Autowired private com.exam.service.SystemSettingService systemSettingService;
@@ -208,7 +204,7 @@ public class QuizTimerService {
      * Called on: 60s interval, tab blur, beforeunload.
      *
      * Key changes from original:
-     *  1. User is only fetched from DB on first timer creation, not on every save.
+     *  1. The row is created atomically in the DB (concurrent first saves cannot collide).
      *  2. Server validates remainingTime against quiz duration — rejects tampering.
      *  3. status field tells the client whether save succeeded.
      */
@@ -221,30 +217,12 @@ public class QuizTimerService {
         if (request.getRemainingTime() == null || request.getRemainingTime() < 0) {
             throw new IllegalArgumentException("Remaining time must be a non-negative value");
         }
-        // Fetch quiz — needed for duration cap check
-        Quiz quiz = quizRepository.findById(quizId)
-                .orElseThrow(() -> new ResourceNotFoundException("Quiz not found"));
-        // -----------------------------
-        // Step 1: Parse quizTime to seconds
-        int quizTimeSeconds = parseQuizDurationToSeconds(quiz.getQuizTime());
-        // Step 2: Fetch all theory sections for this quiz and sum TimeAllowed
-        List<NumberOfTheoryToAnswer> theorySections = numberOfTheoryToAnswerRepository
-                .findByQuiz_qId(quizId); // custom repository method
-
-        int theoryTimeSeconds = theorySections.stream()
-                .mapToInt(NumberOfTheoryToAnswer::getTimeAllowed) // DB value
-                .map(this::parseQuizDurationToSeconds)           // convert to seconds
-                .sum();
-
-        // Step 3: Combine for max allowed seconds
-        int maxAllowedSeconds = quizTimeSeconds + theoryTimeSeconds;
+        int maxAllowedSeconds = maxAllowedSeconds(quizId);
 
         // -----------------------------
         // Debug logs
         System.out.println("=======================================================");
         System.out.println(">>> [saveQuizTimer] quizId: " + quizId + ", userId: " + userId);
-        System.out.println(">>> Quiz time seconds: " + quizTimeSeconds);
-        System.out.println(">>> Theory sections total seconds: " + theoryTimeSeconds);
         System.out.println(">>> Max allowed seconds: " + maxAllowedSeconds);
         System.out.println(">>> Reported remaining time: " + request.getRemainingTime());
 
@@ -256,22 +234,15 @@ public class QuizTimerService {
         }
 
         // -----------------------------
-        // Upsert: on first creation fetch User; on subsequent saves skip User DB call
-        QuizTimer timer = quizTimerRepository
-                .findByUserIdAndQuiz_qId(userId, quizId)
-                .orElseGet(() -> {
-                    User user = userRepository.findById(userId)
-                            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-                    QuizTimer t = new QuizTimer();
-                    t.setUser(user);
-                    t.setQuiz(quiz);
-                    t.setTotalViolationCount(0);
-                    return t;
-                });
+        // Upsert: one tab switch fires several saves at once, so the row is created atomically
+        // in the DB and then locked — a find-then-insert here collides on the (user_id, quiz_id) key
+        boolean created = quizTimerRepository.insertIfAbsent(
+                userId, quizId, request.getRemainingTime(), LocalDateTime.now()) == 1;
+        QuizTimer timer = lockTimer(userId, quizId);
 
         // A checkpoint can only move the clock down: never accept more time than is actually left
         int accepted = request.getRemainingTime();
-        if (timer.getId() != null) {
+        if (!created) {
             accepted = Math.min(accepted, effectiveRemaining(timer) + SAVE_TOLERANCE_SECONDS);
         }
         timer.setRemainingTime(Math.max(0, accepted));
@@ -406,16 +377,12 @@ public class QuizTimerService {
 
     public ViolationTimerResponseDTO saveViolationCount(Long quizId, Long userId,
                                                         VoilationTimerRequestDTO request) {
-        QuizTimer timer = quizTimerRepository
-                .findByUserIdAndQuiz_qId(userId, quizId)
-                .orElseGet(() -> {
-                    QuizTimer t = new QuizTimer();
-                    t.setUser(userRepository.findById(userId).orElseThrow());
-                    t.setQuiz(quizRepository.findById(quizId).orElseThrow());
-                    t.setRemainingTime(0);
-                    t.setTotalViolationCount(0);
-                    return t;
-                });
+        // A violation can arrive before the first timer checkpoint. Seed a new row with the full
+        // duration, not 0 — a 0 here would make the next checkpoint clamp the exam clock to 5 s.
+        if (quizTimerRepository.findByUserIdAndQuiz_qId(userId, quizId).isEmpty()) {
+            quizTimerRepository.insertIfAbsent(userId, quizId, maxAllowedSeconds(quizId), LocalDateTime.now());
+        }
+        QuizTimer timer = lockTimer(userId, quizId);
 
         timer.setTotalViolationCount(request.getTotalViolationCount());
         timer.setUpdatedAt(LocalDateTime.now());
@@ -453,6 +420,23 @@ public class QuizTimerService {
     // ─────────────────────────────────────────────
     //  INTERNAL HELPER
     // ─────────────────────────────────────────────
+
+    private QuizTimer lockTimer(Long userId, Long quizId) {
+        return quizTimerRepository.findForUpdate(userId, quizId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "QuizTimer not found for userId: " + userId + " quizId: " + quizId));
+    }
+
+    /** Full exam length in seconds: the quiz time plus the time allowed for every theory section. */
+    private int maxAllowedSeconds(Long quizId) {
+        Quiz quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new ResourceNotFoundException("Quiz not found"));
+        int theoryTimeSeconds = numberOfTheoryToAnswerRepository.findByQuiz_qId(quizId).stream()
+                .mapToInt(NumberOfTheoryToAnswer::getTimeAllowed)
+                .map(this::parseQuizDurationToSeconds)
+                .sum();
+        return parseQuizDurationToSeconds(quiz.getQuizTime()) + theoryTimeSeconds;
+    }
 
     /**
      * Parses quizTime string to seconds.

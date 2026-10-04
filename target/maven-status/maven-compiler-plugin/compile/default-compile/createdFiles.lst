@@ -38,6 +38,7 @@ com\exam\service\admin\AccountService.class
 com\exam\model\exam\Questions.class
 com\exam\controller\AuthenticationController.class
 com\exam\controller\ReportController.class
+com\exam\helper\TheoryGroups.class
 com\exam\controller\FeatureFlagController.class
 com\exam\repository\AuditLogRepository.class
 com\exam\service\monitoring\HealthService.class
@@ -87,6 +88,7 @@ com\exam\model\exam\QuestionImage.class
 com\exam\auth\RegisterRequest.class
 com\exam\service\QuestionImageService.class
 com\exam\controller\AcademicController$PresetRequest.class
+com\exam\service\QuestionsService$1.class
 com\exam\repository\TokenRepository.class
 com\exam\controller\AcademicController$UserAction.class
 com\exam\service\llm\LLMEvaluationStrategy.class
@@ -153,6 +155,7 @@ com\exam\model\examops\RemarkRequest$Status.class
 com\exam\DTO\AttemptStatusDTO.class
 com\exam\service\academic\GradingService.class
 com\exam\model\exam\AutoCloseFraction.class
+com\exam\service\examops\QuestionBankService$UploadRequest.class
 com\exam\service\llm\GeminiEvaluationStrategy.class
 com\exam\controller\DataToolsController$UserAction.class
 com\exam\model\examops\RemarkRequest.class

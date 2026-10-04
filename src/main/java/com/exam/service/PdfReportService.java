@@ -1,5 +1,6 @@
 package com.exam.service;
 
+import com.exam.helper.TheoryGroups;
 import com.exam.model.exam.*;
 import com.exam.repository.AnswerRepository;
 import com.exam.repository.ReportRepository;
@@ -305,8 +306,7 @@ public class PdfReportService {
         Map<String, List<TheoryAnswerDto>> map = new LinkedHashMap<>();
         for (Answer a : answers) {
             String qNo     = a.getQuesNo() != null ? a.getQuesNo() : "OTHER";
-            String prefix  = qNo.toUpperCase().matches("Q\\d+.*")
-                    ? qNo.toUpperCase().replaceAll("(Q\\d+).*", "$1") : "OTHER";
+            String prefix  = TheoryGroups.key(a.getQuesNo());
             int    sPct    = a.getMaxMarks() > 0 ? (int) Math.round((a.getScore() / a.getMaxMarks()) * 100) : 0;
             String q       = a.getTheoryQuestion() != null ? a.getTheoryQuestion().getQuestion() : "";
             QuestionImageService.PdfImage qImg = a.getTheoryQuestion() != null

@@ -6,6 +6,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\Attempt
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\SemesterSheetDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\LecturerResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\QuizAttempt.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\TheoryGroups.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\UserQuizProgressRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\UserResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\Category.java

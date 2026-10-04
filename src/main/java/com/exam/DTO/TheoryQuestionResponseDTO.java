@@ -49,6 +49,9 @@ public class TheoryQuestionResponseDTO {
      * drive Prev/Next page navigation, and render prefix chips.
      */
     private String prefix;
+
+    /** Marking guide for the AI marker. Only staff receive it; students get null. */
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.exam.config.json.StaffOnlySerializer.class)
     private String evaluationCriteria;
 
     /** Optional image shown with the question (path like "question-images/{id}.webp"). */

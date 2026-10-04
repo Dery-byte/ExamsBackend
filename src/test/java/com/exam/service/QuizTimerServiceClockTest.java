@@ -2,6 +2,7 @@ package com.exam.service;
 
 import com.exam.DTO.QuizTimerRequestDTO;
 import com.exam.DTO.QuizTimerResponseDTO;
+import com.exam.DTO.VoilationTimerRequestDTO;
 import com.exam.model.QuizTimer;
 import com.exam.model.exam.Quiz;
 import com.exam.repository.NumberOfTheoryToAnswerRepository;
@@ -23,6 +24,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -55,6 +57,8 @@ class QuizTimerServiceClockTest {
         timer.setQuiz(quiz);
         timer.setTotalViolationCount(0);
         when(quizTimerRepository.findByUserIdAndQuiz_qId(7L, 1L)).thenReturn(Optional.of(timer));
+        when(quizTimerRepository.findForUpdate(7L, 1L)).thenReturn(Optional.of(timer));
+        when(quizTimerRepository.insertIfAbsent(eq(7L), eq(1L), anyInt(), any())).thenReturn(0);   // row exists
     }
 
     private void clockRunsWhileAway(boolean on) {
@@ -123,5 +127,30 @@ class QuizTimerServiceClockTest {
         QuizTimerResponseDTO res = service.saveQuizTimer(7L, 1L, request(585));
 
         assertThat(res.getRemainingTime()).isEqualTo(585);
+    }
+
+    @Test
+    void firstCheckpointIsAcceptedWhenThisSaveCreatedTheRow() {
+        clockRunsWhileAway(true);
+        when(quizTimerRepository.insertIfAbsent(eq(7L), eq(1L), anyInt(), any())).thenReturn(1);
+        timer.setRemainingTime(3590);
+        timer.setUpdatedAt(LocalDateTime.now());
+
+        QuizTimerResponseDTO res = service.saveQuizTimer(7L, 1L, request(3590));
+
+        assertThat(res.getRemainingTime()).isEqualTo(3590);
+    }
+
+    @Test
+    void violationBeforeFirstCheckpointSeedsTheFullDuration() {
+        clockRunsWhileAway(true);
+        when(quizTimerRepository.findByUserIdAndQuiz_qId(7L, 1L)).thenReturn(Optional.empty());
+        VoilationTimerRequestDTO violation = new VoilationTimerRequestDTO();
+        violation.setTotalViolationCount(1);
+
+        service.saveViolationCount(1L, 7L, violation);
+
+        // Seeding with 0 would clamp every later checkpoint to 5 s and expire the exam
+        verify(quizTimerRepository).insertIfAbsent(eq(7L), eq(1L), eq(3600), any());
     }
 }

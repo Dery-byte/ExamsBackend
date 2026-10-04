@@ -64,6 +64,11 @@ public class ExamOpsController {
         return withUser(u -> { featureService.require(com.exam.model.features.Feature.QUESTION_BANK, u); return ResponseEntity.ok(questionBankService.create(u, courseId, req)); });
     }
 
+    @PostMapping("/question-bank/upload/course/{courseId}")
+    public ResponseEntity<?> uploadBankQuestions(@PathVariable Long courseId, @RequestBody QuestionBankService.UploadRequest req) {
+        return withUser(u -> { featureService.require(com.exam.model.features.Feature.QUESTION_BANK, u); return ResponseEntity.ok(questionBankService.upload(u, courseId, req)); });
+    }
+
     @PutMapping("/question-bank/{id}")
     public ResponseEntity<?> updateBankQuestion(@PathVariable Long id, @RequestBody QuestionBankService.BankQuestionRequest req) {
         return withUser(u -> { featureService.require(com.exam.model.features.Feature.QUESTION_BANK, u); return ResponseEntity.ok(questionBankService.update(u, id, req)); });

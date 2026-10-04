@@ -26,7 +26,9 @@ public class TheoryQuestions {
     private String marks;
 
 
+    /** Marking guide for the AI marker. Only staff receive it; students get null (it is read from the database when marking). */
     @Column(nullable = true, length = 5000)
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.exam.config.json.StaffOnlySerializer.class)
     private String evaluationCriteria;
 
 
