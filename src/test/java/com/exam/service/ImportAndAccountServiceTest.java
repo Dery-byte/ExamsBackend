@@ -6,6 +6,7 @@ import com.exam.model.exam.Department;
 import com.exam.model.exam.Program;
 import com.exam.repository.*;
 import com.exam.service.admin.AccountService;
+import com.exam.service.admin.CredentialEmailService;
 import com.exam.service.admin.ImportService;
 import com.exam.token.Token;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,12 +20,14 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class ImportAndAccountServiceTest {
 
     private UserRepository users;
     private ImportService importer;
+    private CredentialEmailService mailer;
     private Department cs, maths;
     private User superAdmin, hodCs;
 
@@ -52,6 +55,9 @@ class ImportAndAccountServiceTest {
         ReflectionTestUtils.setField(importer, "departmentRepository", departments);
         ReflectionTestUtils.setField(importer, "categoryRepository", categories);
         ReflectionTestUtils.setField(importer, "passwordEncoder", encoder);
+        mailer = mock(CredentialEmailService.class);
+        when(mailer.queue(any(), any())).thenAnswer(i -> ((List<?>) i.getArgument(0)).size());
+        ReflectionTestUtils.setField(importer, "credentialEmailService", mailer);
 
         superAdmin = user(1L, Role.SUPER_ADMIN, null);
         hodCs = user(2L, Role.ADMIN, cs);
@@ -123,6 +129,34 @@ class ImportAndAccountServiceTest {
         List<Map<String, String>> creds = (List<Map<String, String>>) result.get("credentials");
         assertThat(creds).hasSize(1);
         assertThat(creds.get(0).get("password")).hasSize(10);
+        verifyNoInteractions(mailer);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void notifyEmailsEveryNewUserIncludingSuppliedPasswordsButOnlyEchoesGenerated() {
+        Map<String, String> withPassword = student("STD401", "g@uni.edu", "BCS", "100");
+        withPassword.put("Password", "chosen123");
+        var result = importer.run(superAdmin, "students", List.of(
+                student("STD400", "e@uni.edu", "BCS", "100"), withPassword), true, true);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(mailer).queue(captor.capture(), eq("student"));
+        List<Map<String, String>> sent = captor.getValue();
+        assertThat(sent).extracting(c -> c.get("username")).containsExactly("STD400", "STD401");
+        assertThat(sent.get(1).get("password")).isEqualTo("chosen123");
+        assertThat(sent.get(0).get("firstname")).isEqualTo("Ama");
+        assertThat(result.get("emailed")).isEqualTo(2);
+
+        List<Map<String, String>> creds = (List<Map<String, String>>) result.get("credentials");
+        assertThat(creds).hasSize(1);
+        assertThat(creds.get(0)).containsOnlyKeys("name", "username", "email", "password");
+    }
+
+    @Test
+    void validationNeverSendsEmail() {
+        importer.run(superAdmin, "students", List.of(student("STD400", "e@uni.edu", "BCS", "100")), false, true);
+        verifyNoInteractions(mailer);
     }
 
     @Test

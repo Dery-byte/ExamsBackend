@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.exam.service.MatchingPairsLoadJpaTest
 -------------------------------------------------------------------------------
-Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.408 s - in com.exam.service.MatchingPairsLoadJpaTest
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.3 s - in com.exam.service.MatchingPairsLoadJpaTest

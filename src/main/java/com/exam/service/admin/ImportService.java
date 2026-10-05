@@ -25,7 +25,8 @@ import java.util.regex.Pattern;
  * <p>
  * {@code commit=false} validates only and reports every problem per row. {@code commit=true}
  * creates the valid rows and skips the rest. Imported accounts with no password column get a
- * random temporary password, returned once so it can be handed to the user.
+ * random temporary password, returned once so it can be handed to the user. With {@code notify},
+ * each new user is also emailed their username and temporary password (generated or from the file).
  * <p>
  * HODs can only import into their own department (and can't create global courses).
  */
@@ -42,11 +43,16 @@ public class ImportService {
     @Autowired private DepartmentRepository departmentRepository;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private CredentialEmailService credentialEmailService;
 
     /** One validated row, ready to create. */
     private record Row(int number, Map<String, String> data, List<String> errors, String summary, Object resolved) {}
 
     public Map<String, Object> run(User actor, String type, List<Map<String, String>> rawRows, boolean commit) {
+        return run(actor, type, rawRows, commit, false);
+    }
+
+    public Map<String, Object> run(User actor, String type, List<Map<String, String>> rawRows, boolean commit, boolean notify) {
         if (actor.getRole() != Role.SUPER_ADMIN && actor.getRole() != Role.ADMIN)
             throw new AccessDeniedException("Only the Super Admin and HODs can import data.");
         if (rawRows == null || rawRows.isEmpty()) throw new IllegalArgumentException("The file has no data rows.");
@@ -74,6 +80,8 @@ public class ImportService {
                 }
             }
         }
+        int emailed = notify && !credentials.isEmpty()
+                ? credentialEmailService.queue(credentials, type.equals("students") ? "student" : "lecturer") : 0;
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("type", type);
@@ -81,6 +89,7 @@ public class ImportService {
         out.put("total", checked.size());
         out.put("valid", checked.stream().filter(r -> r.errors().isEmpty()).count());
         out.put("created", created);
+        out.put("emailed", emailed);
         out.put("rows", checked.stream().map(r -> {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("row", r.number());
@@ -90,7 +99,11 @@ public class ImportService {
             return m;
         }).toList());
         // Only generated passwords are returned; passwords supplied in the file are not echoed back
-        out.put("credentials", credentials.stream().filter(c -> c.get("password") != null).toList());
+        out.put("credentials", credentials.stream().filter(c -> c.get("generated") != null).map(c -> {
+            Map<String, String> m = new LinkedHashMap<>();
+            for (String k : List.of("name", "username", "email", "password")) m.put(k, c.get(k));
+            return m;
+        }).toList());
         return out;
     }
 
@@ -188,7 +201,9 @@ public class ImportService {
         c.put("name", r.summary());
         c.put("username", u.getUsername());
         c.put("email", u.getEmail());
-        c.put("password", supplied == null ? password : null);
+        c.put("password", password);
+        c.put("firstname", u.getFirstname());
+        if (supplied == null) c.put("generated", "true");
         return c;
     }
 

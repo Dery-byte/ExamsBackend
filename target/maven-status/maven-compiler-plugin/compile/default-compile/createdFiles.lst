@@ -156,6 +156,7 @@ com\exam\service\ReportEmailService.class
 com\exam\service\llm\GPTEvaluationStrategy.class
 com\exam\service\examops\ExamAccess.class
 com\exam\model\examops\RemarkRequest$Status.class
+com\exam\service\admin\CredentialEmailService.class
 com\exam\DTO\AttemptStatusDTO.class
 com\exam\service\academic\GradingService.class
 com\exam\model\exam\AutoCloseFraction.class

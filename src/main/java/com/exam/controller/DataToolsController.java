@@ -35,11 +35,12 @@ public class DataToolsController {
         public List<Map<String, String>> rows;
     }
 
-    /** type = students | lecturers | courses; commit=false validates only. */
+    /** type = students | lecturers | courses; commit=false validates only; notify emails new users their login details. */
     @PostMapping("/admin-tools/import/{type}")
     public ResponseEntity<?> importRows(@PathVariable String type, @RequestParam(defaultValue = "false") boolean commit,
+                                        @RequestParam(defaultValue = "true") boolean notify,
                                         @RequestBody ImportRequest req) {
-        return withUser(u -> { featureService.require(com.exam.model.features.Feature.HOD_DATA_TOOLS, u); return ResponseEntity.ok(importService.run(u, type, req.rows, commit)); });
+        return withUser(u -> { featureService.require(com.exam.model.features.Feature.HOD_DATA_TOOLS, u); return ResponseEntity.ok(importService.run(u, type, req.rows, commit, notify)); });
     }
 
     public static class BulkEnrollRequest {
