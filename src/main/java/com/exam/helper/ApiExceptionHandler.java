@@ -28,6 +28,12 @@ public class ApiExceptionHandler {
         return body(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    /** A student's report cards / transcript are held for unpaid fees; the body says what to pay. */
+    @ExceptionHandler(com.exam.service.fees.ResultsHoldService.ResultsHeldException.class)
+    public ResponseEntity<Map<String, Object>> handle(com.exam.service.fees.ResultsHoldService.ResultsHeldException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.body());
+    }
+
     @ExceptionHandler({ResourceNotFoundException.class, jakarta.persistence.EntityNotFoundException.class})
     public ResponseEntity<Map<String, Object>> notFound(RuntimeException ex) {
         return body(HttpStatus.NOT_FOUND, ex.getMessage());

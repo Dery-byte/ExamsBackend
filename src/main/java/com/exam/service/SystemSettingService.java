@@ -42,6 +42,14 @@ public class SystemSettingService {
     public static final String FEES_PART_PAYMENT     = "FEES_PART_PAYMENT";
     /** Students may pay for chosen items of an itemised fee (Tuition, SRC dues …), even when part payments are off. */
     public static final String FEES_ITEM_PAYMENT     = "FEES_ITEM_PAYMENT";
+    /** Master switch for holding report cards / transcripts until fees are paid (rules are per programme). */
+    public static final String FEES_RESULTS_HOLD     = "FEES_RESULTS_HOLD";
+
+    /**
+     * Super Admin switch: show the "Verify a transcript or report card" link on the sign-in page.
+     * Only hides the link; /verify (and the codes printed on documents) keep working.
+     */
+    public static final String LOGIN_VERIFY_LINK_VISIBLE = "LOGIN_VERIFY_LINK_VISIBLE";
 
     @PostConstruct
     public void initDefaultSettings() {
@@ -63,7 +71,10 @@ public class SystemSettingService {
         if (!systemSettingRepository.existsById(FEES_VISIBLE_STUDENT)) {
             systemSettingRepository.save(new SystemSetting(FEES_VISIBLE_STUDENT, "false"));
         }
-        for (String key : List.of(FEES_ONLINE_PAYMENT, FEES_PART_PAYMENT, FEES_ITEM_PAYMENT)) {
+        if (!systemSettingRepository.existsById(FEES_RESULTS_HOLD)) {
+            systemSettingRepository.save(new SystemSetting(FEES_RESULTS_HOLD, "false"));
+        }
+        for (String key : List.of(FEES_ONLINE_PAYMENT, FEES_PART_PAYMENT, FEES_ITEM_PAYMENT, LOGIN_VERIFY_LINK_VISIBLE)) {
             if (!systemSettingRepository.existsById(key)) {
                 systemSettingRepository.save(new SystemSetting(key, "true"));
             }

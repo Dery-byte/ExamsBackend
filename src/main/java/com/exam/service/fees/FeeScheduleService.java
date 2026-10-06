@@ -152,6 +152,7 @@ public class FeeScheduleService {
         m.put("onlinePayment", settings.getBooleanSetting(SystemSettingService.FEES_ONLINE_PAYMENT, true));
         m.put("partPayment", settings.getBooleanSetting(SystemSettingService.FEES_PART_PAYMENT, true));
         m.put("itemPayment", settings.getBooleanSetting(SystemSettingService.FEES_ITEM_PAYMENT, true));
+        m.put("resultsHold", settings.getBooleanSetting(SystemSettingService.FEES_RESULTS_HOLD, false));
         return m;
     }
 

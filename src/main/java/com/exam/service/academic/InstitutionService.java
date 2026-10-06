@@ -101,7 +101,12 @@ public class InstitutionService {
         m.put("periodsPerLevel", mode.defaultPeriodsPerLevel());
         m.put("portalUrl", portalUrl());
         m.put("showPosition", showPosition());
-        m.put("hasLogo", logoRepository.existsById(InstitutionLogo.ID));
+        // A list, not Optional: the row may exist with a null updatedAt (logos saved before it was set)
+        List<java.time.LocalDateTime> logo = logoRepository.findUpdatedAt(InstitutionLogo.ID);
+        m.put("hasLogo", !logo.isEmpty());
+        // Changes with every upload, so the browser fetches the new logo instead of its cached copy
+        m.put("logoVersion", logo.isEmpty() || logo.get(0) == null ? 0L
+                : logo.get(0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli());
         m.put("terms", terms());
         return m;
     }

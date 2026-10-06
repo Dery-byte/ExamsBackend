@@ -40,11 +40,14 @@ public class InstitutionController {
     }
 
     @GetMapping("/api/v1/auth/institution/logo")
-    public ResponseEntity<byte[]> logo() {
+    public ResponseEntity<byte[]> logo(@RequestParam(required = false) String v) {
+        // ?v=<logoVersion> changes with every upload, so a versioned URL can be cached for long;
+        // a bare URL must be rechecked each time or a replaced logo keeps showing the old image.
+        CacheControl cache = v == null ? CacheControl.noCache() : CacheControl.maxAge(30, TimeUnit.DAYS).cachePublic();
         return institutionService.logo()
                 .map(l -> ResponseEntity.ok()
                         .contentType(MediaType.parseMediaType(l.getContentType()))
-                        .cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS).cachePublic())
+                        .cacheControl(cache)
                         .body(l.getData()))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

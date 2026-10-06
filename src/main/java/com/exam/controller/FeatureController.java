@@ -3,6 +3,7 @@ package com.exam.controller;
 import com.exam.exception.ErrorMessage;
 import com.exam.model.User;
 import com.exam.model.features.Feature;
+import com.exam.service.SystemSettingService;
 import com.exam.service.comms.CurrentUserService;
 import com.exam.service.features.FeatureService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,7 @@ public class FeatureController {
 
     @Autowired private CurrentUserService currentUserService;
     @Autowired private FeatureService featureService;
+    @Autowired private SystemSettingService systemSettingService;
 
     @GetMapping("/api/features")
     public ResponseEntity<?> list() {
@@ -54,7 +56,11 @@ public class FeatureController {
     /** Settings the sign-in / sign-up pages need before anyone is signed in. */
     @GetMapping("/api/v1/auth/public-settings")
     public ResponseEntity<?> publicSettings() {
-        return ResponseEntity.ok(Map.of("studentSelfSignup", featureService.isOnSystemWide(Feature.STUDENT_SELF_SIGNUP)));
+        return ResponseEntity.ok(Map.of(
+                "studentSelfSignup", featureService.isOnSystemWide(Feature.STUDENT_SELF_SIGNUP),
+                // No point linking to the verify page while verification itself is switched off
+                "showVerifyLink", featureService.isOnSystemWide(Feature.DOCUMENT_VERIFICATION)
+                        && systemSettingService.getBooleanSetting(SystemSettingService.LOGIN_VERIFY_LINK_VISIBLE, true)));
     }
 
     private interface UserAction { ResponseEntity<?> apply(User u); }

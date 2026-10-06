@@ -5,6 +5,7 @@ import com.exam.model.User;
 import com.exam.service.comms.CurrentUserService;
 import com.exam.service.fees.FeePaymentService;
 import com.exam.service.fees.FeeScheduleService;
+import com.exam.service.fees.ResultsHoldService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,7 +19,8 @@ import java.util.Map;
 /**
  * Fees and payments.
  * <ul>
- *   <li>/api/v1/super-admin/fees/** — Super Admin: fee per programme + level, payments, cash / bank entries.</li>
+ *   <li>/api/v1/super-admin/fees/** — Super Admin: fee per programme + level, payments, cash / bank entries,
+ *       and which programmes hold results until fees are paid.</li>
  *   <li>/api/fees/** — students: their fee, balance and history; paying online through Paystack.</li>
  *   <li>/api/payments/paystack/webhook — public, checked by Paystack's signature.</li>
  * </ul>
@@ -32,6 +34,7 @@ public class FeeController {
     @Autowired private FeeScheduleService scheduleService;
     @Autowired private FeePaymentService paymentService;
     @Autowired private CurrentUserService currentUserService;
+    @Autowired private ResultsHoldService resultsHoldService;
 
     // ── Super Admin: fee schedules ──────────────────────────────────────
 
@@ -58,6 +61,27 @@ public class FeeController {
     @PostMapping(SA + "/schedules/copy")
     public Map<String, Object> copySchedules(@RequestBody CopyRequest body) {
         return scheduleService.copy(body.fromSessionId(), body.toSessionId(), Boolean.TRUE.equals(body.overwrite()), actorName());
+    }
+
+    // ── Super Admin: holding results for unpaid fees ────────────────────
+
+    @GetMapping(SA + "/results-holds")
+    public Map<String, Object> resultsHolds() {
+        return resultsHoldService.overview();
+    }
+
+    @PutMapping(SA + "/results-holds")
+    public Map<String, Object> saveResultsHold(@RequestBody ResultsHoldService.HoldRequest body, HttpServletRequest request) {
+        request.setAttribute(AuditInterceptor.AUDIT_DETAILS, "programme " + body.programId() + ": " + body.mode()
+                + (body.minPercent() != null ? " " + body.minPercent() + "%" : "")
+                + (body.alsoApplyToPrograms() != null && !body.alsoApplyToPrograms().isEmpty() ? " (+ " + body.alsoApplyToPrograms() + ")" : ""));
+        return resultsHoldService.save(body, actorName());
+    }
+
+    @DeleteMapping(SA + "/results-holds/{programId}")
+    public Map<String, Object> removeResultsHold(@PathVariable Long programId) {
+        resultsHoldService.remove(programId);
+        return Map.of("message", "Hold lifted.");
     }
 
     // ── Super Admin: payments ───────────────────────────────────────────

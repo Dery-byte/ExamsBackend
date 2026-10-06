@@ -9,6 +9,7 @@ com\exam\service\ClassPositionTest.class
 com\exam\service\examops\QuestionBankUploadTest.class
 com\exam\service\monitoring\DeveloperAuthServiceTest.class
 com\exam\service\examops\QuestionBankUploadTest$1.class
+com\exam\service\fees\ResultsHoldJpaTest.class
 com\exam\helper\IndexNumberRangeTest.class
 com\exam\service\CategoryOpenToEveryoneTest.class
 com\exam\service\QuizServiceAccessTest.class

@@ -64,6 +64,7 @@ public class FeePaymentService {
     @Autowired private SystemSettingService settings;
     @Autowired private PaystackClient paystack;
     @Autowired private PlatformTransactionManager transactionManager;
+    @Autowired private ResultsHoldService resultsHoldService;
 
     @Value("${app.frontend-url:http://localhost:4200}")
     private String frontendUrl;
@@ -126,6 +127,8 @@ public class FeePaymentService {
         out.put("payments", paymentRepository.findForStudent(student.getId()).stream()
                 .filter(p -> p.getStatus() != FeePayment.Status.VOIDED)
                 .map(p -> toDto(p, false)).toList());
+        // What their unpaid fees are keeping from them (null when nothing is held)
+        out.put("resultsHold", resultsHoldService.check(student, EnumSet.allOf(ResultsHoldService.Document.class)));
         return out;
     }
 

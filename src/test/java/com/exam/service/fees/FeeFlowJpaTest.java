@@ -45,7 +45,7 @@ import static org.mockito.Mockito.when;
         "spring.datasource.password=",
         "spring.jpa.show-sql=false",
 })
-@Import({FeeScheduleService.class, FeePaymentService.class, AcademicSessionService.class, SystemSettingService.class,
+@Import({FeeScheduleService.class, FeePaymentService.class, ResultsHoldService.class, AcademicSessionService.class, SystemSettingService.class,
         com.exam.service.comms.CurrentUserService.class})
 class FeeFlowJpaTest {
 

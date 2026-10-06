@@ -11,6 +11,7 @@ import com.exam.service.academic.AcademicSessionService;
 import com.exam.service.academic.GradingService;
 import com.exam.service.comms.CurrentUserService;
 import com.exam.service.comms.NotificationService;
+import com.exam.service.fees.ResultsHoldService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -44,6 +45,7 @@ public class AcademicController {
     @Autowired private SystemSettingService systemSettingService;
     @Autowired private UserRepository userRepository;
     @Autowired private com.exam.service.features.FeatureService featureService;
+    @Autowired private ResultsHoldService resultsHoldService;
 
     // ── Sessions ─────────────────────────────────────────────────────────────
 
@@ -210,12 +212,13 @@ public class AcademicController {
         return s;
     }
 
-    /** Students see results only while the Super Admin shows them report cards. */
+    /** Students see results only while the Super Admin shows them report cards, and once their fees allow it. */
     private void requireStudentResultsVisible(User u) {
         if (u.getRole() != Role.NORMAL) throw new AccessDeniedException("Only students have a personal transcript.");
         featureService.require(com.exam.model.features.Feature.STUDENT_TRANSCRIPT, u);
         if (!systemSettingService.getBooleanSetting(SystemSettingService.MARKS_SHEET_VISIBLE_STUDENT, true))
             throw new AccessDeniedException("Results are not available to students at the moment.");
+        resultsHoldService.requireReleased(u, ResultsHoldService.Document.TRANSCRIPT);   // unpaid fees (handled by ApiExceptionHandler)
     }
 
     private interface UserAction { ResponseEntity<?> apply(User u); }

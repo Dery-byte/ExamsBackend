@@ -7,6 +7,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\Semeste
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\LecturerResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\QuizAttempt.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\TheoryGroups.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\fees\ResultsHoldService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\UserQuizProgressRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\UserResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\Category.java
@@ -137,6 +138,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuizGeminiService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\monitoring\DeveloperAuthService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\NumberOfTheoryToAnswerRepository.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\fees\ResultsFeeHold.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Impl\CategoryServcieImpl.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\CustomResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\ProgramPublicController.java
@@ -169,6 +171,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\Answe
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\OpenAIConfig.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\GradeResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\CustomLocalDateDeserializer.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\ResultsFeeHoldRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\QuestionImage.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\StudentAnswerRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\DepartmentDTO.java

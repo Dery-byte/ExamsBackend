@@ -5,6 +5,8 @@ import com.exam.model.features.Feature;
 import com.exam.service.SystemSettingService;
 import com.exam.service.comms.CurrentUserService;
 import com.exam.service.features.FeatureService;
+import com.exam.service.fees.ResultsHoldService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +27,8 @@ import java.util.stream.Collectors;
 /**
  * Enforces the Super Admin's per-role Marks Sheet switches on the server, so hiding the
  * page in the UI also blocks the marks API (/api/marks/**) for that role. Students are also
- * blocked when their department has switched off report cards (Feature.STUDENT_REPORT_CARD).
+ * blocked when their department has switched off report cards (Feature.STUDENT_REPORT_CARD), and
+ * while their report cards are held for unpaid fees (ResultsHoldService).
  * The Super Admin is never blocked.
  */
 @Configuration
@@ -39,6 +42,12 @@ public class MarksSheetAccessInterceptor implements HandlerInterceptor, WebMvcCo
 
     @Autowired
     private CurrentUserService currentUserService;
+
+    @Autowired
+    private ResultsHoldService resultsHoldService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -69,6 +78,16 @@ public class MarksSheetAccessInterceptor implements HandlerInterceptor, WebMvcCo
             if (student != null && !featureService.isOnFor(Feature.STUDENT_REPORT_CARD, student))
                 return deny(response, Feature.STUDENT_REPORT_CARD.label() + " have been turned off by "
                         + (featureService.isOnSystemWide(Feature.STUDENT_REPORT_CARD) ? "your department" : "the Super Admin") + ".");
+            if (student != null) {
+                java.util.Map<String, Object> hold = resultsHoldService.check(student, java.util.EnumSet.of(ResultsHoldService.Document.REPORT_CARDS));
+                if (hold != null) {
+                    response.setStatus(HttpStatus.FORBIDDEN.value());
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setCharacterEncoding("UTF-8");
+                    objectMapper.writeValue(response.getWriter(), hold);
+                    return false;
+                }
+            }
         }
         return true;
     }

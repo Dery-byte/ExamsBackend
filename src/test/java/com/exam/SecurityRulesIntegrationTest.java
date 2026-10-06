@@ -246,6 +246,51 @@ class SecurityRulesIntegrationTest {
     }
 
     @Test
+    void replacedLogoGetsANewUrlSoBrowsersDontShowTheCachedOne() throws Exception {
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G', 1, 2, 3};
+        try {
+            String first = mvc.perform(multipart("/api/v1/super-admin/institution/logo")
+                            .file(new org.springframework.mock.web.MockMultipartFile("file", "a.png", "image/png", png)).with(as(superAdmin)))
+                    .andReturn().getResponse().getContentAsString();
+            Thread.sleep(20);
+            String second = mvc.perform(multipart("/api/v1/super-admin/institution/logo")
+                            .file(new org.springframework.mock.web.MockMultipartFile("file", "b.png", "image/png", png)).with(as(superAdmin)))
+                    .andReturn().getResponse().getContentAsString();
+            assertThat(first).contains("\"hasLogo\":true").containsPattern("\"logoVersion\":[1-9]");
+            String v1 = first.replaceAll(".*\"logoVersion\":(\\d+).*", "$1");
+            String v2 = second.replaceAll(".*\"logoVersion\":(\\d+).*", "$1");
+            assertThat(v2).isNotEqualTo(v1);
+            assertThat(mvc.perform(get("/api/v1/auth/institution")).andReturn().getResponse().getContentAsString())
+                    .contains("\"logoVersion\":" + v2);
+
+            // Versioned URL may be cached; the bare URL must be revalidated
+            assertThat(mvc.perform(get("/api/v1/auth/institution/logo").param("v", v2)).andReturn().getResponse().getHeader("Cache-Control"))
+                    .contains("max-age");
+            assertThat(mvc.perform(get("/api/v1/auth/institution/logo")).andReturn().getResponse().getHeader("Cache-Control"))
+                    .contains("no-cache");
+        } finally {
+            mvc.perform(delete("/api/v1/super-admin/institution/logo").with(as(superAdmin)));
+        }
+        assertThat(mvc.perform(get("/api/v1/auth/institution")).andReturn().getResponse().getContentAsString())
+                .contains("\"hasLogo\":false").contains("\"logoVersion\":0");
+    }
+
+    @Test
+    void loginVerifyLinkFollowsTheSuperAdminSwitch() throws Exception {
+        String key = com.exam.service.SystemSettingService.LOGIN_VERIFY_LINK_VISIBLE;
+        try {
+            assertThat(mvc.perform(get("/api/v1/auth/public-settings")).andReturn().getResponse().getContentAsString())
+                    .contains("\"showVerifyLink\":true");
+            assertThat(json(put("/api/v1/super-admin/settings").with(as(hod)), "{\"" + key + "\":\"false\"}")).isEqualTo(403);
+            assertThat(json(put("/api/v1/super-admin/settings").with(as(superAdmin)), "{\"" + key + "\":\"false\"}")).isEqualTo(200);
+            assertThat(mvc.perform(get("/api/v1/auth/public-settings")).andReturn().getResponse().getContentAsString())
+                    .contains("\"showVerifyLink\":false");
+        } finally {
+            settings.updateSetting(key, "true");
+        }
+    }
+
+    @Test
     void featureSwitchesAreEnforcedEndToEnd() throws Exception {
         String signup = "{\"username\":\"newbie\",\"email\":\"n@example.com\",\"password\":\"secret123\",\"firstname\":\"N\",\"lastname\":\"B\"}";
         try {

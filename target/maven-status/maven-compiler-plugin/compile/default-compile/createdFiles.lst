@@ -32,6 +32,7 @@ com\exam\config\ApplicationConfig.class
 com\exam\service\fees\FeePaymentService.class
 com\exam\service\QuizService.class
 com\exam\service\comms\NotificationService.class
+com\exam\service\fees\ResultsHoldService$ResultsHeldException.class
 com\exam\config\AuditInterceptor.class
 com\exam\controller\FeatureController.class
 com\exam\service\comms\AnalyticsService.class
@@ -61,14 +62,18 @@ com\exam\service\comms\NotificationWriter.class
 com\exam\service\AttemptService.class
 com\exam\service\academic\GradingService$BandRow.class
 com\exam\model\academic\InstitutionLogo.class
+com\exam\model\fees\ResultsFeeHold.class
+com\exam\service\fees\ResultsHoldService$HoldRequest.class
 com\exam\service\academic\DocumentVerificationService$Issued.class
 com\exam\controller\InstitutionController.class
+com\exam\model\fees\ResultsFeeHold$Mode.class
 com\exam\service\LogoutService.class
 com\exam\service\CategoryService.class
 com\exam\controller\LlmProviderController$1.class
 com\exam\service\JwtService.class
 com\exam\DTO\QuizPublicSummaryDTO.class
 com\exam\token\TokenType.class
+com\exam\service\fees\ResultsHoldService$1.class
 com\exam\service\examops\ProctoringService.class
 com\exam\repository\CategoryRepository.class
 com\exam\repository\TermReportRemarkRepository.class
@@ -105,6 +110,7 @@ com\exam\controller\AcademicController$UserAction.class
 com\exam\service\llm\LLMEvaluationStrategy.class
 com\exam\service\admin\ImportService$Row.class
 com\exam\service\fees\PaystackClient$PaystackException.class
+com\exam\service\fees\ResultsHoldService.class
 com\exam\service\comms\CurrentUserService.class
 com\exam\controller\CategoryController.class
 com\exam\controller\DataToolsController.class
@@ -126,6 +132,8 @@ com\exam\helper\UserFoundException.class
 com\exam\controller\ExamOpsController$ProctoringEventRequest.class
 com\exam\SecurityApplication.class
 com\exam\repository\DeveloperEmailRepository.class
+com\exam\service\fees\ResultsHoldService$Document.class
+com\exam\repository\ResultsFeeHoldRepository.class
 com\exam\repository\FeeScheduleRepository.class
 com\exam\service\AttemptService$1.class
 com\exam\config\AuditInterceptor$Rule.class
