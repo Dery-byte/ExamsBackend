@@ -145,6 +145,36 @@ class SecurityRulesIntegrationTest {
         assertThat(status(post("/api/v1/auth/register/admin").with(as(hod)))).isEqualTo(403);
     }
 
+    @Autowired com.exam.service.SystemSettingService settings;
+
+    @Test
+    void feesAreSuperAdminManagedAndStudentPaid() throws Exception {
+        // Fee set-up and the payments register: Super Admin only
+        for (User u : new User[]{student, lecturer, hod}) {
+            assertThat(status(get("/api/v1/super-admin/fees/overview").with(as(u)))).as(u.getUsername()).isEqualTo(403);
+            assertThat(status(put("/api/v1/super-admin/fees/schedules").with(as(u)))).as(u.getUsername()).isEqualTo(403);
+            assertThat(status(post("/api/v1/super-admin/fees/payments/manual").with(as(u)))).as(u.getUsername()).isEqualTo(403);
+        }
+        assertThat(allowed(status(get("/api/v1/super-admin/fees/overview").with(as(superAdmin))))).isTrue();
+        // Paying: students only
+        assertThat(status(get("/api/fees/me"))).isEqualTo(401);
+        for (User u : new User[]{lecturer, hod, superAdmin}) {
+            assertThat(status(post("/api/fees/pay").with(as(u)))).as(u.getUsername()).isEqualTo(403);
+        }
+        // Hidden until the Super Admin switches fees on for students
+        assertThat(status(get("/api/fees/me").with(as(student)))).isEqualTo(403);
+        settings.updateSetting(com.exam.service.SystemSettingService.FEES_VISIBLE_STUDENT, "true");
+        try {
+            assertThat(status(get("/api/fees/me").with(as(student)))).isEqualTo(200);
+        } finally {
+            settings.updateSetting(com.exam.service.SystemSettingService.FEES_VISIBLE_STUDENT, "false");
+        }
+        // The webhook passes security but is refused without Paystack's signature
+        int webhook = mvc.perform(post("/api/payments/paystack/webhook").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"event\":\"charge.success\",\"data\":{\"reference\":\"FEE-1\"}}")).andReturn().getResponse().getStatus();
+        assertThat(webhook).isEqualTo(401);
+    }
+
     @Test
     void superAdminSignUpIsClosedOnceOneExists() throws Exception {
         String body = "{\"username\":\"intruder\",\"email\":\"i@example.com\",\"password\":\"secret123\",\"firstname\":\"I\",\"lastname\":\"X\"}";

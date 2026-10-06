@@ -106,6 +106,13 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
             r("PUT",    ".*/super-admin/admin/\\d+$",               "Updated HOD account"),
             r("DELETE", ".*/super-admin/admin/\\d+$",               "Deleted HOD account"),
             r("PUT",    ".*/super-admin/settings$",                 "Changed system settings"),
+            // Fees
+            r("PUT",    ".*/super-admin/fees/schedules$",           "Set programme fee"),
+            r("DELETE", ".*/super-admin/fees/schedules/\\d+$",      "Removed programme fee"),
+            r("POST",   ".*/super-admin/fees/schedules/copy$",      "Copied fees from another session"),
+            r("POST",   ".*/super-admin/fees/payments/manual$",     "Recorded fee payment"),
+            r("POST",   ".*/super-admin/fees/payments/\\d+/void$",  "Cancelled fee payment"),
+            r("POST",   ".*/super-admin/fees/payments/\\d+/recheck$", "Re-checked payment with Paystack"),
             // Question bank, re-marks
             r("POST",   ".*/api/question-bank/course/\\d+$",        "Added question to bank"),
             r("PUT",    ".*/api/question-bank/\\d+$",               "Edited bank question"),

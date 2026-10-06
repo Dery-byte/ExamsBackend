@@ -1,4 +1,5 @@
 com\exam\service\GradingPresetTest.class
+com\exam\service\fees\FeeFlowJpaTest.class
 com\exam\service\QuizServiceAutoOpenTest.class
 com\exam\service\AttemptServiceTest.class
 com\exam\service\monitoring\ErrorPathGroupingTest.class
@@ -23,6 +24,7 @@ com\exam\service\AcademicPdfRenderTest.class
 com\exam\SecurityApplicationTests.class
 com\exam\service\QuizTimerServiceClockTest.class
 com\exam\helper\TheoryGroupsTest.class
+com\exam\service\fees\FeeBreakdownTest.class
 com\exam\service\PdfImageRenderTest.class
 com\exam\helper\TheoryCriteriaVisibilityTest.class
 com\exam\service\QuestionImageServiceTest.class

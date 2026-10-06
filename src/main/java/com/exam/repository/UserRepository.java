@@ -47,5 +47,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     long countByRoleIn(List<String> roles);
 
+    /** [programId, level, number of active students] — what each fee schedule bills. */
+    @Query("SELECT u.program.id, u.currentLevel, COUNT(u) FROM User u WHERE u.role = com.exam.model.Role.NORMAL "
+            + "AND u.enabled = true AND u.program IS NOT NULL AND u.currentLevel IS NOT NULL GROUP BY u.program.id, u.currentLevel")
+    List<Object[]> countActiveStudentsByProgramAndLevel();
+
+    /** Students whose name, username (student ID) or email contains q (q already lower-cased with %). */
+    @Query("SELECT u FROM User u WHERE u.role = com.exam.model.Role.NORMAL AND (LOWER(u.username) LIKE :q "
+            + "OR LOWER(u.email) LIKE :q OR LOWER(CONCAT(u.firstname, ' ', u.lastname)) LIKE :q) ORDER BY u.firstname, u.lastname")
+    List<User> searchStudents(@Param("q") String q, org.springframework.data.domain.Pageable pageable);
+
 //    List<User> findByUser(User user);
 }

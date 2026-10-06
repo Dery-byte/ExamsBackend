@@ -52,6 +52,8 @@ public final class EndpointRules {
             .requestMatchers(HttpMethod.GET, p("/verify/*")).permitAll()
             // Question images are loaded by <img> tags, which can't send a token; ids are random UUIDs
             .requestMatchers(HttpMethod.GET, p("/question-images/**")).permitAll()
+            // Paystack calls this server-to-server; FeePaymentService rejects it unless the signature matches
+            .requestMatchers(HttpMethod.POST, "/api/payments/paystack/webhook").permitAll()
 
             // ── Developer: system mode, health, errors ───────────────────────
             .requestMatchers("/api/v1/developer/**").hasAuthority(DEVELOPER)
@@ -110,6 +112,9 @@ public final class EndpointRules {
             .requestMatchers(HttpMethod.DELETE, "/api/marks/sheet/*/sections/*").hasAnyAuthority(STAFF)
             .requestMatchers("/api/marks/sheet/*/term-remarks").hasAnyAuthority(STAFF)   // class teacher / HOD checked in the service
             .requestMatchers(HttpMethod.GET, "/api/marks/sheet/my-sheets", "/api/marks/sheet/*").hasAnyAuthority(STAFF)
+
+            // ── Students' own fees and online payment (Super Admin's side is under /super-admin) ─
+            .requestMatchers("/api/fees/**").hasAuthority("NORMAL")
 
             // ── Everything else (students' exam flow, own results, profile …): any signed-in user.
             //    Services check that students only reach their own data and quizzes they may take.

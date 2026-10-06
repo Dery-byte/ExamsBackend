@@ -8,6 +8,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\SecurityApp
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AcademicRecordServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\ImportAndAccountServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\GradingPresetTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\FeeFlowJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuestionImageServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\TheoryGradingQueueTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\config\JacksonProxyJpaTest.java
@@ -19,6 +20,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\Qui
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\FeatureServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\SecurityRulesIntegrationTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizTimerServiceClockTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\FeeBreakdownTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\MatchingPairsLoadJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AcademicPdfRenderTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\academic\DocumentVerificationCodeTest.java

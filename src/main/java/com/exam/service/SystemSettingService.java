@@ -36,6 +36,13 @@ public class SystemSettingService {
      */
     public static final String EXAM_CLOCK_RUNS_WHILE_AWAY = "EXAM_CLOCK_RUNS_WHILE_AWAY";
 
+    /** Super Admin switches for fees: the Fees page for students, paying online, paying in parts. */
+    public static final String FEES_VISIBLE_STUDENT  = "FEES_VISIBLE_STUDENT";
+    public static final String FEES_ONLINE_PAYMENT   = "FEES_ONLINE_PAYMENT";
+    public static final String FEES_PART_PAYMENT     = "FEES_PART_PAYMENT";
+    /** Students may pay for chosen items of an itemised fee (Tuition, SRC dues …), even when part payments are off. */
+    public static final String FEES_ITEM_PAYMENT     = "FEES_ITEM_PAYMENT";
+
     @PostConstruct
     public void initDefaultSettings() {
         if (!systemSettingRepository.existsById(EXAM_CLOCK_RUNS_WHILE_AWAY)) {
@@ -51,6 +58,15 @@ public class SystemSettingService {
         }
         if (!systemSettingRepository.existsById(EMAIL_REPORT_FEATURE_ENABLED)) {
             systemSettingRepository.save(new SystemSetting(EMAIL_REPORT_FEATURE_ENABLED, "true"));
+        }
+        // Fees stay hidden from students until the Super Admin has set them up and switched them on
+        if (!systemSettingRepository.existsById(FEES_VISIBLE_STUDENT)) {
+            systemSettingRepository.save(new SystemSetting(FEES_VISIBLE_STUDENT, "false"));
+        }
+        for (String key : List.of(FEES_ONLINE_PAYMENT, FEES_PART_PAYMENT, FEES_ITEM_PAYMENT)) {
+            if (!systemSettingRepository.existsById(key)) {
+                systemSettingRepository.save(new SystemSetting(key, "true"));
+            }
         }
     }
 
@@ -78,6 +94,7 @@ public class SystemSettingService {
         flags.put("marksSheetAdmin",    getBooleanSetting(MARKS_SHEET_VISIBLE_ADMIN, true));
         flags.put("marksSheetLecturer", getBooleanSetting(MARKS_SHEET_VISIBLE_LECTURER, true));
         flags.put("marksSheetStudent",  getBooleanSetting(MARKS_SHEET_VISIBLE_STUDENT, true));
+        flags.put("feesStudent",        getBooleanSetting(FEES_VISIBLE_STUDENT, false));
         return flags;
     }
 
