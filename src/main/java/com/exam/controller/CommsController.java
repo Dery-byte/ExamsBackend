@@ -4,6 +4,7 @@ import com.exam.exception.ErrorMessage;
 import com.exam.model.Role;
 import com.exam.model.User;
 import com.exam.model.exam.Department;
+import com.exam.service.SystemSettingService;
 import com.exam.service.comms.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -31,6 +32,7 @@ public class CommsController {
     @Autowired private AnalyticsService analyticsService;
     @Autowired private AuditService auditService;
     @Autowired private com.exam.service.features.FeatureService featureService;
+    @Autowired private SystemSettingService systemSettingService;
 
     // ── Notifications ────────────────────────────────────────────────────────
 
@@ -97,7 +99,7 @@ public class CommsController {
         });
     }
 
-    // ── Audit log (Super Admin; path is restricted in SecurityConfiguration) ─
+    // ── Audit log (Super Admin, while the developer allows it; path is restricted in SecurityConfiguration) ─
 
     @GetMapping("/api/v1/super-admin/audit-logs")
     public ResponseEntity<?> auditLogs(@RequestParam(required = false) String actor,
@@ -107,12 +109,23 @@ public class CommsController {
                                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
                                        @RequestParam(defaultValue = "0") int page,
                                        @RequestParam(defaultValue = "50") int size) {
-        return ResponseEntity.ok(auditService.search(actor, action, role, from, to, page, size));
+        if (!auditLogVisible()) return auditLogOff();
+        // The developer's own activity is never shown to the Super Admin
+        return ResponseEntity.ok(auditService.search(actor, action, role, Role.DEVELOPER.name(), from, to, page, size));
     }
 
     @GetMapping("/api/v1/super-admin/audit-logs/actions")
     public ResponseEntity<?> auditActions() {
-        return ResponseEntity.ok(auditService.actions());
+        if (!auditLogVisible()) return auditLogOff();
+        return ResponseEntity.ok(auditService.actions(Role.DEVELOPER.name()));
+    }
+
+    private boolean auditLogVisible() {
+        return systemSettingService.getBooleanSetting(SystemSettingService.AUDIT_LOG_VISIBLE_SUPER_ADMIN, true);
+    }
+
+    private static ResponseEntity<?> auditLogOff() {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "The audit log has been turned off by the developer."));
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

@@ -90,6 +90,10 @@ class SecurityRulesIntegrationTest {
         return mvc.perform(req.contentType(MediaType.APPLICATION_JSON).content(body)).andReturn().getResponse().getStatus();
     }
 
+    private String body(MockHttpServletRequestBuilder req) throws Exception {
+        return mvc.perform(req).andReturn().getResponse().getContentAsString();
+    }
+
     @Test
     void publicEndpointsNeedNoSignIn() throws Exception {
         assertThat(status(get("/api/v1/auth/programs"))).isEqualTo(200);
@@ -357,6 +361,43 @@ class SecurityRulesIntegrationTest {
         // and nobody else reaches the developer's area, not even the Super Admin
         assertThat(status(get("/api/v1/developer/health").with(as(superAdmin)))).isEqualTo(403);
         assertThat(status(put("/api/v1/developer/mode").with(as(superAdmin)).content("{\"mode\":\"SHS\"}"))).isEqualTo(403);
+    }
+
+    @Test
+    void theDeveloperDecidesWhetherTheSuperAdminSeesTheAuditLog() throws Exception {
+        String key = com.exam.service.SystemSettingService.AUDIT_LOG_VISIBLE_SUPER_ADMIN;
+        try {
+            // On by default; the developer always reads it
+            assertThat(status(get("/api/v1/super-admin/audit-logs").with(as(superAdmin)))).isEqualTo(200);
+            assertThat(status(get("/api/v1/developer/audit-logs").with(as(developer)))).isEqualTo(200);
+            assertThat(status(get("/api/v1/developer/audit-logs/actions").with(as(developer)))).isEqualTo(200);
+            assertThat(status(get("/api/v1/developer/audit-logs").with(as(superAdmin)))).isEqualTo(403);
+
+            // Only the developer flips the switch: not via its endpoint, nor the Super Admin's settings
+            assertThat(json(put("/api/v1/developer/audit-log/access").with(as(superAdmin)), "{\"superAdminVisible\":true}")).isEqualTo(403);
+            assertThat(json(put("/api/v1/developer/audit-log/access").with(as(developer)), "{\"superAdminVisible\":false}")).isEqualTo(200);
+            assertThat(mvc.perform(get("/api/v1/auth/feature-flags").with(as(superAdmin))).andReturn().getResponse().getContentAsString())
+                    .contains("\"auditLogSuperAdmin\":false");
+            assertThat(status(get("/api/v1/super-admin/audit-logs").with(as(superAdmin)))).isEqualTo(403);
+            assertThat(status(get("/api/v1/super-admin/audit-logs/actions").with(as(superAdmin)))).isEqualTo(403);
+            assertThat(json(put("/api/v1/super-admin/settings").with(as(superAdmin)), "{\"" + key + "\":\"true\"}")).isEqualTo(403);
+            assertThat(settings.getBooleanSetting(key, true)).isFalse();
+            assertThat(status(get("/api/v1/developer/audit-logs").with(as(developer)))).isEqualTo(200);
+
+            assertThat(json(put("/api/v1/developer/audit-log/access").with(as(developer)), "{\"superAdminVisible\":true}")).isEqualTo(200);
+            assertThat(status(get("/api/v1/super-admin/audit-logs").with(as(superAdmin)))).isEqualTo(200);
+            assertThat(json(put("/api/v1/developer/audit-log/access").with(as(developer)), "{}")).isEqualTo(400);
+
+            // The developer's own changes are logged, but only the developer sees them
+            String devAction = "Changed Super Admin audit log access";
+            assertThat(body(get("/api/v1/developer/audit-logs").with(as(developer)))).contains(devAction);
+            assertThat(body(get("/api/v1/developer/audit-logs/actions").with(as(developer)))).contains(devAction);
+            assertThat(body(get("/api/v1/super-admin/audit-logs").with(as(superAdmin)))).doesNotContain(devAction).doesNotContain("DEVELOPER");
+            assertThat(body(get("/api/v1/super-admin/audit-logs").param("role", "DEVELOPER").with(as(superAdmin)))).contains("\"totalItems\":0");
+            assertThat(body(get("/api/v1/super-admin/audit-logs/actions").with(as(superAdmin)))).doesNotContain(devAction);
+        } finally {
+            settings.updateSetting(key, "true");
+        }
     }
 
     @Test

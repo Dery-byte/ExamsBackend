@@ -527,6 +527,9 @@ public class SuperAdminController {
     public ResponseEntity<Map<String, String>> updateSettings(@RequestBody Map<String, String> payload,
                                                               jakarta.servlet.http.HttpServletRequest request) {
         request.setAttribute(com.exam.config.AuditInterceptor.AUDIT_DETAILS, payload.toString());
+        if (payload.keySet().stream().anyMatch(SystemSettingService.DEVELOPER_ONLY::contains))
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", "Only the developer can change this setting."));
         payload.forEach((key, value) -> systemSettingService.updateSetting(key, value));
         return ResponseEntity.ok(Map.of("message", "Settings updated successfully."));
     }

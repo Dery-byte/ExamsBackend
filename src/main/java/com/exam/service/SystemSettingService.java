@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,6 +52,12 @@ public class SystemSettingService {
      */
     public static final String LOGIN_VERIFY_LINK_VISIBLE = "LOGIN_VERIFY_LINK_VISIBLE";
 
+    /** Developer switch: whether the Super Admin can open the Audit Log. The developer always can. */
+    public static final String AUDIT_LOG_VISIBLE_SUPER_ADMIN = "AUDIT_LOG_VISIBLE_SUPER_ADMIN";
+
+    /** Keys only the developer may change; the Super Admin's settings endpoint refuses them. */
+    public static final Set<String> DEVELOPER_ONLY = Set.of(AUDIT_LOG_VISIBLE_SUPER_ADMIN);
+
     @PostConstruct
     public void initDefaultSettings() {
         if (!systemSettingRepository.existsById(EXAM_CLOCK_RUNS_WHILE_AWAY)) {
@@ -74,7 +81,8 @@ public class SystemSettingService {
         if (!systemSettingRepository.existsById(FEES_RESULTS_HOLD)) {
             systemSettingRepository.save(new SystemSetting(FEES_RESULTS_HOLD, "false"));
         }
-        for (String key : List.of(FEES_ONLINE_PAYMENT, FEES_PART_PAYMENT, FEES_ITEM_PAYMENT, LOGIN_VERIFY_LINK_VISIBLE)) {
+        for (String key : List.of(FEES_ONLINE_PAYMENT, FEES_PART_PAYMENT, FEES_ITEM_PAYMENT, LOGIN_VERIFY_LINK_VISIBLE,
+                AUDIT_LOG_VISIBLE_SUPER_ADMIN)) {
             if (!systemSettingRepository.existsById(key)) {
                 systemSettingRepository.save(new SystemSetting(key, "true"));
             }
@@ -106,6 +114,7 @@ public class SystemSettingService {
         flags.put("marksSheetLecturer", getBooleanSetting(MARKS_SHEET_VISIBLE_LECTURER, true));
         flags.put("marksSheetStudent",  getBooleanSetting(MARKS_SHEET_VISIBLE_STUDENT, true));
         flags.put("feesStudent",        getBooleanSetting(FEES_VISIBLE_STUDENT, false));
+        flags.put("auditLogSuperAdmin", getBooleanSetting(AUDIT_LOG_VISIBLE_SUPER_ADMIN, true));
         return flags;
     }
 

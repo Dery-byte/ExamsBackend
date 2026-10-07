@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.exam.config.JacksonProxyJpaTest
 -------------------------------------------------------------------------------
-Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 18.638 s - in com.exam.config.JacksonProxyJpaTest
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 18.343 s - in com.exam.config.JacksonProxyJpaTest

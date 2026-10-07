@@ -3,21 +3,26 @@ package com.exam.controller;
 import com.exam.config.RateLimiter;
 import com.exam.model.academic.SystemMode;
 import com.exam.model.monitoring.ErrorEvent;
+import com.exam.service.SystemSettingService;
 import com.exam.service.academic.InstitutionService;
+import com.exam.service.comms.AuditService;
 import com.exam.service.monitoring.DeveloperAuthService;
 import com.exam.service.monitoring.ErrorMonitorService;
 import com.exam.service.monitoring.HealthService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.*;
 
 /**
- * The developer: signs in with an emailed code, chooses the system mode, and watches health and errors.
+ * The developer: signs in with an emailed code, chooses the system mode, watches health and errors,
+ * and reads the audit log (and decides whether the Super Admin may read it too).
  * Also the public status check and the endpoint browsers report crashes to.
  */
 @RestController
@@ -30,6 +35,8 @@ public class DeveloperController {
     @Autowired private ErrorMonitorService errorMonitor;
     @Autowired private RateLimiter rateLimiter;
     @Autowired private com.exam.service.comms.CurrentUserService currentUserService;
+    @Autowired private AuditService auditService;
+    @Autowired private SystemSettingService systemSettingService;
 
     // ── Sign-in (public, rate-limited) ──────────────────────────────────
 
@@ -82,6 +89,39 @@ public class DeveloperController {
         request.setAttribute(com.exam.config.AuditInterceptor.AUDIT_DETAILS, "mode = " + mode.name());
         institutionService.setMode(mode);
         return mode();
+    }
+
+    // ── Audit log (always readable here; the developer decides whether the Super Admin sees it) ──
+
+    @GetMapping("/api/v1/developer/audit-logs")
+    public Map<String, Object> auditLogs(@RequestParam(required = false) String actor,
+                                         @RequestParam(required = false) String action,
+                                         @RequestParam(required = false) String role,
+                                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                                         @RequestParam(defaultValue = "0") int page,
+                                         @RequestParam(defaultValue = "50") int size) {
+        return auditService.search(actor, action, role, null, from, to, page, size);
+    }
+
+    @GetMapping("/api/v1/developer/audit-logs/actions")
+    public List<String> auditActions() {
+        return auditService.actions(null);
+    }
+
+    @GetMapping("/api/v1/developer/audit-log/access")
+    public Map<String, Object> auditLogAccess() {
+        return Map.of("superAdminVisible",
+                systemSettingService.getBooleanSetting(SystemSettingService.AUDIT_LOG_VISIBLE_SUPER_ADMIN, true));
+    }
+
+    @PutMapping("/api/v1/developer/audit-log/access")
+    public Map<String, Object> setAuditLogAccess(@RequestBody Map<String, Boolean> body, HttpServletRequest request) {
+        Boolean visible = body == null ? null : body.get("superAdminVisible");
+        if (visible == null) throw new IllegalArgumentException("superAdminVisible is required.");
+        request.setAttribute(com.exam.config.AuditInterceptor.AUDIT_DETAILS, "Super Admin can see audit log = " + visible);
+        systemSettingService.updateSetting(SystemSettingService.AUDIT_LOG_VISIBLE_SUPER_ADMIN, String.valueOf(visible));
+        return auditLogAccess();
     }
 
     // ── Health and errors ───────────────────────────────────────────────

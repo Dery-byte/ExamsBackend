@@ -61,6 +61,7 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
             r("PUT",    ".*/developer/mode$",                        "Changed the system mode"),
             r("POST",   ".*/developer/errors/\\d+/resolve$",        "Changed an error's status"),
             r("DELETE", ".*/developer/errors/resolved$",             "Cleared resolved errors"),
+            r("PUT",    ".*/developer/audit-log/access$",           "Changed Super Admin audit log access"),
             r("POST",   ".*/super-admin/institution/logo$",          "Uploaded institution logo"),
             r("DELETE", ".*/super-admin/institution/logo$",          "Removed institution logo"),
             r("POST",   ".*/super-admin/documents/\\d+/revoke$",    "Changed a document's verification status"),

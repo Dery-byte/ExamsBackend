@@ -49,10 +49,11 @@ public class AuditService {
         }
     }
 
-    public Map<String, Object> search(String actor, String action, String role, LocalDate from, LocalDate to,
-                                      int page, int size) {
+    /** Searches the log; entries made by `hiddenRole` (when not null) are left out. */
+    public Map<String, Object> search(String actor, String action, String role, String hiddenRole,
+                                      LocalDate from, LocalDate to, int page, int size) {
         Page<AuditLog> result = auditLogRepository.search(
-                blankToNull(actor), blankToNull(action), blankToNull(role),
+                blankToNull(actor), blankToNull(action), blankToNull(role), hiddenRole,
                 from == null ? null : from.atStartOfDay(),
                 to == null ? null : to.plusDays(1).atStartOfDay(),
                 PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 200)));
@@ -65,8 +66,8 @@ public class AuditService {
         return m;
     }
 
-    public List<String> actions() {
-        return auditLogRepository.findDistinctActions();
+    public List<String> actions(String hiddenRole) {
+        return auditLogRepository.findDistinctActions(hiddenRole);
     }
 
     private static String blankToNull(String s) { return s == null || s.isBlank() ? null : s.trim(); }
