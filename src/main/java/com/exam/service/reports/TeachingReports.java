@@ -57,7 +57,7 @@ public class TeachingReports {
     }
 
     /** The chosen quiz, which must be inside the viewer's scope (their own, or their department's). */
-    private Quiz chosenQuiz(ReportFilters f, Lookups l) {
+    static Quiz chosenQuiz(ReportFilters f, Lookups l) {
         Quiz q = l.quiz(f.quizId());
         if (q == null) throw new IllegalArgumentException("Quiz not found.");
         if (!l.quizMatches(q.getqId(), new ReportFilters(null, f.departmentId(), null, null, null, null, null, null, null, null, f.lecturerId())))
@@ -373,7 +373,7 @@ public class TeachingReports {
         return String.join(" / ", correct);
     }
 
-    private static String typeName(QuestionType t) {
+    static String typeName(QuestionType t) {
         return switch (t) {
             case MCQ -> "Multiple choice";
             case TRUE_FALSE -> "True / false";
@@ -384,6 +384,10 @@ public class TeachingReports {
     }
 
     /** Question text without formatting, shortened for a table cell. */
+    static String plainFull(String html) {
+        return html == null ? "" : Jsoup.parse(html).text().trim();
+    }
+
     static String plain(String html) {
         if (html == null) return null;
         String text = Jsoup.parse(html).text().trim();

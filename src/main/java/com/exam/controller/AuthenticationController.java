@@ -95,6 +95,10 @@ public class AuthenticationController {
         if (!staffCaller && !featureService.isOnSystemWide(com.exam.model.features.Feature.STUDENT_SELF_SIGNUP))
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(java.util.Map.of("message", "Self sign-up is closed. Please ask your department to create your account."));
+        // No new accounts while the portal is under maintenance (staff adding students are unaffected)
+        if (!staffCaller && maintenance.isOn())
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(java.util.Map.of("message", maintenance.message()));
         try {
             return ResponseEntity.ok(service.register(request));
         } catch (UserFoundException e) {
@@ -185,6 +189,8 @@ public class AuthenticationController {
 
 @Autowired
 private com.exam.config.RateLimiter rateLimiter;
+@Autowired
+private com.exam.service.admin.MaintenanceService maintenance;
 private static final int MAX_FAILED_LOGINS = 5;
 private static final long LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000L;
 
@@ -207,6 +213,14 @@ public ResponseEntity<AuthenticationResponse> authenticate(
         long wait = Math.max(1, rateLimiter.retryAfterSeconds(lockKey, LOGIN_LOCK_WINDOW_MS) / 60);
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(AuthenticationResponse.builder()
                 .message("Too many failed sign-in attempts for this account. Try again in " + wait + " minute(s).").build());
+    }
+
+    // Maintenance: nobody new signs in except those the developer allowed (developers use their own sign-in)
+    if (maintenance.isOn()) {
+        Role role = userRepository.findByUsername(String.valueOf(request.getUsername()).trim()).map(User::getRole).orElse(null);
+        if (role == null || !maintenance.allowsSignIn(role))
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(AuthenticationResponse.builder()
+                    .message(maintenance.message()).build());
     }
 
     // Authenticate user and generate token

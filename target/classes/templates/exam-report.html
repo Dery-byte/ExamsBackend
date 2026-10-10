@@ -87,9 +87,8 @@
       </div>
     </td>
     <td style="padding-left: 10pt; vertical-align: middle;">
-      <div style="font-size: 14.5pt; font-weight: bold; color: #1a2744; margin-bottom: 1pt;">University of Cape Coast</div>
-      <div style="font-size: 9pt; color: #4a4a9c; font-weight: bold; margin-bottom: 1pt;">School of Physical Sciences</div>
-      <div style="font-size: 9pt; color: #4a4a9c;">Department of Computer Science and Information Technology</div>
+      <div style="font-size: 14.5pt; font-weight: bold; color: #1a2744; margin-bottom: 1pt;" th:text="${institutionName}">University of Cape Coast</div>
+      <div th:if="${institutionSubtitle != null and !institutionSubtitle.isEmpty()}" style="font-size: 9pt; color: #4a4a9c; font-weight: bold; margin-bottom: 1pt;" th:text="${institutionSubtitle}">School of Physical Sciences</div>
       <div style="font-size: 7pt; color: #888; text-transform: uppercase; letter-spacing: 1pt; margin-top: 2pt;">Official Quiz Performance Report</div>
     </td>
     <td style="text-align: right; vertical-align: top; width: 82pt;">

@@ -34,7 +34,9 @@ import static com.exam.service.reports.ReportSupport.*;
 @Transactional(readOnly = true)
 public class OversightReports {
 
-    /** Audit actions worth a second look, by group (names as written by AuditInterceptor). */
+    public static final String VIEWED_ANSWER_KEY = "Opened quiz answer key", PRINTED_ANSWER_KEY = "Printed quiz answer key";
+
+    /** Audit actions worth a second look, by group (names as written by AuditInterceptor and the report endpoints). */
     static final Map<String, String> SENSITIVE = new LinkedHashMap<>();
     static {
         for (String a : List.of("Approved marks sheet", "Published marks sheet", "Returned marks sheet for corrections",
@@ -53,6 +55,8 @@ public class OversightReports {
             SENSITIVE.put(a, "Finance");
         for (String a : List.of("Changed a document's verification status"))
             SENSITIVE.put(a, "Documents");
+        for (String a : List.of(VIEWED_ANSWER_KEY, PRINTED_ANSWER_KEY))
+            SENSITIVE.put(a, "Exam papers");
         for (String a : List.of("Deleted quiz", "Deleted course", "Deleted program", "Deleted department",
                 "Deleted academic session", "Changed current academic session"))
             SENSITIVE.put(a, "Structure");

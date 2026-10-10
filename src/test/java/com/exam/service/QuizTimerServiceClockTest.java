@@ -196,9 +196,13 @@ class QuizTimerServiceClockTest {
         assertThat(timer.getUpdatedAt()).isEqualTo(checkpoint);
     }
 
+    private void lockOutRunsWhileAway(boolean on) {
+        when(systemSettingService.getBooleanSetting(eq(SystemSettingService.EXAM_LOCKOUT_RUNS_WHILE_AWAY), anyBoolean())).thenReturn(on);
+    }
+
     @Test
     void lockOutIsSavedOnceAndResumesFromTheServer() {
-        clockRunsWhileAway(true);
+        lockOutRunsWhileAway(true);
         VoilationTimerRequestDTO delay = new VoilationTimerRequestDTO();
         delay.setViolationDelayTime(60);
         service.saveViolationDelayTime(1L, 7L, delay);
@@ -211,21 +215,52 @@ class QuizTimerServiceClockTest {
     }
 
     @Test
-    void lockOutPausesWithTheClockWhileAway() {
+    void lockOutPausesWhileAwayEvenWhenTheExamClockRuns() {
+        clockRunsWhileAway(true);
+        lockOutRunsWhileAway(false);
+        VoilationTimerRequestDTO delay = new VoilationTimerRequestDTO();
+        delay.setViolationDelayTime(45);                 // what was left as the page closed
+        service.saveViolationDelayTime(1L, 7L, delay);
+
+        // Back 10 minutes later, with a fresh exam clock checkpoint from the queue
+        timer.setViolationDelayUntil(timer.getViolationDelayUntil().minusSeconds(600));
+        timer.setUpdatedAt(LocalDateTime.now());
+        ViolationTimerResponseDTO res = service.getViolationDelayTime(1L, 7L);
+
+        assertThat(res.getViolationDelayTime()).isEqualTo(45);
+        assertThat(res.getPausesWhileAway()).isTrue();
+    }
+
+    @Test
+    void lockOutRunsWhileAwayWhenSwitchedOnEvenIfTheExamClockPauses() {
         clockRunsWhileAway(false);
+        lockOutRunsWhileAway(true);
         LocalDateTime now = LocalDateTime.now();
         timer.setViolationDelayTime(60);
-        timer.setViolationDelayUntil(now.plusSeconds(60 - 600));   // started 10 minutes ago …
-        timer.setUpdatedAt(now.minusSeconds(600 - 15));            // … last seen 15 s into it
+        timer.setViolationDelayUntil(now.plusSeconds(60 - 600));   // started 10 minutes ago
+        timer.setUpdatedAt(now.minusSeconds(600 - 15));
 
         ViolationTimerResponseDTO res = service.getViolationDelayTime(1L, 7L);
 
-        assertThat(res.getViolationDelayTime()).isBetween(44, 45);
+        assertThat(res.getViolationDelayTime()).isZero();
+        assertThat(res.getPausesWhileAway()).isFalse();
+    }
+
+    @Test
+    void clearedLockOutStaysClearedWhilePaused() {
+        lockOutRunsWhileAway(false);
+        timer.setViolationDelayTime(20);
+        timer.setViolationDelayUntil(LocalDateTime.now().plusSeconds(20));
+        VoilationTimerRequestDTO done = new VoilationTimerRequestDTO();
+        done.setViolationDelayTime(0);                    // served in full on the page
+        service.saveViolationDelayTime(1L, 7L, done);
+
+        assertThat(service.getViolationDelayTime(1L, 7L).getViolationDelayTime()).isZero();
     }
 
     @Test
     void noLockOutWhenNoneWasStarted() {
-        clockRunsWhileAway(true);
+        lockOutRunsWhileAway(true);
         assertThat(service.getViolationDelayTime(1L, 7L).getViolationDelayTime()).isZero();
         when(quizTimerRepository.findByUserIdAndQuiz_qId(7L, 1L)).thenReturn(Optional.empty());
         assertThat(service.getViolationDelayTime(1L, 7L).getViolationDelayTime()).isZero();

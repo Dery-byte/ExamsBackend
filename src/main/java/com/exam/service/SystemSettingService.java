@@ -37,6 +37,13 @@ public class SystemSettingService {
      */
     public static final String EXAM_CLOCK_RUNS_WHILE_AWAY = "EXAM_CLOCK_RUNS_WHILE_AWAY";
 
+    /**
+     * When "false" (default), a violation lock-out pauses while the student is away (browser closed,
+     * power cut, offline): on return it shows again and runs on from where it stopped before access
+     * comes back. When "true", the time away counts towards the lock-out.
+     */
+    public static final String EXAM_LOCKOUT_RUNS_WHILE_AWAY = "EXAM_LOCKOUT_RUNS_WHILE_AWAY";
+
     /** Super Admin switches for fees: the Fees page for students, paying online, paying in parts. */
     public static final String FEES_VISIBLE_STUDENT  = "FEES_VISIBLE_STUDENT";
     public static final String FEES_ONLINE_PAYMENT   = "FEES_ONLINE_PAYMENT";
@@ -56,12 +63,21 @@ public class SystemSettingService {
     public static final String AUDIT_LOG_VISIBLE_SUPER_ADMIN = "AUDIT_LOG_VISIBLE_SUPER_ADMIN";
 
     /** Keys only the developer may change; the Super Admin's settings endpoint refuses them. */
-    public static final Set<String> DEVELOPER_ONLY = Set.of(AUDIT_LOG_VISIBLE_SUPER_ADMIN);
+    public static final Set<String> DEVELOPER_ONLY = Set.of(AUDIT_LOG_VISIBLE_SUPER_ADMIN, "SYSTEM_MODE");
+    /** Whole families of developer-only keys: colour theme, maintenance mode, setup bookkeeping. */
+    private static final List<String> DEVELOPER_ONLY_PREFIXES = List.of("THEME_", "MAINTENANCE_", "SETUP_");
+
+    public static boolean isDeveloperOnly(String key) {
+        return key != null && (DEVELOPER_ONLY.contains(key) || DEVELOPER_ONLY_PREFIXES.stream().anyMatch(key::startsWith));
+    }
 
     @PostConstruct
     public void initDefaultSettings() {
         if (!systemSettingRepository.existsById(EXAM_CLOCK_RUNS_WHILE_AWAY)) {
             systemSettingRepository.save(new SystemSetting(EXAM_CLOCK_RUNS_WHILE_AWAY, "true"));
+        }
+        if (!systemSettingRepository.existsById(EXAM_LOCKOUT_RUNS_WHILE_AWAY)) {
+            systemSettingRepository.save(new SystemSetting(EXAM_LOCKOUT_RUNS_WHILE_AWAY, "false"));
         }
         for (String key : List.of(MARKS_SHEET_VISIBLE_ADMIN, MARKS_SHEET_VISIBLE_LECTURER, MARKS_SHEET_VISIBLE_STUDENT)) {
             if (!systemSettingRepository.existsById(key)) {
@@ -99,6 +115,17 @@ public class SystemSettingService {
         String val = getSetting(key);
         if (val == null) return defaultValue;
         return Boolean.parseBoolean(val);
+    }
+
+    /** Several settings in one query; keys without a row are left out. */
+    public Map<String, String> getSettings(java.util.Collection<String> keys) {
+        Map<String, String> m = new HashMap<>();
+        systemSettingRepository.findAllById(keys).forEach(s -> m.put(s.getSettingKey(), s.getSettingValue()));
+        return m;
+    }
+
+    public void deleteSetting(String key) {
+        if (systemSettingRepository.existsById(key)) systemSettingRepository.deleteById(key);
     }
 
     public void updateSetting(String key, String value) {

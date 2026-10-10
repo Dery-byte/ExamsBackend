@@ -43,6 +43,7 @@ public class PdfReportService {
     @Autowired private TemplateEngine templateEngine;
     @Autowired private QuestionImageService questionImageService;
     @Autowired private com.exam.service.academic.InstitutionService institutionService;
+    @Autowired private com.exam.service.academic.ThemeService themeService;
     @Autowired private com.exam.service.academic.DocumentVerificationService verificationService;
     @Autowired @Lazy private com.exam.service.academic.TermRemarkService termRemarkService;
     @Autowired @Lazy private MarksEntryService marksEntryService;
@@ -198,19 +199,13 @@ public class PdfReportService {
         ctx.setVariable("watermarkBase64", generateDiagonalWatermarkBase64(candidateIdStr));
         System.out.println("[PDF-SVC] ✔ Step E Done");
 
-        try {
-            ClassPathResource imgFile = new ClassPathResource("static/images/ucc-logo.png");
-            byte[] bytes = org.springframework.util.StreamUtils.copyToByteArray(imgFile.getInputStream());
-            String base64Img = Base64.getEncoder().encodeToString(bytes);
-            ctx.setVariable("uccLogoBase64", "data:image/png;base64," + base64Img);
-            System.out.println("[PDF-SVC] ✔ Logo loaded");
-        } catch (Exception e) {
-            System.out.println("[PDF-SVC] ⚠ Logo not found, continuing without it");
-            ctx.setVariable("uccLogoBase64", "");
-        }
+        // The institution's own logo and name (the bundled UCC crest only while it is still UCC)
+        ctx.setVariable("uccLogoBase64", institutionService.logoDataUrl());
+        ctx.setVariable("institutionName", institutionService.name());
+        ctx.setVariable("institutionSubtitle", institutionService.subtitle());
 
         System.out.println("[PDF-SVC] ▶ Step F: Rendering Thymeleaf HTML template");
-        String html = templateEngine.process("exam-report", ctx);
+        String html = themeService.recolor(templateEngine.process("exam-report", ctx));
         System.out.println("[PDF-SVC] ✔ Step F Done — HTML length=" + html.length());
 
         System.out.println("[PDF-SVC] ▶ Step G: Converting HTML to XHTML via Jsoup");
@@ -416,7 +411,7 @@ public class PdfReportService {
         ctx.setVariable("remark",       data.get("remark"));
         issueCode(ctx, com.exam.model.academic.DocumentVerification.Type.REPORT_CARD, data, termSummary(data));
 
-        String html  = templateEngine.process("semester-report-card", ctx);
+        String html  = themeService.recolor(templateEngine.process("semester-report-card", ctx));
         Document doc = Jsoup.parse(html);
         doc.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
         doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
@@ -529,7 +524,7 @@ public class PdfReportService {
         who.put("programName", transcript.get("program"));
         issueCode(ctx, com.exam.model.academic.DocumentVerification.Type.TRANSCRIPT, who, summary.toString());
 
-        String html  = templateEngine.process("transcript", ctx);
+        String html  = themeService.recolor(templateEngine.process("transcript", ctx));
         Document doc = Jsoup.parse(html);
         doc.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
         doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
@@ -563,7 +558,7 @@ public class PdfReportService {
             issueCode(ctx, com.exam.model.academic.DocumentVerification.Type.CUMULATIVE_REPORT, allData.get(0), summary);
         }
 
-        String html  = templateEngine.process("combined-semester-report-card", ctx);
+        String html  = themeService.recolor(templateEngine.process("combined-semester-report-card", ctx));
         Document doc = Jsoup.parse(html);
         doc.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
         doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);

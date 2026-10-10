@@ -32,7 +32,8 @@ public class ReportEmailService {
     @Autowired private JavaMailSender mailSender;
 
     @Value("${app.mail.from-address:optimusinforservice@gmail.com}") private String fromAddress;
-    @Value("${app.mail.from-name:EduApp Support}") private String fromName;
+    @Value("${app.mail.from-name:}") private String fromName;
+    @Autowired private com.exam.service.academic.InstitutionService institutionService;
 
     public boolean isEnabled() {
         return systemSettingService.getBooleanSetting(SystemSettingService.EMAIL_REPORT_FEATURE_ENABLED, true);
@@ -77,7 +78,8 @@ public class ReportEmailService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromAddress, fromName);
+            String institution = institutionService.name();
+            helper.setFrom(fromAddress, fromName == null || fromName.isBlank() ? institution : fromName);
             helper.setTo(to);
             helper.setSubject("Your result slip: " + course + " - " + quizTitle);
             String greeting = name.isEmpty() ? "Hello," : "Hello " + HtmlUtils.htmlEscape(name) + ",";
@@ -93,7 +95,7 @@ public class ReportEmailService {
                     + (lecturerName == null || lecturerName.isBlank() ? "Your Lecturer" : HtmlUtils.htmlEscape(lecturerName))
                     + "</b>.</p>"
                     + "<p>Best regards,<br>"
-                    + " OTC &copy; " + Year.now().getValue() + "</p>", true);
+                    + HtmlUtils.htmlEscape(institution) + " &copy; " + Year.now().getValue() + "</p>", true);
             helper.addAttachment(fileName, new ByteArrayResource(pdf), "application/pdf");
             mailSender.send(message);
             log.info("[REPORT-MAIL] Result slip sent to {}", to);

@@ -28,6 +28,10 @@ public class ReportResult {
     private final List<String> notes = new ArrayList<>();
     private final LocalDateTime generatedAt = LocalDateTime.now();
     @Setter private String generatedBy;
+    /** A document meant for printing (e.g. a question paper): the page puts its PDF download first. */
+    @Setter private boolean printable;
+    /** What a printable report's PDF is drawn from instead of its tables (never sent to the page). */
+    @Setter @com.fasterxml.jackson.annotation.JsonIgnore private Object document;
 
     public ReportResult(String key, String title, String description) {
         this.key = key;

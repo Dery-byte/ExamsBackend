@@ -14,6 +14,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\The
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\config\JacksonProxyJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\monitoring\ErrorPathGroupingTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\examops\QuestionBankUploadTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\admin\MaintenanceServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\TheoryCriteriaVisibilityTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AnswerMatcherTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAutoCloseTest.java
@@ -21,13 +22,16 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\Fea
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\SecurityRulesIntegrationTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizTimerServiceClockTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\FeeBreakdownTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\FakeSettings.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\MatchingPairsLoadJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AcademicPdfRenderTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\academic\DocumentVerificationCodeTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\reports\ReportsJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\IndexNumberRangeTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuestionTypeChangeTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\academic\ThemeServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAccessTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\admin\ConfigTransferServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\ClassPositionTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\monitoring\DeveloperAuthServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AttemptServiceJpaTest.java

@@ -49,7 +49,7 @@ public class ErrorMonitorService {
     @Autowired private PlatformTransactionManager transactionManager;
 
     @Value("${app.mail.from-address:optimusinforservice@gmail.com}") private String fromAddress;
-    @Value("${app.mail.from-name:EduApp Support}") private String fromName;
+    @Value("${app.mail.from-name:}") private String fromName;
     @Value("${app.monitoring.email-alerts:true}") private boolean emailAlerts;
 
     /** A request that ended in a server error. */
@@ -176,7 +176,7 @@ public class ErrorMonitorService {
             try {
                 MimeMessage message = mailSender.createMimeMessage();
                 MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
-                helper.setFrom(fromAddress, fromName);
+                helper.setFrom(fromAddress, fromName == null || fromName.isBlank() ? "Exam Portal" : fromName);
                 helper.setTo(to.toArray(new String[0]));
                 helper.setSubject("[Exam portal] " + (e.getOccurrences() > 1 ? "Error again (" + e.getOccurrences() + "×): " : "New error: ")
                         + cut(e.getLocation(), 90));

@@ -310,9 +310,10 @@ public class QuizTimerService {
     // without a new remainingTime would hand the student back the seconds since the last checkpoint.
 
     /**
-     * Starts (or clears, with 0) a violation lock-out. The client sends the length once, when the
-     * lock-out starts; the server stores when it ends. No per-second saves are needed, and a student
-     * who signs in again — on any device — resumes the same lock-out.
+     * Starts (or clears, with 0) a violation lock-out. The client sends the length when the lock-out
+     * starts; the server stores when it ends, and a student who signs in again — on any device —
+     * resumes the same lock-out. When the lock-out pauses while the student is away, the client also
+     * reports what is left every few seconds and when the page closes.
      */
     @Transactional
     public ViolationTimerResponseDTO saveViolationDelayTime(Long quizId, Long userId,
@@ -328,33 +329,34 @@ public class QuizTimerService {
             quizTimerRepository.save(timer);
         });
         response.setViolationDelayTime(found.isPresent() ? seconds : 0);
+        response.setPausesWhileAway(!lockoutRunsWhileAway());
         return response;
     }
 
     /** Seconds of lock-out still to serve (0 when none). */
     @Transactional(readOnly = true)
     public ViolationTimerResponseDTO getViolationDelayTime(Long quizId, Long userId) {
+        boolean runsWhileAway = lockoutRunsWhileAway();
         ViolationTimerResponseDTO response = new ViolationTimerResponseDTO();
         response.setViolationDelayTime(quizTimerRepository.findByUserIdAndQuiz_qId(userId, quizId)
-                .map(this::remainingDelay)
+                .map(t -> remainingDelay(t, runsWhileAway))
                 .orElse(0));
+        response.setPausesWhileAway(!runsWhileAway);
         return response;
     }
 
     /**
-     * The lock-out runs on the same rules as the exam clock: while the student is away it keeps
-     * running if the exam clock does; otherwise it only ran until the last clock checkpoint.
+     * The lock-out has its own Super Admin setting, separate from the exam clock. When it runs while
+     * the student is away, it ends at the stored time. When it pauses, it stopped at the last time
+     * the student's page reported what was left (every few seconds, and as the page closed), so that
+     * is what is still to serve — however long they were gone.
      */
-    private int remainingDelay(QuizTimer t) {
+    private int remainingDelay(QuizTimer t, boolean runsWhileAway) {
         LocalDateTime until = t.getViolationDelayUntil();
         int length = t.getViolationDelayTime() == null ? 0 : Math.max(0, t.getViolationDelayTime());
         if (until == null) return 0;
-        LocalDateTime servedUntil = LocalDateTime.now();
-        if (!clockRunsWhileAway() && t.getUpdatedAt() != null) {
-            LocalDateTime started = until.minusSeconds(length);
-            servedUntil = t.getUpdatedAt().isAfter(started) ? t.getUpdatedAt() : started;
-        }
-        long left = Duration.between(servedUntil, until).getSeconds();
+        if (!runsWhileAway) return length;
+        long left = Duration.between(LocalDateTime.now(), until).getSeconds();
         return (int) Math.max(0, Math.min(length, left));
     }
 
@@ -426,6 +428,10 @@ public class QuizTimerService {
 
     private boolean clockRunsWhileAway() {
         return systemSettingService.getBooleanSetting(com.exam.service.SystemSettingService.EXAM_CLOCK_RUNS_WHILE_AWAY, true);
+    }
+
+    private boolean lockoutRunsWhileAway() {
+        return systemSettingService.getBooleanSetting(com.exam.service.SystemSettingService.EXAM_LOCKOUT_RUNS_WHILE_AWAY, false);
     }
 
     /** Full exam length in seconds: the quiz time plus the time allowed for every theory section. */

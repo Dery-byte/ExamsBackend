@@ -61,10 +61,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.datasource.password=",
         "spring.jpa.show-sql=false",
 })
-@Import({ReportQueries.class, ReportSupport.class, Standings.class, AcademicReports.class, ResultsReports.class, TeachingReports.class, ExamReports.class,
+@Import({ReportQueries.class, ReportSupport.class, Standings.class, AcademicReports.class, ResultsReports.class, TeachingReports.class, QuestionPapers.class, QuestionPaperPdf.class, com.exam.service.QuestionImageService.class, ExamReports.class,
         FinanceReports.class, OversightReports.class, ReportCatalog.class, ReportPdfService.class,
         AcademicRecordService.class, GradingService.class, AcademicSessionService.class, InstitutionService.class,
         SystemSettingService.class, TimetableService.class, FeeScheduleService.class, ResultsHoldService.class,
+        com.exam.service.academic.ThemeService.class, com.exam.service.admin.MaintenanceService.class,
         ReportsJpaTest.Templates.class})
 class ReportsJpaTest {
 
@@ -471,6 +472,232 @@ class ReportsJpaTest {
 
         ReportResult rr = catalog.run("remark-requests", ReportFilters.none(), lecturer);
         assertThat(table(rr, "requests")).extracting(m -> m.get("status")).containsExactly("Waiting");
+    }
+
+    @Test
+    void questionPaperHasBothSectionsWithAndWithoutAnswers() throws Exception {
+        Quiz exam = new Quiz();
+        exam.setTitle("Final exam");
+        exam.setQuizTime("60");
+        exam.setQuizpassword("");
+        exam.setQuizType(QuizType.BOTH);
+        exam.setMaxMarks(30.0);
+        exam.setCategory(course);
+        exam.setQuizDate(LocalDate.now().plusDays(5));
+        exam.setStartTime(LocalTime.of(9, 30));
+        em.persist(exam);
+
+        Questions mcq = new Questions();
+        mcq.setContent("<p>Which structure is <b>LIFO</b>?</p><script>alert(1)</script>");
+        mcq.setOption1("Queue");
+        mcq.setOption2("Stack");
+        mcq.setcorrect_answer(new String[]{"Stack"});
+        mcq.setQuestionType(QuestionType.MCQ);
+        mcq.setQuiz(exam);
+        em.persist(mcq);
+        Questions match = new Questions();
+        match.setContent("Match each structure to its order");
+        match.setQuestionType(QuestionType.MATCHING);
+        match.setQuiz(exam);
+        em.persist(match);
+        em.persist(pair(match, "Stack", "LIFO", 0));
+        em.persist(pair(match, "Queue", "FIFO", 1));
+        Questions blank = new Questions();
+        blank.setContent("The first node of a linked list is the ____.");
+        blank.setcorrect_answer(new String[]{"head", "front"});
+        blank.setQuestionType(QuestionType.FILL_BLANK);
+        blank.setQuiz(exam);
+        em.persist(blank);
+
+        em.persist(theory(exam, "1a", "Define a tree.", "5", true, "A connected acyclic graph."));
+        em.persist(theory(exam, "1b", "Give two uses.", "5", true, null));
+        em.persist(theory(exam, "2", "Explain hashing.", "10", false, "Mapping keys to slots."));
+        em.persist(new NumberOfTheoryToAnswer(null, 30, 1, exam));
+        em.flush();
+        em.clear();
+
+        ReportFilters f = quizFilter(exam.getqId());
+        ReportResult paper = catalog.run("question-paper", f, lecturer);
+        Map<String, String> details = new HashMap<>();
+        table(paper, "details").forEach(m -> details.put((String) m.get("label"), (String) m.get("value")));
+        assertThat(details.get("Course code")).isEqualTo("CS201");
+        assertThat(details.get("Quiz")).isEqualTo("Final exam");
+        assertThat(details.get("Start time")).isEqualTo("09:30");
+        assertThat(details.get("Duration")).isEqualTo("1 hr 30 min (Section A 1 hr, Section B 30 min)");
+        assertThat(details.get("Section B")).isEqualTo("Answer 1 of 2 theory questions, 10 marks");
+        assertThat(table(paper, "instructions")).extracting(m -> m.get("instruction"))
+                .containsExactly("Answer all questions in Section A.", "Answer any one (1) question in Section B. Question 1 is compulsory.");
+        QuestionPapers.Paper doc = (QuestionPapers.Paper) paper.getDocument();
+        assertThat(doc.cover().timeAllowed()).isEqualTo("One (1) Hour Thirty (30) Minutes");
+        assertThat(doc.cover().courseLine()).isEqualTo("CS201: Data Structures");
+        assertThat(doc.cover().examLine()).isEqualTo("Final exam, 2026/2027 academic year");
+        assertThat(doc.cover().examiner()).isEqualTo("Lect Test");
+        assertThat(doc.cover().registrationCells()).hasSize(5);   // shaped like the students' numbers ("10001")
+        assertThat(doc.sectionBHeading()).isEqualTo("Section B: Answer any one (1) question from this section. Question 1 is compulsory");
+        assertThat(doc.theory().get(0).items()).extracting(QuestionPapers.TheoryItem::label).containsExactly("a)", "b)");
+        assertThat(doc.theory().get(1).items()).extracting(QuestionPapers.TheoryItem::label).containsOnlyNulls();
+        assertThat(hasNoTypeColumn(paper)).isTrue();
+        List<Map<String, Object>> objective = table(paper, "objective");
+        assertThat(objective).hasSize(3);
+        assertThat(objective.get(0).get("question")).isEqualTo("Which structure is LIFO?");
+        assertThat(objective.get(0)).doesNotContainKey("answer");
+        assertThat((String) objective.get(1).get("question")).contains("(i) Stack", "A. FIFO", "B. LIFO");
+        assertThat(table(paper, "theory")).extracting(m -> m.get("no")).containsExactly("1a", "1b", "2");
+        assertThat(table(paper, "theory").get(0).keySet()).containsExactly("no", "question", "marks", "compulsory");
+        assertThat(paper.isPrintable()).isTrue();
+
+        ReportResult key = catalog.run("question-paper-answers", f, lecturer);
+        List<Map<String, Object>> keyed = table(key, "objective");
+        assertThat(keyed.get(0).get("answer")).isEqualTo("B");
+        assertThat(keyed.get(1).get("answer")).isEqualTo("i = B, ii = A");
+        assertThat(keyed.get(2).get("answer")).isEqualTo("head / front");
+        // Theory questions are presented as set: no marking guide or answer on either version
+        assertThat(table(key, "theory")).isEqualTo(table(paper, "theory"));
+
+        // The printed paper: cover, Section A, Section B, drawn as real text
+        List<String> pages = pdfPages(pdf.render(paper));
+        assertThat(pages).hasSize(3);
+        assertThat(pages.get(0)).contains("CS201: DATA STRUCTURES", "FINAL EXAM, 2026/2027 ACADEMIC YEAR", "One (1) Hour Thirty (30) Minutes",
+                "Student Registration Number", "ANSWER ANY ONE (1) QUESTION IN SECTION B. QUESTION 1 IS COMPULSORY.", "Examiner(s): Lect Test")
+                .doesNotContain("Page 1");
+        assertThat(pages.get(1)).contains("Page 2 of 3", "1)", "a)", "Queue", "(i)", "Match with:", "Answer:");
+        assertThat(pages.get(2)).contains("Page 3 of 3", "SECTION B", "Q1", "(Compulsory)", "Define a tree.", "[5 Marks]", "[10 Marks]");
+        List<String> keyPages = pdfPages(pdf.render(key));
+        assertThat(keyPages.get(0)).contains("ANSWER KEY").doesNotContain("Student Registration Number");
+        assertThat(keyPages.get(1)).contains("(correct)", "= B", "Answer: head / front", "ANSWER KEY - CONFIDENTIAL");
+
+        for (ReportResult r : List.of(paper, key)) {
+            byte[] bytes = pdf.render(r);
+            assertThat(new String(bytes, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+        }
+        assertThatThrownBy(() -> catalog.run("question-paper-answers", f, otherLecturer))
+                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+    }
+
+    private static boolean hasNoTypeColumn(ReportResult r) {
+        return r.getTables().stream().filter(t -> t.getId().equals("objective")).findFirst().orElseThrow()
+                .getColumns().stream().noneMatch(c -> c.key().equals("type"));
+    }
+
+    @Test
+    void sectionAFillsTheLeftColumnThenTheRightThenANewPage() throws Exception {
+        Quiz big = new Quiz();
+        big.setTitle("Long quiz");
+        big.setQuizTime("60");
+        big.setQuizpassword("");
+        big.setQuizType(QuizType.OBJ);
+        big.setMaxMarks(50.0);
+        big.setCategory(course);
+        em.persist(big);
+        for (int i = 1; i <= 50; i++) {
+            Questions q = new Questions();
+            q.setContent("Question number " + i + ": which of the following best describes the idea being tested here?");
+            q.setOption1("The first option, of a typical length");
+            q.setOption2("The second option, of a typical length");
+            q.setOption3("The third option");
+            q.setOption4("The fourth option");
+            q.setcorrect_answer(new String[]{"The third option"});
+            q.setQuestionType(QuestionType.MCQ);
+            q.setQuiz(big);
+            em.persist(q);
+        }
+        em.flush();
+        em.clear();
+        ReportResult r = catalog.run("question-paper", quizFilter(big.getqId()), lecturer);
+        QuestionPapers.Paper doc = (QuestionPapers.Paper) r.getDocument();
+        assertThat(doc.sectionAHeading()).startsWith("Section A: Choose the most appropriate answer");
+
+        // Section A flows down the left column, then the right, then onto the next page: every
+        // question appears once, in order, and no page after the cover is left without questions
+        List<String> pages = pdfPages(pdf.render(r));
+        assertThat(pages.size()).isBetween(4, 8);
+        List<Integer> order = new ArrayList<>();
+        for (int i = 1; i < pages.size(); i++) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("Question number (\\d+):").matcher(pages.get(i));
+            int before = order.size();
+            while (m.find()) order.add(Integer.parseInt(m.group(1)));
+            assertThat(order.size()).as("page " + (i + 1) + " has questions").isGreaterThan(before);
+            assertThat(pages.get(i)).contains("Page " + (i + 1) + " of " + pages.size());
+        }
+        assertThat(order).hasSize(50).isSorted().doesNotHaveDuplicates();
+        for (String key : List.of("question-paper", "question-paper-answers")) {
+            byte[] bytes = pdf.render(catalog.run(key, quizFilter(big.getqId()), lecturer));
+            assertThat(new String(bytes, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+        }
+    }
+
+    @Test
+    void coverShowsTheProgrammeEvenWhenTheCourseHasNone() throws Exception {
+        // A course with no programmes of its own; one quiz names its programme, another relies on registrations
+        Category general = new Category();
+        general.setTitle("Communication Skills");
+        general.setCourseCode("CMS101");
+        general.setUser(lecturer);
+        em.persist(general);
+        Program cs = em.find(Program.class, course.getPrograms().iterator().next().getId());
+
+        Quiz named = paperQuiz("Quiz with programme", general);
+        named.setPrograms(new HashSet<>(Set.of(cs)));
+        em.persist(named);
+        Quiz viaRegistrations = paperQuiz("Quiz by registrations", general);
+        em.persist(viaRegistrations);
+        Registered_courses reg = new Registered_courses();
+        reg.setUser(ama);
+        reg.setCategory(general);
+        reg.setSession(session);
+        reg.setRegDate(new Date());
+        em.persist(reg);
+        em.flush();
+        em.clear();
+
+        for (Quiz q : List.of(named, viaRegistrations)) {
+            ReportResult r = catalog.run("question-paper", quizFilter(q.getqId()), lecturer);
+            QuestionPapers.Paper doc = (QuestionPapers.Paper) r.getDocument();
+            assertThat(doc.cover().programme()).as(q.getTitle()).isEqualTo("Programme: Computer Science");
+            assertThat(doc.cover().heading()).as(q.getTitle()).contains("Department of Computing");
+            assertThat(pdfPages(pdf.render(r)).get(0)).contains("PROGRAMME: COMPUTER SCIENCE", "DEPARTMENT OF COMPUTING");
+        }
+    }
+
+    private Quiz paperQuiz(String title, Category c) {
+        Quiz q = new Quiz();
+        q.setTitle(title);
+        q.setQuizTime("30");
+        q.setQuizpassword("");
+        q.setQuizType(QuizType.OBJ);
+        q.setMaxMarks(10.0);
+        q.setCategory(c);
+        q.setQuizDate(LocalDate.now().plusDays(3));
+        return q;
+    }
+
+    /** Each page's text, as a reader would extract it (proves the PDF holds real text). */
+    private static List<String> pdfPages(byte[] bytes) throws Exception {
+        com.lowagie.text.pdf.PdfReader reader = new com.lowagie.text.pdf.PdfReader(bytes);
+        com.lowagie.text.pdf.parser.PdfTextExtractor ex = new com.lowagie.text.pdf.parser.PdfTextExtractor(reader);
+        List<String> pages = new ArrayList<>();
+        for (int i = 1; i <= reader.getNumberOfPages(); i++) pages.add(ex.getTextFromPage(i));
+        return pages;
+    }
+
+    private static MatchingPair pair(Questions q, String prompt, String answer, int order) {
+        MatchingPair m = new MatchingPair();
+        m.setQuestion(q);
+        m.setPrompt(prompt);
+        m.setAnswer(answer);
+        m.setPairOrder(order);
+        return m;
+    }
+
+    private static TheoryQuestions theory(Quiz q, String no, String text, String marks, boolean compulsory, String guide) {
+        TheoryQuestions t = new TheoryQuestions();
+        t.setQuiz(q);
+        t.setQuesNo(no);
+        t.setQuestion(text);
+        t.setMarks(marks);
+        t.setIsCompulsory(compulsory);
+        t.setEvaluationCriteria(guide);
+        return t;
     }
 
     private static ReportFilters quizFilter(Long quizId) {

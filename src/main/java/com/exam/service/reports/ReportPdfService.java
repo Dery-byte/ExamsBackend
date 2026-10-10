@@ -26,6 +26,8 @@ public class ReportPdfService {
 
     @Autowired private TemplateEngine templateEngine;
     @Autowired private InstitutionService institutionService;
+    @Autowired private com.exam.service.academic.ThemeService themeService;
+    @Autowired private QuestionPaperPdf questionPaperPdf;
 
     public record Cell(String text, boolean right) {}
 
@@ -36,6 +38,7 @@ public class ReportPdfService {
     public record PrintStat(String label, String value, String hint) {}
 
     public byte[] render(ReportResult r) throws Exception {
+        if (r.getDocument() instanceof QuestionPapers.Paper paper) return renderPaper(r, paper);
         Context ctx = new Context();
         ctx.setVariable("r", r);
         ctx.setVariable("logo", institutionService.logoDataUrl());
@@ -66,7 +69,15 @@ public class ReportPdfService {
         }
         ctx.setVariable("tables", tables);
 
-        String html = templateEngine.process("report-table", ctx);
+        return toPdf(themeService.recolor(templateEngine.process("report-table", ctx)));
+    }
+
+    /** A question paper is drawn directly with the PDF library (see {@link QuestionPaperPdf}), not from a template. */
+    private byte[] renderPaper(ReportResult r, QuestionPapers.Paper paper) throws Exception {
+        return questionPaperPdf.render(paper, r.getGeneratedBy(), r.getGeneratedAt().format(DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm")));
+    }
+
+    private static byte[] toPdf(String html) throws Exception {
         Document doc = Jsoup.parse(html);
         doc.outputSettings().syntax(Document.OutputSettings.Syntax.xml);
         doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);

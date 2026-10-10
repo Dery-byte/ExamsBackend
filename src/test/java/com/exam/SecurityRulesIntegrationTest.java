@@ -216,6 +216,44 @@ class SecurityRulesIntegrationTest {
                 .andReturn().getResponse().getStatus()).isEqualTo(200);
     }
 
+    @Test
+    void onlyTheDeveloperChangesColoursAndMaintenance() throws Exception {
+        String theme = "{\"brand\":\"#15803d\",\"sidebar\":\"#14281d\",\"accent\":null}";
+        for (User u : new User[]{student, lecturer, hod, superAdmin}) {
+            assertThat(json(put("/api/v1/developer/theme").with(as(u)), theme)).as(u.getUsername()).isEqualTo(403);
+            assertThat(json(put("/api/v1/developer/maintenance").with(as(u)), "{\"enabled\":true}")).as(u.getUsername()).isEqualTo(403);
+        }
+        // Nor through the Super Admin's general settings endpoint
+        for (String key : new String[]{"THEME_BRAND", "MAINTENANCE_ON", "SYSTEM_MODE", "SETUP_EMAIL_VERIFIED_AT"})
+            assertThat(json(put("/api/v1/super-admin/settings").with(as(superAdmin)), "{\"" + key + "\":\"x\"}")).as(key).isEqualTo(403);
+
+        try {
+            assertThat(json(put("/api/v1/developer/theme").with(as(developer)), theme)).isEqualTo(200);
+            // Everyone (signed in or not) gets the colours with the institution details
+            assertThat(body(get("/api/v1/auth/institution"))).contains("#15803d").contains("\"customised\":true");
+        } finally {
+            mvc.perform(delete("/api/v1/developer/theme").with(as(developer)));
+        }
+    }
+
+    @Test
+    void maintenancePausesSignInExceptForDevelopersChoice() throws Exception {
+        User u = save("maint", Role.NORMAL);
+        u.setPassword(passwordEncoder.encode("correct-horse"));
+        users.save(u);
+        String creds = "{\"username\":\"maint\",\"password\":\"correct-horse\"}";
+        try {
+            assertThat(json(put("/api/v1/developer/maintenance").with(as(developer)), "{\"enabled\":true,\"message\":\"Back at six\"}")).isEqualTo(200);
+            var refused = mvc.perform(post("/api/v1/auth/authenticate").contentType(MediaType.APPLICATION_JSON).content(creds)).andReturn().getResponse();
+            assertThat(refused.getStatus()).isEqualTo(503);
+            assertThat(refused.getContentAsString()).contains("Back at six").doesNotContain("token\":\"ey");
+            assertThat(body(get("/api/v1/auth/institution"))).contains("Back at six");
+        } finally {
+            json(put("/api/v1/developer/maintenance").with(as(developer)), "{\"enabled\":false}");
+        }
+        assertThat(json(post("/api/v1/auth/authenticate"), creds)).isEqualTo(200);
+    }
+
     @Autowired com.exam.repository.DepartmentRepository departments;
 
     @Test

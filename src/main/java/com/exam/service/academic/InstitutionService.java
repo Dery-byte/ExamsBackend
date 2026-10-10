@@ -39,6 +39,8 @@ public class InstitutionService {
 
     @Autowired private SystemSettingService settings;
     @Autowired private InstitutionLogoRepository logoRepository;
+    @Autowired private ThemeService themeService;
+    @Autowired private com.exam.service.admin.MaintenanceService maintenanceService;
 
     @Value("${app.frontend-url:http://localhost:4200}")
     private String defaultPortalUrl;
@@ -108,6 +110,8 @@ public class InstitutionService {
         m.put("logoVersion", logo.isEmpty() || logo.get(0) == null ? 0L
                 : logo.get(0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli());
         m.put("terms", terms());
+        m.put("theme", themeService.theme());
+        m.put("maintenance", maintenanceService.publicStatus());
         return m;
     }
 

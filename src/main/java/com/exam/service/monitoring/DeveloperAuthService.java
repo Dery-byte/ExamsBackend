@@ -52,7 +52,7 @@ public class DeveloperAuthService {
     /** Local development without email: print codes to the server log. Never enable in production. */
     @Value("${app.developer.log-codes:false}") private boolean logCodes;
     @Value("${app.mail.from-address:optimusinforservice@gmail.com}") private String fromAddress;
-    @Value("${app.mail.from-name:EduApp Support}") private String fromName;
+    @Value("${app.mail.from-name:}") private String fromName;
 
     /** Addresses in the developer_email table (sign-in and error alerts). */
     public Set<String> developerEmails() {
@@ -149,7 +149,7 @@ public class DeveloperAuthService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
-            helper.setFrom(fromAddress, fromName);
+            helper.setFrom(fromAddress, fromName == null || fromName.isBlank() ? "Exam Portal" : fromName);
             helper.setTo(email);
             helper.setSubject("Your developer sign-in code: " + code);
             helper.setText("<p>Your developer sign-in code is</p>"

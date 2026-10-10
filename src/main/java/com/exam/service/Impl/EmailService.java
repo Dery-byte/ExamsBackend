@@ -31,10 +31,13 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
     private final SpringTemplateEngine templateEngine;
+    private final com.exam.service.academic.InstitutionService institutionService;
+    private final com.exam.service.academic.ThemeService themeService;
 
     @Value("${app.mail.from-address:optimusinforservice@gmail.com}")
     private String fromAddress;
-    @Value("${app.mail.from-name:EduApp Support}")
+    /** Blank = the institution's name, so emails come from whoever the portal belongs to. */
+    @Value("${app.mail.from-name:}")
     private String fromName;
 
     @Async
@@ -55,10 +58,12 @@ public class EmailService {
         );
 
         Context context = new Context();
+        context.setVariable("institutionName", institutionService.name());
+        context.setVariable("institutionShortName", institutionService.shortName());
         context.setVariables(properties);
 
         // ❗ MUST be a Mailjet verified domain, NOT Gmail
-        helper.setFrom(fromAddress, fromName);
+        helper.setFrom(fromAddress, fromName == null || fromName.isBlank() ? institutionService.name() : fromName);
         helper.setReplyTo("emmanuelderryshare@gmail.com");
 
 
@@ -66,7 +71,7 @@ public class EmailService {
         helper.setTo(to);
         helper.setSubject(subject);
 
-        String template = templateEngine.process(templateName, context);
+        String template = themeService.recolor(templateEngine.process(templateName, context));
         helper.setText(template, true);
 
         mailSender.send(mimeMessage);

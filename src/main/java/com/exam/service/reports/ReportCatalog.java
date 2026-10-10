@@ -41,11 +41,14 @@ public class ReportCatalog {
     private static final Set<Role> ALL = EnumSet.of(Role.SUPER_ADMIN, Role.ADMIN, Role.LECTURER);
     private static final Set<Role> ADMINS = EnumSet.of(Role.SUPER_ADMIN, Role.ADMIN);
     private static final Set<Role> SUPER = EnumSet.of(Role.SUPER_ADMIN);
+    /** The question paper with its answers: opening and printing it is recorded in the audit log. */
+    public static final String ANSWER_KEY = "question-paper-answers";
 
     @Autowired private ReportSupport support;
     @Autowired private AcademicReports academic;
     @Autowired private ResultsReports results;
     @Autowired private TeachingReports teaching;
+    @Autowired private QuestionPapers papers;
     @Autowired private ExamReports exams;
     @Autowired private FinanceReports finance;
     @Autowired private OversightReports oversight;
@@ -93,6 +96,12 @@ public class ReportCatalog {
         out.add(e(ALL, new Definition("question-analysis", "Question analysis", "Teaching",
                 "How each question performed: correct rate, difficulty, discrimination, options chosen, and answer keys to check.",
                 "search", List.of(quiz)), (x, u) -> teaching.questionAnalysis(x)));
+        out.add(e(ALL, new Definition("question-paper", "Question paper", "Teaching",
+                "One quiz's questions, ready to print: quiz details (date, duration, course), instructions, and every objective and theory question.",
+                "paper", List.of(quiz)), (x, u) -> papers.questionPaper(x, false)));
+        out.add(e(ALL, new Definition(ANSWER_KEY, "Question paper with answers", "Teaching",
+                "The same paper with the Section A answer key: correct options, accepted answers and matching pairs; theory questions as set.",
+                "key", List.of(quiz)), (x, u) -> papers.questionPaper(x, true)));
         out.add(e(ALL, new Definition("course-assessment", "Continuous assessment summary", "Teaching",
                 "Every " + t.get("student").toLowerCase() + "'s score on every quiz in a " + course.toLowerCase()
                         + ", with averages, trends and who needs support.",

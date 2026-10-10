@@ -47,6 +47,7 @@ class AttemptServiceTest {
     @Mock UserQuizProgressRepository quizProgress;
     @Mock TheoryProgressRepository   theoryProgress;
     @Mock QuizService                quizService;   // access checks default to "allowed" (void, no-op) unless stubbed
+    @Mock com.exam.service.admin.MaintenanceService maintenance;   // off unless a test stubs it
 
     @InjectMocks AttemptService service;
 
@@ -102,6 +103,27 @@ class AttemptServiceTest {
         assertThat(s2.attemptsRemaining()).isZero();
         // the very first attempt must not wipe an in-flight pre-existing session
         verifyNoInteractions(timers, quizProgress, theoryProgress);
+    }
+
+    @Test
+    void maintenanceStopsANewAttempt() {
+        doThrow(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Under maintenance"))
+                .when(maintenance).assertNewAttemptsAllowed();
+
+        assertThatThrownBy(() -> service.begin(student, quiz))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+        assertThat(store).isEmpty();
+    }
+
+    @Test
+    void maintenanceLetsAStartedAttemptResume() {
+        service.begin(student, quiz);   // started before maintenance was switched on
+        doThrow(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Under maintenance"))
+                .when(maintenance).assertNewAttemptsAllowed();
+
+        assertThat(service.begin(student, quiz).activeAttemptNumber()).isEqualTo(1);
+        assertThat(store).hasSize(1);
     }
 
     @Test

@@ -45,6 +45,9 @@ class AcademicPdfRenderTest {
         ReflectionTestUtils.setField(institution, "logoRepository", mock(InstitutionLogoRepository.class));
         ReflectionTestUtils.setField(institution, "defaultPortalUrl", "https://portal.example");
         ReflectionTestUtils.setField(pdf, "institutionService", institution);
+        com.exam.service.academic.ThemeService theme = new com.exam.service.academic.ThemeService();
+        ReflectionTestUtils.setField(theme, "settings", settings);
+        ReflectionTestUtils.setField(pdf, "themeService", theme);
 
         DocumentVerificationService verification = mock(DocumentVerificationService.class);
         when(verification.issue(any(), any(), any(), any(), any(), any()))
