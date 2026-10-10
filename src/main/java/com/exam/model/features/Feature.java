@@ -14,6 +14,8 @@ public enum Feature {
             "Students can create their own accounts from the sign-up page. When off, only staff can add students."),
     HOD_ANALYTICS(Scope.SYSTEM, "HODs", "Department analytics for HODs",
             "HODs can open the Analytics dashboard for their department."),
+    HOD_REPORTS(Scope.SYSTEM, "HODs", "Department reports for HODs",
+            "HODs can open Reports for their department (broadsheet, course results, standing, absentees …) and download them as Excel, CSV or PDF."),
     HOD_DATA_TOOLS(Scope.SYSTEM, "HODs", "Data tools for HODs",
             "HODs can bulk-import students, lecturers and courses, bulk-enrol students and export results."),
     HOD_PROMOTION(Scope.SYSTEM, "HODs", "HODs can promote students",
@@ -35,6 +37,8 @@ public enum Feature {
             "Students can view and download their transcript and CGPA. (Also needs the Marks Sheet switch for students.)"),
     STUDENT_REPORT_CARD(Scope.DEPARTMENT, "Students", "Student report cards",
             "Students can view and download their report cards (published results). (Also needs the Marks Sheet switch for students.)"),
+    LECTURER_REPORTS(Scope.DEPARTMENT, "Staff", "Reports for lecturers",
+            "Lecturers can open Reports for their own courses and quizzes (result sheets, question analysis, assessment summaries …) and download them as Excel, CSV or PDF."),
     QUESTION_BANK(Scope.DEPARTMENT, "Staff", "Question bank",
             "Lecturers and HODs keep reusable questions per course and draw them into quizzes.");
 

@@ -77,6 +77,10 @@ public final class EndpointRules {
                     "/category/updateCategory", "/courses/*/assign/*", "/*/unassign", "/report-email-setting")).hasAnyAuthority(ADMINS)
             .requestMatchers(HttpMethod.DELETE, p("/lecturer/*", "/student/*", "/category/*")).hasAnyAuthority(ADMINS)
             .requestMatchers("/api/analytics/**", "/api/admin-tools/**", "/api/accounts/**", "/api/features/**").hasAnyAuthority(ADMINS)
+            // HOD reports are locked to the HOD's own department; the Super Admin has /super-admin/reports
+            .requestMatchers("/api/hod/**").hasAuthority("ADMIN")
+            // Lecturer reports are locked to the lecturer's own courses and quizzes
+            .requestMatchers("/api/lecturer/**").hasAuthority("LECTURER")
             .requestMatchers(HttpMethod.POST, "/api/announcements").hasAnyAuthority(ADMINS)
             .requestMatchers(HttpMethod.DELETE, "/api/announcements/*").hasAnyAuthority(ADMINS)
             .requestMatchers("/api/announcements/manage").hasAnyAuthority(ADMINS)

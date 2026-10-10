@@ -70,14 +70,22 @@ public class AcademicRecordService {
         AcademicSession session = sheet.getSession();
         Category c = m.getCourse();
         int credits = c.getCreditUnits() != null ? c.getCreditUnits() : defaultCredits;
-        Optional<GradeBand> band = gradingService.bandForLetter(m.getGrade());
-        BigDecimal gp = m.getGradePoint() != null ? m.getGradePoint()
-                : band.map(GradeBand::getGradePoint).orElseGet(() -> gradingService.gradeFor(m.getTotalScore()).getGradePoint());
-        boolean passed = band.map(GradeBand::isPassing).orElse(!"F".equalsIgnoreCase(m.getGrade()));
         return new Attempt(m, sheet, c, session != null ? session.getName() : null,
                 session != null ? session.getStartDate() : null, normLevel(sheet.getLevel()),
                 sheet.getSemester() == null ? 0 : sheet.getSemester(), credits, m.getTotalScore(),
-                m.getGrade(), gp, passed);
+                m.getGrade(), gradePoint(m.getGrade(), m.getGradePoint(), m.getTotalScore()), passed(m.getGrade()));
+    }
+
+    /** A result's grade point: the one stored on it, else its letter's, else that of the band its score falls in. */
+    public BigDecimal gradePoint(String grade, BigDecimal stored, BigDecimal score) {
+        if (stored != null) return stored;
+        return gradingService.bandForLetter(grade).map(GradeBand::getGradePoint)
+                .orElseGet(() -> gradingService.gradeFor(score).getGradePoint());
+    }
+
+    /** Whether a letter grade is a pass (a letter not on the scale passes unless it is F). */
+    public boolean passed(String grade) {
+        return gradingService.bandForLetter(grade).map(GradeBand::isPassing).orElse(!"F".equalsIgnoreCase(grade));
     }
 
     /** Courses whose latest attempt was a fail. */

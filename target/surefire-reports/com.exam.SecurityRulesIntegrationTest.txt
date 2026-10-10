@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.exam.SecurityRulesIntegrationTest
 -------------------------------------------------------------------------------
-Tests run: 19, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 34.972 s - in com.exam.SecurityRulesIntegrationTest
+Tests run: 19, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 11.861 s - in com.exam.SecurityRulesIntegrationTest

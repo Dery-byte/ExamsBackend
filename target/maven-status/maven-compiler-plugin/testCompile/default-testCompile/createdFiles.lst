@@ -4,6 +4,7 @@ com\exam\service\QuizServiceAutoOpenTest.class
 com\exam\service\AttemptServiceTest.class
 com\exam\service\monitoring\ErrorPathGroupingTest.class
 com\exam\service\FeatureServiceTest.class
+com\exam\service\reports\ReportsJpaTest.class
 com\exam\service\ImportAndAccountServiceTest.class
 com\exam\service\ClassPositionTest.class
 com\exam\service\examops\QuestionBankUploadTest.class
@@ -32,4 +33,5 @@ com\exam\service\QuestionImageServiceTest.class
 com\exam\config\JacksonProxyJpaTest.class
 com\exam\RemarkFlowIntegrationTest.class
 com\exam\SecurityRulesIntegrationTest.class
+com\exam\service\reports\ReportsJpaTest$Templates.class
 com\exam\service\MatchingPairsLoadJpaTest.class

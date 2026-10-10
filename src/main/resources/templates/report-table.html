@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title th:text="${r.title}">Report</title>
+  <style th:inline="css">
+    @page {
+      size: [(${pageSize})];
+      margin: 12mm 11mm 15mm 11mm;
+      @bottom-left  { content: "[(${footerName})]"; font-size: 6.5pt; color: #888; font-family: Helvetica, Arial, sans-serif; padding-top: 3pt; border-top: 0.5pt solid #ccc; }
+      @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 6.5pt; color: #888; font-family: Helvetica, Arial, sans-serif; padding-top: 3pt; border-top: 0.5pt solid #ccc; }
+    }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 9pt; color: #1e293b; margin: 0; padding: 0; line-height: 1.3; }
+    table { border-collapse: collapse; width: 100%; }
+    .head td { vertical-align: middle; }
+    .title { font-size: 15pt; font-weight: bold; color: #1a2744; margin: 0; }
+    .desc { font-size: 8.5pt; color: #475569; margin: 2pt 0 0; }
+    .scope { margin: 6pt 0 8pt; font-size: 8pt; color: #334155; }
+    .scope span { display: inline-block; margin-right: 10pt; }
+    .stats td { border: 0.5pt solid #c5c9e8; padding: 4pt 6pt; vertical-align: top; width: 16%; }
+    .stat-label { font-size: 7pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.3pt; }
+    .stat-value { font-size: 12pt; font-weight: bold; color: #1a2744; margin-top: 1pt; }
+    .stat-hint { font-size: 7pt; color: #64748b; }
+    .t-title { background: #1a2744; color: #fff; padding: 4pt 8pt; font-size: 9pt; font-weight: bold; margin: 10pt 0 0; }
+    .t-sub { font-size: 7.5pt; color: #475569; margin: 3pt 0 3pt; }
+    .grid { -fs-table-paginate: paginate; }
+    .grid th { background: #edf0fb; color: #1a2744; font-size: [(${cellFont})]; font-weight: bold; text-align: left; padding: 3pt 4pt; border: 0.5pt solid #c5c9e8; }
+    .grid td { font-size: [(${cellFont})]; padding: 2.5pt 4pt; border: 0.5pt solid #d7dbef; vertical-align: top; }
+    .grid tr:nth-child(even) td { background: #f7f8fd; }
+    .grid tr { page-break-inside: avoid; }
+    .r { text-align: right; }
+    .empty { font-size: 8pt; color: #64748b; padding: 6pt 2pt; }
+    .note { font-size: 7.5pt; color: #475569; margin: 2pt 0; }
+    .trunc { font-size: 7.5pt; color: #9a3412; margin: 3pt 0; }
+  </style>
+</head>
+<body>
+
+<table class="head" style="border-bottom: 1.5pt solid #1a2744; padding-bottom: 6pt; margin-bottom: 6pt;">
+  <tr>
+    <td style="width: 46pt;" th:if="${logo != null and !logo.isEmpty()}">
+      <img th:src="${logo}" style="width: 40pt; height: 40pt;" alt="Logo"/>
+    </td>
+    <td>
+      <div style="font-size: 11pt; font-weight: bold; color: #1a2744;" th:text="${institutionName}">Institution</div>
+      <div style="font-size: 7.5pt; color: #64748b;" th:if="${institutionSubtitle != null and !institutionSubtitle.isEmpty()}" th:text="${institutionSubtitle}">Subtitle</div>
+    </td>
+    <td style="text-align: right; font-size: 7.5pt; color: #64748b; width: 160pt;">
+      <div>Generated <span th:text="${generated}">1 Jan 2026</span></div>
+      <div th:if="${r.generatedBy != null}">by <span th:text="${r.generatedBy}">Name</span></div>
+    </td>
+  </tr>
+</table>
+
+<div class="title" th:text="${r.title}">Report title</div>
+<div class="desc" th:text="${r.description}">Description</div>
+<div class="scope"><span th:each="s : ${r.scope}" th:text="${s}">Scope</span></div>
+
+<table class="stats" th:if="${!#lists.isEmpty(stats)}">
+  <tr th:each="rowStart : ${#numbers.sequence(0, (#lists.size(stats) - 1) / 6)}">
+    <td th:each="i : ${#numbers.sequence(rowStart * 6, rowStart * 6 + 5)}">
+      <th:block th:if="${i lt #lists.size(stats)}">
+        <div class="stat-label" th:text="${stats[i].label}">Label</div>
+        <div class="stat-value" th:text="${stats[i].value}">0</div>
+        <div class="stat-hint" th:if="${stats[i].hint != null}" th:text="${stats[i].hint}">hint</div>
+      </th:block>
+    </td>
+  </tr>
+</table>
+
+<th:block th:each="t : ${tables}">
+  <div class="t-title" th:text="${t.title}">Table</div>
+  <div class="t-sub" th:if="${t.subtitle != null}" th:text="${t.subtitle}">Subtitle</div>
+  <div class="empty" th:if="${#lists.isEmpty(t.rows)}" th:text="${t.emptyText}">Nothing to show.</div>
+  <table class="grid" th:if="${!#lists.isEmpty(t.rows)}">
+    <thead>
+      <tr><th th:each="h : ${t.heads}" th:classappend="${h.right} ? 'r'" th:text="${h.label}">Col</th></tr>
+    </thead>
+    <tbody>
+      <tr th:each="row : ${t.rows}">
+        <td th:each="c : ${row}" th:classappend="${c.right} ? 'r'" th:text="${c.text}">value</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="trunc" th:if="${t.truncated != null}" th:text="${t.truncated}">Truncated</div>
+</th:block>
+
+<div style="margin-top: 10pt;" th:if="${!#lists.isEmpty(r.notes)}">
+  <div class="note" th:each="n : ${r.notes}" th:text="${'• ' + n}">Note</div>
+</div>
+
+</body>
+</html>

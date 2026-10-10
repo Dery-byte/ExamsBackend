@@ -252,6 +252,23 @@ public class ResultsHoldService {
         return settings.getBooleanSetting(SystemSettingService.FEES_RESULTS_HOLD, false);
     }
 
+    // ── Reports ─────────────────────────────────────────────────────────
+
+    /** Programmes with a hold rule, or none while holding results is switched off. */
+    @Transactional(readOnly = true)
+    public Set<Long> programsWithRule() {
+        if (!isOn()) return Set.of();
+        Set<Long> ids = new HashSet<>();
+        for (ResultsFeeHold h : holdRepository.findAllWithProgram()) ids.add(h.getProgram().getId());
+        return ids;
+    }
+
+    /** Whether any of this student's results documents are on hold for fees right now. */
+    @Transactional
+    public boolean isHeld(User student) {
+        return check(student, EnumSet.allOf(Document.class)) != null;
+    }
+
     private static String describe(List<Document> held) {
         String cards = SystemMode.current().isSchool() ? "terminal reports" : "report cards";
         if (held.size() > 1) return cards + " and transcript";

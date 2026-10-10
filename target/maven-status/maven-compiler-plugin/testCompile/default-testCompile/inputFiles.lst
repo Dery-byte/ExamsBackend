@@ -24,6 +24,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fee
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\MatchingPairsLoadJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AcademicPdfRenderTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\academic\DocumentVerificationCodeTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\reports\ReportsJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\IndexNumberRangeTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuestionTypeChangeTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAccessTest.java
