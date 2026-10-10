@@ -10,6 +10,8 @@ package com.exam.model.features;
  */
 public enum Feature {
 
+    EXAM_SOUNDS(Scope.SYSTEM, "Students", "Violation and countdown sounds",
+            "A tone plays when a violation locks a student's quiz or starts an automatic submission, and beeps count down its last seconds. When off, the quiz screen stays silent; the warnings and countdowns still show."),
     STUDENT_SELF_SIGNUP(Scope.SYSTEM, "Students", "Student self sign-up",
             "Students can create their own accounts from the sign-up page. When off, only staff can add students."),
     HOD_ANALYTICS(Scope.SYSTEM, "HODs", "Department analytics for HODs",

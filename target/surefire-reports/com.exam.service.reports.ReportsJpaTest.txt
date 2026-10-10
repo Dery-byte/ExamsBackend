@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.exam.service.reports.ReportsJpaTest
 -------------------------------------------------------------------------------
-Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.96 s - in com.exam.service.reports.ReportsJpaTest
+Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.232 s - in com.exam.service.reports.ReportsJpaTest
