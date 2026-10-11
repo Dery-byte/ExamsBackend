@@ -520,7 +520,9 @@ public class SuperAdminController {
 
     @GetMapping("/settings")
     public ResponseEntity<Map<String, String>> getAllSettings() {
-        return ResponseEntity.ok(systemSettingService.getAllSettings());
+        Map<String, String> all = systemSettingService.getAllSettings();
+        all.keySet().removeIf(k -> k.startsWith("SUBSCRIPTION_"));
+        return ResponseEntity.ok(all);
     }
 
     @PutMapping("/settings")

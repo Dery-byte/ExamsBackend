@@ -55,6 +55,8 @@ public class AttemptService {
     @Autowired private QuizService                  quizService;
     @Autowired private com.exam.repository.QuizUnlockRepository unlocks;
     @Autowired private com.exam.service.admin.MaintenanceService maintenance;
+    /** Optional so slim test contexts needn't build it; always present in the running app. */
+    @Autowired(required = false) private com.exam.service.subscription.SubscriptionService subscription;
 
     /** How long a correct quiz password stays valid for starting an attempt. */
     private static final int UNLOCK_VALID_HOURS = 6;
@@ -92,7 +94,10 @@ public class AttemptService {
         List<QuizAttempt> all = load(s.getId(), quiz.getqId());
         materializeLegacy(s, quiz, all);
         // Under maintenance, students already in an exam carry on; nobody starts a new attempt
-        if (active(all).isEmpty()) maintenance.assertNewAttemptsAllowed();
+        if (active(all).isEmpty()) {
+            maintenance.assertNewAttemptsAllowed();
+            if (subscription != null) subscription.assertNewAttemptsAllowed();
+        }
         startOrResume(s, quiz, all);
         return toStatus(quiz, all, 0, isReviewed(s.getId(), quiz.getqId()));
     }

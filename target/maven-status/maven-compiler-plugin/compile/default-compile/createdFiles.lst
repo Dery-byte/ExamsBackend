@@ -17,6 +17,7 @@ com\exam\service\fees\PaystackClient.class
 com\exam\service\QuestionsService.class
 com\exam\service\reports\QuestionPapers$Prompt.class
 com\exam\auth\RegisterRequest$RegisterRequestBuilder.class
+com\exam\service\subscription\SubscriptionState.class
 com\exam\repository\BankQuestionRepository.class
 com\exam\repository\NotificationRepository.class
 com\exam\service\monitoring\DeveloperAuthService.class
@@ -37,6 +38,7 @@ com\exam\service\reports\ReportPdfService$PrintTable.class
 com\exam\auth\AuthenticationRequest$AuthenticationRequestBuilder.class
 com\exam\service\reports\ReportPdfService$Head.class
 com\exam\service\monitoring\HealthService$Beat.class
+com\exam\service\subscription\SubscriptionKeys.class
 com\exam\config\ApplicationConfig.class
 com\exam\service\admin\ConfigTransferService.class
 com\exam\service\fees\FeePaymentService.class
@@ -57,6 +59,7 @@ com\exam\service\academic\TermRemarkService.class
 com\exam\service\reports\ReportCatalog$Entry.class
 com\exam\model\examops\BankQuestion.class
 com\exam\service\admin\AccountService.class
+com\exam\service\subscription\SubscriptionService$Audience.class
 com\exam\model\exam\Questions.class
 com\exam\controller\AuthenticationController.class
 com\exam\controller\ReportController.class
@@ -65,6 +68,7 @@ com\exam\service\reports\AcademicReports.class
 com\exam\helper\TheoryGroups.class
 com\exam\controller\FeatureFlagController.class
 com\exam\repository\AuditLogRepository.class
+com\exam\service\subscription\SubscriptionSync$SyncException.class
 com\exam\service\reports\ReportQueries$RemarkRow.class
 com\exam\service\monitoring\HealthService.class
 com\exam\helper\ApiExceptionHandler.class
@@ -108,6 +112,7 @@ com\exam\repository\CategoryRepository.class
 com\exam\repository\TermReportRemarkRepository.class
 com\exam\service\reports\OversightReports.class
 com\exam\service\reports\ReportCatalog$Definition.class
+com\exam\model\monitoring\SubscriptionEvent.class
 com\exam\config\DeveloperAccessInterceptor.class
 com\exam\model\academic\DocumentVerification.class
 com\exam\service\reports\ReportQueries$SheetRow.class
@@ -129,9 +134,12 @@ com\exam\model\comms\AnnouncementAudience.class
 com\exam\service\features\FeatureService.class
 com\exam\service\reports\Standings$Graded.class
 com\exam\repository\QuestionsRepository.class
+com\exam\config\SchemaUpgrades.class
 com\exam\service\reports\ReportQueries$RegistrationRow.class
 com\exam\repository\QuizRepository.class
+com\exam\service\subscription\SubscriptionMonitor$1.class
 com\exam\model\fees\FeePayment$Status.class
+com\exam\service\subscription\SubscriptionMonitor.class
 com\exam\service\examops\QuestionBankService$DrawRequest.class
 com\exam\service\admin\MaintenanceService.class
 com\exam\service\fees\FeeBreakdown$Line.class
@@ -152,6 +160,7 @@ com\exam\service\reports\ReportResult$Table.class
 com\exam\service\llm\LLMEvaluationStrategy.class
 com\exam\service\admin\ImportService$Row.class
 com\exam\service\fees\PaystackClient$PaystackException.class
+com\exam\service\subscription\SubscriptionStatus$Source.class
 com\exam\service\reports\ExamReports$1Sitting.class
 com\exam\service\fees\ResultsHoldService.class
 com\exam\service\comms\CurrentUserService.class
@@ -171,8 +180,10 @@ com\exam\service\academic\AcademicRecordService.class
 com\exam\service\academic\AcademicStartup.class
 com\exam\repository\QuizUnlockRepository.class
 com\exam\config\JacksonConfig.class
+com\exam\config\SubscriptionInterceptor.class
 com\exam\service\examops\QuestionBankService$BankQuestionRequest.class
 com\exam\service\reports\ReportPdfService$PrintStat.class
+com\exam\repository\SubscriptionEventRepository.class
 com\exam\repository\ErrorEventRepository.class
 com\exam\helper\UserFoundException.class
 com\exam\controller\ExamOpsController$ProctoringEventRequest.class
@@ -186,6 +197,8 @@ com\exam\service\reports\Lookups.class
 com\exam\config\AuditInterceptor$Rule.class
 com\exam\service\comms\AnnouncementService$1.class
 com\exam\service\examops\TimetableService.class
+com\exam\service\subscription\SubscriptionService$Access.class
+com\exam\service\subscription\SubscriptionStatus$1.class
 com\exam\model\examops\QuizUnlock.class
 com\exam\token\Token$TokenBuilder.class
 com\exam\model\features\Feature.class
@@ -197,6 +210,7 @@ com\exam\controller\AcademicController$GradingRequest.class
 com\exam\model\exam\TheoryGradingJob.class
 com\exam\repository\UserRepository.class
 com\exam\model\User$UserBuilder.class
+com\exam\controller\SubscriptionController.class
 com\exam\model\comms\Announcement.class
 com\exam\service\reports\QuestionPapers$Objective.class
 com\exam\service\reports\PaperFonts.class
@@ -258,6 +272,7 @@ com\exam\model\examops\RemarkRequest.class
 com\exam\model\academic\GradeBand.class
 com\exam\service\academic\AcademicRecordService$Attempt.class
 com\exam\controller\FeeController$VoidRequest.class
+com\exam\service\subscription\SubscriptionKey.class
 com\exam\service\ReportService.class
 com\exam\service\reports\Period.class
 com\exam\service\reports\ReportCatalog.class
@@ -268,9 +283,11 @@ com\exam\service\TheoryGradingQueue.class
 com\exam\repository\FeePaymentRepository.class
 com\exam\controller\DataToolsController$BulkEnrollRequest.class
 com\exam\controller\DataToolsController$ImportRequest.class
+com\exam\service\subscription\SubscriptionSync.class
 com\exam\service\comms\AuditService.class
 com\exam\service\reports\ReportResult$Drill.class
 com\exam\controller\CommsController$UserAction.class
+com\exam\service\subscription\SubscriptionService.class
 com\exam\service\llm\DeepSeekEvaluationStrategy.class
 com\exam\config\JwtAuthenticationFilter.class
 com\exam\model\monitoring\ErrorEvent.class
@@ -282,6 +299,7 @@ com\exam\repository\ReportRepository.class
 com\exam\model\monitoring\DeveloperEmail.class
 com\exam\config\ErrorCaptureInterceptor.class
 com\exam\controller\FeeController$CopyRequest.class
+com\exam\service\subscription\SubscriptionStatus.class
 com\exam\controller\ExamOpsController$UserAction.class
 com\exam\controller\FeeController.class
 com\exam\repository\GradingPresetRepository.class

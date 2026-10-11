@@ -24,7 +24,7 @@ public class ConfigTransferService {
     public static final int FORMAT_VERSION = 1;
 
     /** Runtime state that belongs to one installation, never copied. */
-    private static final List<String> STATE_PREFIXES = List.of("MAINTENANCE_", "SETUP_");
+    private static final List<String> STATE_PREFIXES = List.of("MAINTENANCE_", "SETUP_", "SUBSCRIPTION_");
     private static final Set<String> STATE_KEYS = Set.of(ThemeService.VERSION, "GRADING_SCALE_SEEDED", "ACCOUNT_STATUS_ENFORCED");
     private static final Pattern SECRET = Pattern.compile("(?i).*(SECRET|PASSWORD|TOKEN|API_?KEY|PRIVATE).*");
     private static final Pattern KEY = Pattern.compile("^[A-Z0-9_]{1,100}$");

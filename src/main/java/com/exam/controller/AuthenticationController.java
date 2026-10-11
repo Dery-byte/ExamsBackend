@@ -99,6 +99,10 @@ public class AuthenticationController {
         if (!staffCaller && maintenance.isOn())
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(java.util.Map.of("message", maintenance.message()));
+        // Nor while the subscription limits the portal
+        if (!staffCaller && !subscription.allowsSelfSignUp())
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(java.util.Map.of("message", "Sign-up is not available at the moment. Please contact your institution's administrator."));
         try {
             return ResponseEntity.ok(service.register(request));
         } catch (UserFoundException e) {
@@ -191,6 +195,8 @@ public class AuthenticationController {
 private com.exam.config.RateLimiter rateLimiter;
 @Autowired
 private com.exam.service.admin.MaintenanceService maintenance;
+@Autowired
+private com.exam.service.subscription.SubscriptionService subscription;
 private static final int MAX_FAILED_LOGINS = 5;
 private static final long LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000L;
 
@@ -221,6 +227,15 @@ public ResponseEntity<AuthenticationResponse> authenticate(
         if (role == null || !maintenance.allowsSignIn(role))
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(AuthenticationResponse.builder()
                     .message(maintenance.message()).build());
+    }
+
+    // Suspended subscription: only Super Admins (and students finishing an exam) sign in; developers use their own
+    // sign-in. Unknown usernames get the same answer, so this reveals nothing about which accounts exist.
+    if (subscription.status().state() == com.exam.service.subscription.SubscriptionState.SUSPENDED) {
+        User account = userRepository.findByUsername(String.valueOf(request.getUsername()).trim()).orElse(null);
+        if (account == null || !subscription.allowsSignIn(account))
+            return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(AuthenticationResponse.builder()
+                    .message("The portal is unavailable at the moment. Please contact your institution's administrator.").build());
     }
 
     // Authenticate user and generate token

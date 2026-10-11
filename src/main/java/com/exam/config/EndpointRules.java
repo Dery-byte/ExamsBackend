@@ -58,8 +58,8 @@ public final class EndpointRules {
             // ── Developer: system mode, health, errors ───────────────────────
             .requestMatchers("/api/v1/developer/**").hasAuthority(DEVELOPER)
             // Things every signed-in person (the developer included) needs
-            .requestMatchers(HttpMethod.GET, p("/current-user", "/feature-flags")).authenticated()
-            .requestMatchers(HttpMethod.POST, p("/client-errors")).authenticated()
+            .requestMatchers(HttpMethod.GET, p("/current-user", "/feature-flags", "/subscription/notice")).authenticated()
+            .requestMatchers(HttpMethod.POST, p("/client-errors", "/subscription/check-payment")).authenticated()
 
             // ── Super Admin ──────────────────────────────────────────────────
             .requestMatchers("/api/v1/super-admin/**").hasAuthority(SUPER_ADMIN)

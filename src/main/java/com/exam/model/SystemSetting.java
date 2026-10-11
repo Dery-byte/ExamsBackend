@@ -1,5 +1,6 @@
 package com.exam.model;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -19,6 +20,8 @@ public class SystemSetting {
     @Id
     private String settingKey;
 
+    /** TEXT, not the default VARCHAR(255): some values are longer (subscription keys ~450 characters). */
+    @Column(columnDefinition = "TEXT")
     private String settingValue;
 
     public SystemSetting(String settingKey) {

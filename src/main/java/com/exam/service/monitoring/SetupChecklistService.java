@@ -36,6 +36,7 @@ public class SetupChecklistService {
     @Autowired private GradeBandRepository gradeBands;
     @Autowired private com.exam.service.AuthenticationService authenticationService;
     @Autowired(required = false) private JavaMailSender mailSender;
+    @Autowired private com.exam.service.subscription.SubscriptionService subscription;
 
     @Value("${app.mail.from-address:optimusinforservice@gmail.com}") private String fromAddress;
 
@@ -79,6 +80,12 @@ public class SetupChecklistService {
         items.add(item("email", "Send a test email", "developer", "setup",
                 verified != null, verified != null ? "Last sent successfully " + verified.replace('T', ' ') + "."
                         : mailSender == null ? "Email is not configured on the server (spring.mail.*)." : "Confirms password resets and result emails can be delivered."));
+        var sub = subscription.status();
+        boolean keyed = sub.source() == com.exam.service.subscription.SubscriptionStatus.Source.KEY;
+        items.add(item("subscription", "Install the subscription key", "developer", "subscription", keyed,
+                keyed ? "Paid until " + sub.paidUntil() + "."
+                      : sub.keyProblem() != null ? sub.keyProblem()
+                      : "Without a key the portal turns read-only on " + sub.graceEnd().plusDays(1) + "."));
 
         long done = items.stream().filter(i -> Boolean.TRUE.equals(i.get("done"))).count();
         Map<String, Object> m = new LinkedHashMap<>();

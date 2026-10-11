@@ -65,7 +65,7 @@ public class SystemSettingService {
     /** Keys only the developer may change; the Super Admin's settings endpoint refuses them. */
     public static final Set<String> DEVELOPER_ONLY = Set.of(AUDIT_LOG_VISIBLE_SUPER_ADMIN, "SYSTEM_MODE");
     /** Whole families of developer-only keys: colour theme, maintenance mode, setup bookkeeping. */
-    private static final List<String> DEVELOPER_ONLY_PREFIXES = List.of("THEME_", "MAINTENANCE_", "SETUP_");
+    private static final List<String> DEVELOPER_ONLY_PREFIXES = List.of("THEME_", "MAINTENANCE_", "SETUP_", "SUBSCRIPTION_");
 
     public static boolean isDeveloperOnly(String key) {
         return key != null && (DEVELOPER_ONLY.contains(key) || DEVELOPER_ONLY_PREFIXES.stream().anyMatch(key::startsWith));

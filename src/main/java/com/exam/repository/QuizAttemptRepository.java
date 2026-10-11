@@ -17,6 +17,11 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
 
     boolean existsByUser_IdAndQuiz_qIdAndStatus(Long userId, Long quizId, AttemptStatus status);
 
+    /** Whether the student is sitting any exam (subscription limits never interrupt one). */
+    boolean existsByUser_IdAndStatus(Long userId, AttemptStatus status);
+
+    boolean existsByUser_IdAndStatusAndSubmittedAtAfter(Long userId, AttemptStatus status, java.time.LocalDateTime after);
+
     /** All attempts of a quiz with the student loaded — one query for the staff attempts view. */
     @Query("SELECT a FROM QuizAttempt a JOIN FETCH a.user WHERE a.quiz.qId = :quizId ORDER BY a.user.id, a.attemptNumber")
     List<QuizAttempt> findAllForQuiz(@Param("quizId") Long quizId);
