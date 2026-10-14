@@ -53,6 +53,8 @@ public class ReportCatalog {
     @Autowired private FinanceReports finance;
     @Autowired private OversightReports oversight;
     @Autowired private ResultsHoldService resultsHoldService;
+    @Autowired private AttendanceReports attendance;
+    @Autowired private com.exam.service.features.FeatureService features;
 
     /** The reports this person may run, as the hub and filter bar show them. */
     public List<Definition> definitions(User viewer) {
@@ -110,6 +112,26 @@ public class ReportCatalog {
                 "Every re-mark request: who asked and why, how long it waited, and how marks changed.",
                 "message", List.of(session, from, to, dept, courseAny, status("Status", List.of(o("PENDING", "Waiting"),
                         o("RESOLVED", "Re-marked"), o("REJECTED", "Turned down"))))), (x, u) -> teaching.remarkRequests(x)));
+
+        // Class attendance (only while it is switched on)
+        if (features.isOnSystemWide(com.exam.model.features.Feature.ATTENDANCE)) {
+            String who = t.get("student").toLowerCase();
+            out.add(e(ALL, new Definition("attendance-register", "Attendance register", "Attendance",
+                    "Every " + who + " against every class meeting of one " + course.toLowerCase() + " (or " + program + "), P / L / A / E per meeting, with each "
+                            + who + "'s percentage.",
+                    "grid", List.of(session, from, to, courseAny, prog, lvl)), (x, u) -> attendance.register(x)));
+            out.add(e(ALL, new Definition("attendance-summary", "Attendance summary", "Attendance",
+                    "Each " + who + "'s attendance per " + course.toLowerCase() + " or " + program + ": meetings, absences, excused, percentage and the minimum.",
+                    "usercheck", List.of(session, from, to, dept, prog, lvl, courseAny)), (x, u) -> attendance.summary(x)));
+            out.add(e(ALL, new Definition("attendance-low", "Low attendance", "Attendance",
+                    students + " below a chosen percentage (or each class's minimum), who are blocked from starting quizzes, and how to reach them.",
+                    "userx", List.of(session, from, to, dept, prog, lvl, courseAny,
+                            status("Below", AttendanceReports.THRESHOLDS.stream().map(v -> o(v, AttendanceReports.thresholdLabel(v))).toList()))),
+                    (x, u) -> attendance.low(x)));
+            out.add(e(ALL, new Definition("attendance-sessions", "Class meetings", "Attendance",
+                    "Every meeting where attendance was taken: present, late, absent, waiting for review, and the headcount check.",
+                    "calendarcheck", List.of(session, from, to, dept, prog, courseAny)), (x, u) -> attendance.meetings(x)));
+        }
 
         // Institution
         out.add(e(SUPER, new Definition("department-comparison", "Department comparison", "Institution",

@@ -22,6 +22,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\adm
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\TheoryCriteriaVisibilityTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AnswerMatcherTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAutoCloseTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\attendance\AttendanceJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\FeatureServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\SecurityRulesIntegrationTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizTimerServiceClockTest.java
@@ -35,6 +36,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\sub
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\IndexNumberRangeTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuestionTypeChangeTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\academic\ThemeServiceTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\reports\AttendanceReportsJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\subscription\TestKeys.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAccessTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\admin\ConfigTransferServiceTest.java

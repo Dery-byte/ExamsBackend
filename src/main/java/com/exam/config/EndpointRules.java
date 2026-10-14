@@ -86,6 +86,11 @@ public final class EndpointRules {
             .requestMatchers("/api/announcements/manage").hasAnyAuthority(ADMINS)
             .requestMatchers(HttpMethod.GET, "/api/academic/students/**", "/api/academic/promotion-preview").hasAnyAuthority(ADMINS)
 
+            // ── Class attendance: students check in; staff run sessions; Super Admin + HODs set the rules ─
+            .requestMatchers("/api/attendance/student/**").hasAuthority("NORMAL")
+            .requestMatchers("/api/attendance/manage/**").hasAnyAuthority(STAFF)
+            .requestMatchers("/api/attendance/settings", "/api/attendance/settings/**").hasAnyAuthority(ADMINS)
+
             // ── Staff (Super Admin, HODs, lecturers): authoring, marking, review ─
             .requestMatchers(HttpMethod.POST, p("/question/add", "/upload/*", "/theoryquestion/add", "/theoryupload/*",
                     "/numberOfTheoryQuestion/add", "/addQuiz", "/lecturer/addQuiz", "/user/addQuiz",

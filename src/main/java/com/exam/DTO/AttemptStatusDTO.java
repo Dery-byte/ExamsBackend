@@ -14,5 +14,12 @@ public record AttemptStatusDTO(
         /** True when staff allowed this student a retake that they have not started yet. */
         boolean retakeGranted,
         /** True when the result has been marked as reviewed, which closes it to further attempts. */
-        boolean resultReviewed
-) {}
+        boolean resultReviewed,
+        /** Why the student's attendance is too low to start a new attempt, or null. */
+        String attendanceBlock
+) {
+    public AttemptStatusDTO withAttendanceBlock(String reason) {
+        return new AttemptStatusDTO(quizId, maxAttempts, attemptsUsed, attemptsRemaining, activeAttemptNumber,
+                canStart && reason == null, quizClosed, retakeGranted, resultReviewed, reason);
+    }
+}

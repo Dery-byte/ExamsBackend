@@ -47,6 +47,14 @@ public class FeatureService {
                 .map(DepartmentFeatureSetting::isEnabled).orElse(true);
     }
 
+    /** Whether a feature is on for a department (system switch, then the department's choice). */
+    public boolean isOnForDepartment(Feature f, Department d) {
+        if (!isOnSystemWide(f)) return false;
+        if (f.scope() == Feature.Scope.SYSTEM || d == null) return true;
+        return departmentSettings.findByDepartment_IdAndFeatureKey(d.getId(), f.name())
+                .map(DepartmentFeatureSetting::isEnabled).orElse(true);
+    }
+
     /** Throws 403 (AccessDeniedException) with a readable reason when the feature is off for the user. */
     public void require(Feature f, User u) {
         if (isOnFor(f, u)) return;

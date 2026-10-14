@@ -66,6 +66,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         AcademicRecordService.class, GradingService.class, AcademicSessionService.class, InstitutionService.class,
         SystemSettingService.class, TimetableService.class, FeeScheduleService.class, ResultsHoldService.class,
         com.exam.service.academic.ThemeService.class, com.exam.service.admin.MaintenanceService.class,
+        AttendanceReports.class, com.exam.service.attendance.AttendanceMinimum.class, com.exam.service.attendance.AttendancePolicyService.class,
+        com.exam.service.features.FeatureService.class,
         ReportsJpaTest.Templates.class})
 class ReportsJpaTest {
 

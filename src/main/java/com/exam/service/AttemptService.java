@@ -57,6 +57,8 @@ public class AttemptService {
     @Autowired private com.exam.service.admin.MaintenanceService maintenance;
     /** Optional so slim test contexts needn't build it; always present in the running app. */
     @Autowired(required = false) private com.exam.service.subscription.SubscriptionService subscription;
+    /** Optional for the same reason: the minimum class attendance for starting a quiz. */
+    @Autowired(required = false) private com.exam.service.attendance.AttendanceMinimum attendanceMinimum;
 
     /** How long a correct quiz password stays valid for starting an attempt. */
     private static final int UNLOCK_VALID_HOURS = 6;
@@ -84,7 +86,13 @@ public class AttemptService {
         quizService.assertStudentMayAccess(quiz, student);
         List<QuizAttempt> all = load(student.getId(), quiz.getqId());
         int legacyUsed = all.isEmpty() && hasReport(student.getId(), quiz.getqId()) ? 1 : 0;
-        return toStatus(quiz, all, legacyUsed, isReviewed(student.getId(), quiz.getqId()));
+        AttemptStatusDTO status = toStatus(quiz, all, legacyUsed, isReviewed(student.getId(), quiz.getqId()));
+        // Say before the student presses Start that their attendance is too low (resuming is never blocked)
+        if (attendanceMinimum != null && status.canStart() && status.activeAttemptNumber() == null) {
+            String block = attendanceMinimum.blockReason(student, quiz).orElse(null);
+            if (block != null) return status.withAttendanceBlock(block);
+        }
+        return status;
     }
 
     /** Starts a new attempt or resumes the one in progress. Idempotent. Throws 409 when no attempt is available. */
@@ -280,6 +288,12 @@ public class AttemptService {
         // Starting a genuinely new attempt requires current access (program + course enrollment).
         quizService.assertStudentMayAccess(quiz, s);
 
+        // ... and enough class attendance, when a minimum is switched on
+        if (attendanceMinimum != null) {
+            String block = attendanceMinimum.blockReason(s, quiz).orElse(null);
+            if (block != null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, block);
+        }
+
         // Password-protected quizzes: a new attempt needs a recent unlock made after the previous attempt began
         if (quiz.hasPassword()) {
             LocalDateTime lastStart = all.stream().map(QuizAttempt::getStartedAt).filter(java.util.Objects::nonNull)
@@ -389,7 +403,7 @@ public class AttemptService {
                 .max(java.util.Comparator.comparingInt(QuizAttempt::getAttemptNumber))
                 .map(a -> a.getStatus() == AttemptStatus.VOIDED)
                 .orElse(false);
-        return new AttemptStatusDTO(quiz.getqId(), lim, used, remaining, activeNo, canStart, closed, retakeGranted, reviewed);
+        return new AttemptStatusDTO(quiz.getqId(), lim, used, remaining, activeNo, canStart, closed, retakeGranted, reviewed, null);
     }
 
     private AttemptDTO toDto(QuizAttempt a) {

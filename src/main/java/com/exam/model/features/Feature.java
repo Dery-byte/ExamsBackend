@@ -42,7 +42,9 @@ public enum Feature {
     LECTURER_REPORTS(Scope.DEPARTMENT, "Staff", "Reports for lecturers",
             "Lecturers can open Reports for their own courses and quizzes (result sheets, question analysis, assessment summaries …) and download them as Excel, CSV or PDF."),
     QUESTION_BANK(Scope.DEPARTMENT, "Staff", "Question bank",
-            "Lecturers and HODs keep reusable questions per course and draw them into quizzes.");
+            "Lecturers and HODs keep reusable questions per course and draw them into quizzes."),
+    ATTENDANCE(Scope.DEPARTMENT, "Everyone", "Class attendance",
+            "Lecturers (or HODs, when attendance is taken by programme) start a session in class and students check in on their own phones with the code shown, from inside the classroom. Starts off; set the rules under Attendance first.");
 
     public enum Scope { SYSTEM, DEPARTMENT }
 
