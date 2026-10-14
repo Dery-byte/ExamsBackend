@@ -66,6 +66,29 @@ class QuestionImageServiceTest {
     }
 
     @Test
+    void profilePhotosAreCroppedSquareScaledAndCompressedToWebp() throws Exception {
+        byte[] wide = img("jpg", BufferedImage.TYPE_INT_RGB, 1200, 800);
+        String path = service.storeProfilePhoto(new MockMultipartFile("file", "me.jpg", "image/jpeg", wide));
+        assertTrue(path.startsWith("question-images/") && path.endsWith(".webp"), path);
+        byte[] out = service.load(path.substring("question-images/".length(), path.length() - 5));
+        assertEquals("WEBP", new String(out, 8, 4));
+        BufferedImage back = ImageIO.read(new ByteArrayInputStream(out));
+        assertEquals(512, back.getWidth());
+        assertEquals(512, back.getHeight());
+        assertTrue(out.length < wide.length, "compressed: " + out.length + " < " + wide.length);
+
+        // A small photo is cropped square but never enlarged
+        String small = service.storeProfilePhoto(new MockMultipartFile("file", "s.png", "image/png", img("png", BufferedImage.TYPE_INT_ARGB, 300, 200)));
+        BufferedImage s = ImageIO.read(new ByteArrayInputStream(service.load(small.substring(16, small.length() - 5))));
+        assertEquals(200, s.getWidth());
+        assertEquals(200, s.getHeight());
+
+        // Same checks as question images: a renamed non-image is refused
+        assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> service.storeProfilePhoto(
+                new MockMultipartFile("file", "fake.png", "image/png", "not an image".getBytes())));
+    }
+
+    @Test
     void pdfRenderingDecodesWebpToJpegDataUri() throws Exception {
         String path = service.storeAsWebp(new MockMultipartFile("file", "a.jpg", "image/jpeg", img("jpg", BufferedImage.TYPE_INT_RGB, 800, 400)));
         QuestionImageService.PdfImage pdf = service.loadForPdf(path, 380, 200);

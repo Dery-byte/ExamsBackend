@@ -314,6 +314,7 @@ public ResponseEntity<?> logout(
                 user.getDepartment()
         );
         response.setMustChangePassword(forcePasswordChange.mustChange(user));
+        response.setProfilePicture(user.getProfilePic());
         return ResponseEntity.ok(response);
     }
 
@@ -376,6 +377,7 @@ public ResponseEntity<?> logout(
                 user.isAccountNonLocked(),
                 user.getDepartment()
         );
+        response.setProfilePicture(user.getProfilePic());
         return ResponseEntity.ok(response);
     }
 

@@ -13,6 +13,7 @@ com\exam\service\academic\ThemeService.class
 com\exam\service\admin\BulkEnrollService.class
 com\exam\service\reports\AttendanceReports$1.class
 com\exam\service\reports\ReportQueries$JobRow.class
+com\exam\service\attendance\AttendanceService$PhoneCheck.class
 com\exam\service\ScheduledResultRelease.class
 com\exam\auth\AuthenticationRequest.class
 com\exam\service\attendance\AttendanceAccess$1.class
@@ -111,6 +112,7 @@ com\exam\model\fees\ResultsFeeHold.class
 com\exam\service\fees\ResultsHoldService$HoldRequest.class
 com\exam\service\academic\DocumentVerificationService$Issued.class
 com\exam\controller\InstitutionController.class
+com\exam\service\attendance\AttendanceQr$Parsed.class
 com\exam\model\fees\ResultsFeeHold$Mode.class
 com\exam\service\LogoutService.class
 com\exam\service\CategoryService.class
@@ -159,8 +161,10 @@ com\exam\repository\QuizRepository.class
 com\exam\service\attendance\AttendanceCodes.class
 com\exam\service\subscription\SubscriptionMonitor$1.class
 com\exam\model\fees\FeePayment$Status.class
+com\exam\controller\ProfilePhotoController.class
 com\exam\service\subscription\SubscriptionMonitor.class
 com\exam\service\attendance\AttendanceService$1.class
+com\exam\service\attendance\AttendanceQr.class
 com\exam\service\examops\QuestionBankService$DrawRequest.class
 com\exam\repository\ClassScheduleRepository.class
 com\exam\service\admin\MaintenanceService.class
@@ -182,6 +186,7 @@ com\exam\service\reports\ReportCatalog$Filter.class
 com\exam\service\reports\ReportResult$Table.class
 com\exam\service\llm\LLMEvaluationStrategy.class
 com\exam\service\reports\AttendanceReports$Rec.class
+com\exam\service\QuestionImageService$Decoded.class
 com\exam\service\admin\ImportService$Row.class
 com\exam\service\fees\PaystackClient$PaystackException.class
 com\exam\service\subscription\SubscriptionStatus$Source.class
@@ -208,6 +213,7 @@ com\exam\service\attendance\ClassScheduleService$ScheduleRequest.class
 com\exam\service\academic\AcademicRecordService.class
 com\exam\service\academic\AcademicStartup.class
 com\exam\repository\QuizUnlockRepository.class
+com\exam\service\attendance\AttendanceService$QrKeyRequest.class
 com\exam\config\JacksonConfig.class
 com\exam\config\SubscriptionInterceptor.class
 com\exam\service\examops\QuestionBankService$BankQuestionRequest.class
@@ -276,6 +282,7 @@ com\exam\controller\FeatureController$UserAction.class
 com\exam\service\academic\InstitutionService.class
 com\exam\service\comms\AnnouncementService.class
 com\exam\service\reports\ReportQueries$ResultRow.class
+com\exam\service\attendance\AttendanceService$QrKeyResult.class
 com\exam\service\reports\TeachingReports.class
 com\exam\model\exam\TheoryGradingJob$Status.class
 com\exam\repository\QuizAttemptRepository.class
@@ -289,6 +296,7 @@ com\exam\model\fees\FeeComponent.class
 com\exam\service\reports\ReportPdfService$Cell.class
 com\exam\service\reports\ReportPdfService.class
 com\exam\service\ReportEmailService.class
+com\exam\service\attendance\AttendanceService$PlaceCheck.class
 com\exam\service\llm\GPTEvaluationStrategy.class
 com\exam\service\reports\ReportQueries$RemarkDetailRow.class
 com\exam\service\attendance\AttendancePolicyService.class
@@ -314,15 +322,18 @@ com\exam\service\attendance\AttendanceService$CheckInResult.class
 com\exam\model\academic\GradeBand.class
 com\exam\service\academic\AcademicRecordService$Attempt.class
 com\exam\controller\FeeController$VoidRequest.class
+com\exam\service\attendance\AttendanceService$ScanResult.class
 com\exam\service\subscription\SubscriptionKey.class
 com\exam\service\ReportService.class
 com\exam\service\reports\Period.class
 com\exam\service\reports\ReportCatalog.class
 com\exam\repository\AnnouncementRepository.class
 com\exam\model\exam\LlmProvider.class
+com\exam\model\attendance\AttendanceMethod.class
 com\exam\service\AuthenticationService.class
 com\exam\service\TheoryGradingQueue.class
 com\exam\repository\FeePaymentRepository.class
+com\exam\model\attendance\AttendanceScanner.class
 com\exam\controller\DataToolsController$BulkEnrollRequest.class
 com\exam\service\attendance\AttendanceAccess.class
 com\exam\controller\DataToolsController$ImportRequest.class
@@ -337,6 +348,7 @@ com\exam\config\JwtAuthenticationFilter.class
 com\exam\model\monitoring\ErrorEvent.class
 com\exam\model\fees\FeePaymentItem.class
 com\exam\service\attendance\AttendanceService.class
+com\exam\service\attendance\AttendanceQr$Check.class
 com\exam\helper\UserNotFoundException.class
 com\exam\repository\DepartmentFeatureSettingRepository.class
 com\exam\service\fees\FeePaymentService$PayRequest.class
@@ -351,8 +363,10 @@ com\exam\controller\FeeController.class
 com\exam\repository\GradingPresetRepository.class
 com\exam\model\academic\DegreeClass.class
 com\exam\service\admin\AccountService$1.class
+com\exam\repository\AttendanceScannerRepository.class
 com\exam\service\monitoring\ErrorMonitorService.class
 com\exam\model\academic\TermReportRemark.class
+com\exam\service\attendance\AttendanceService$HelperScanRequest.class
 com\exam\service\reports\QuestionPaperPdf.class
 com\exam\model\monitoring\ErrorEvent$Source.class
 com\exam\service\reports\ReportResult$Stat.class

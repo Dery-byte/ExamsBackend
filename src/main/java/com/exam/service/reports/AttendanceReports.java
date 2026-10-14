@@ -351,7 +351,7 @@ public class AttendanceReports {
         scope(r, f, l, d);
 
         Table tb = r.table("meetings", "Meetings").col("date", "Started", DATETIME).text("class", "Class").col("meeting", "Meeting", INT)
-                .text("topic", "Topic").text("by", "Started by").text("place", "Place").text("code", "Code shown")
+                .text("topic", "Topic").text("by", "Started by").text("place", "Place").text("code", "How taken")
                 .col("listed", "On the list", INT).col("present", "Present", INT).col("late", "Late", INT).col("absent", "Absent", INT)
                 .col("excused", "Excused", INT).col("waiting", "Waiting", INT).col("headcount", "Headcount", INT)
                 .col("percent", "Attended", PERCENT).col("missed", "Missed 2nd check", INT).text("status", "Status")
@@ -371,7 +371,7 @@ public class AttendanceReports {
             if (!s.isLive() && a.percent() != null) percents.add(a.percent());
             tb.add(minute(s.getOpenedAt()), classTitle(s) + (s.getScope() == AttendanceMode.PROGRAMME && s.getLevel() != null ? " · " + t.get("level") + " " + s.getLevel() : ""),
                     s.getMeetingNumber(), s.getTopic(), name(s.getOpenedBy()), s.getPlaceName(),
-                    s.getCodeDisplay() == CodeDisplay.READ_ALOUD ? "Read aloud" : "Projector", a.held(), a.attended() - a.late(), a.late(), a.absent(),
+                    s.isScanned() ? "Scanned by staff" : s.getCodeDisplay() == CodeDisplay.READ_ALOUD ? "Code read aloud" : "Code on projector", a.held(), a.attended() - a.late(), a.late(), a.absent(),
                     a.excused(), a.pending(), s.getHeadcount(), a.percent(), missed, s.isLive() ? "Live" : "Ended");
         }
         r.stat("Meetings", d.meetings().size())

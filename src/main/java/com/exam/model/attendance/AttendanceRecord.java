@@ -25,6 +25,8 @@ public class AttendanceRecord {
     public static final String METHOD_CODE = "CODE";
     public static final String METHOD_MANUAL = "MANUAL";
     public static final String METHOD_AUTO = "AUTO";
+    /** Staff scanned the student's QR code (reviewedBy holds who scanned). */
+    public static final String METHOD_SCAN = "SCAN";
 
     public static final String FLAG_LATE = "LATE";
     public static final String FLAG_NEW_PHONE = "NEW_PHONE";

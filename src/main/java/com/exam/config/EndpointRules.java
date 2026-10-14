@@ -52,6 +52,8 @@ public final class EndpointRules {
             .requestMatchers(HttpMethod.GET, p("/verify/*")).permitAll()
             // Question images are loaded by <img> tags, which can't send a token; ids are random UUIDs
             .requestMatchers(HttpMethod.GET, p("/question-images/**")).permitAll()
+            // A teaching assistant's attendance scanner link: the 256-bit link is the key; it works only while its class is live
+            .requestMatchers("/api/attendance/scan/*").permitAll()
             // Paystack calls this server-to-server; FeePaymentService rejects it unless the signature matches
             .requestMatchers(HttpMethod.POST, "/api/payments/paystack/webhook").permitAll()
 

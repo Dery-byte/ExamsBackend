@@ -46,6 +46,12 @@ public class AttendanceController {
         return withUser(u -> ResponseEntity.ok(attendance.checkIn(u, req, clientIp(http))));
     }
 
+    /** Scanned classes: the student's key for drawing their changing QR code (after the phone and location checks). */
+    @PostMapping("/student/qr-key")
+    public ResponseEntity<?> qrKey(@RequestBody AttendanceService.QrKeyRequest req) {
+        return withUser(u -> ResponseEntity.ok(attendance.qrKey(u, req)));
+    }
+
     @GetMapping("/student/summary")
     public ResponseEntity<?> mySummary() {
         return withUser(u -> ResponseEntity.ok(attendance.studentSummary(u)));
@@ -130,6 +136,22 @@ public class AttendanceController {
         return withUser(u -> ResponseEntity.ok(attendance.end(u, id)));
     }
 
+    /** The lecturer scanned a student's QR code. Always 200: a refusal carries ok=false and why. */
+    @PostMapping("/manage/sessions/{id}/scan")
+    public ResponseEntity<?> scan(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return withUser(u -> ResponseEntity.ok(attendance.scanByStaff(u, id, body == null ? null : body.get("code"))));
+    }
+
+    @PostMapping("/manage/sessions/{id}/helpers")
+    public ResponseEntity<?> addHelper(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return withUser(u -> ResponseEntity.ok(attendance.addHelper(u, id, body == null ? null : body.get("label"))));
+    }
+
+    @DeleteMapping("/manage/sessions/{id}/helpers/{helperId}")
+    public ResponseEntity<?> revokeHelper(@PathVariable Long id, @PathVariable Long helperId) {
+        return withUser(u -> ResponseEntity.ok(attendance.revokeHelper(u, id, helperId)));
+    }
+
     @DeleteMapping("/manage/sessions/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id) {
         return withUser(u -> { attendance.delete(u, id); return ResponseEntity.ok(Map.of("message", "Session deleted.")); });
@@ -175,6 +197,31 @@ public class AttendanceController {
     @DeleteMapping("/manage/schedules/{id}")
     public ResponseEntity<?> deleteSchedule(@PathVariable Long id) {
         return withUser(u -> { schedules.delete(u, id); return ResponseEntity.ok(Map.of("message", "Class time deleted.")); });
+    }
+
+    // ── Helper scanner links (no account; the secret link is the key) ───────
+
+    @GetMapping("/scan/{token}")
+    public ResponseEntity<?> helperView(@PathVariable String token) {
+        return publicCall(() -> ResponseEntity.ok(attendance.helperView(token)));
+    }
+
+    @PostMapping("/scan/{token}")
+    public ResponseEntity<?> helperScan(@PathVariable String token, @RequestBody AttendanceService.HelperScanRequest req) {
+        return publicCall(() -> ResponseEntity.ok(attendance.scanByHelper(token, req)));
+    }
+
+    private ResponseEntity<?> publicCall(java.util.function.Supplier<ResponseEntity<?>> action) {
+        try {
+            return action.get();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.GONE).body(new ErrorMessage(e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorMessage("That was already recorded."));
+        } catch (RuntimeException e) {
+            log.error("[Attendance] Helper scan failed", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorMessage("Something went wrong. Please try again."));
+        }
     }
 
     // ── Rules (Super Admin, HODs) ────────────────────────────────────────────

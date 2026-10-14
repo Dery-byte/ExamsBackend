@@ -5,6 +5,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\AttendanceController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\UserResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\examops\QuizUnlock.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\ProfilePhotoController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\ForcePasswordChangeInterceptor.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\ReportService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\RemarkRequestRepository.java
@@ -83,6 +84,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\att
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\CustomResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\LecturerReportsController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\Questions.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\AttendanceScannerRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\token\TokenType.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\monitoring\HealthService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\TheoryQuestionDTO.java
@@ -91,6 +93,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\adm
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\token\Token.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\exception\ResetPasswordTokenAlreadyUsedException.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\ResetPasswordWithTokenRequest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\attendance\AttendanceScanner.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\reports\AcademicReports.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\fees\FeeComponent.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\DepartmentFeatureSettingRepository.java
@@ -229,6 +232,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\attendance\AttendanceCodes.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\ForgotPasswordUnifiedRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\comms\AuditService.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\attendance\AttendanceMethod.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\SubscriptionController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\AttemptService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\QuizResultsController.java
@@ -374,6 +378,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\att
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\TheoryQuestionResponseDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\subscription\SubscriptionKeys.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\QuizType.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\attendance\AttendanceQr.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\NotificationRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\reports\ReportPdfService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuestionImageService.java

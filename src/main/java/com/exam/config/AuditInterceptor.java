@@ -36,6 +36,8 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
     private static final List<Pattern> IGNORED = List.of(
             Pattern.compile("/api/notifications.*"),
             Pattern.compile("/api/proctoring/events"),
+            // One per student scanned; the record itself says who scanned whom
+            Pattern.compile("/api/attendance/manage/sessions/\\d+/scan"),
             Pattern.compile(".*/(quiz-progress|quiz-timer|theory-progress)(/.*)?"),
             Pattern.compile(".*/(logout|authenticate|refresh-token)$")
     );
@@ -135,6 +137,8 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
             r("POST",   ".*/api/question-bank/import/quiz/\\d+$",   "Imported quiz questions into bank"),
             r("POST",   ".*/api/question-bank/draw/quiz/\\d+$",     "Drew bank questions into quiz"),
             r("POST",   ".*/api/remarks/\\d+/respond$",             "Answered re-mark request"),
+            r("POST",   ".*/profile/photo$",                       "Changed their profile photo"),
+            r("DELETE", ".*/profile/photo$",                       "Removed their profile photo"),
             // Class attendance
             r("POST",   ".*/api/attendance/manage/sessions$",                          "Started class attendance"),
             r("POST",   ".*/api/attendance/manage/sessions/\\d+/end$",                 "Ended class attendance"),
@@ -148,6 +152,8 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
             r("POST",   ".*/api/attendance/manage/sessions/\\d+/second-check$",        "Started the attendance second check"),
             r("DELETE", ".*/api/attendance/manage/sessions/\\d+/second-check$",        "Cancelled the attendance second check"),
             r("PUT",    ".*/api/attendance/manage/sessions/\\d+/headcount$",           "Entered the class headcount"),
+            r("POST",   ".*/api/attendance/manage/sessions/\\d+/helpers$",             "Gave a helper an attendance scanner link"),
+            r("DELETE", ".*/api/attendance/manage/sessions/\\d+/helpers/\\d+$",        "Cancelled a helper's scanner link"),
             r("POST",   ".*/api/attendance/manage/classrooms$",                        "Saved a classroom"),
             r("PUT",    ".*/api/attendance/manage/classrooms/\\d+$",                   "Changed a classroom"),
             r("DELETE", ".*/api/attendance/manage/classrooms/\\d+$",                   "Deleted a classroom"),

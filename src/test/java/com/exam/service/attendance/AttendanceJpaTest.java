@@ -421,6 +421,94 @@ class AttendanceJpaTest {
                 .contains("Computer Science").contains("0%").contains("60%");
     }
 
+    // ── Staff scanning ───────────────────────────────────────────────────────
+
+    private Long openScanned() {
+        Map<String, Object> s = attendance.open(lecturer, new AttendanceService.OpenRequest("COURSE", course.getCid(), null, null, null,
+                LAT, LNG, 8.0, null, 120, "Scanned class", null, null, "STAFF_SCAN"));
+        return (Long) s.get("id");
+    }
+
+    /** The code the student's phone would show now, after it was given its key. */
+    private String liveCode(AttendanceService.QrKeyResult key, long stepOffset) {
+        byte[] k = java.util.Base64.getUrlDecoder().decode(key.key());
+        return AttendanceQr.token(k, key.sessionId(), key.studentId(), AttendanceQr.step(clock.millis()) + stepOffset);
+    }
+
+    private AttendanceService.QrKeyResult key(User u, Long id, double metresNorth, String phone) {
+        return attendance.qrKey(u, new AttendanceService.QrKeyRequest(id, LAT + metresNorth * M, LNG, 8.0, phone));
+    }
+
+    @Test
+    void staffScanTheStudentsLiveCodeAndScreenshotsFail() {
+        Long id = openScanned();
+        assertThat(attendance.detail(lecturer, id).get("method")).isEqualTo("STAFF_SCAN");
+        assertThat(checkIn(ama, id, code(id), 5, 10, AMA_PHONE).reason()).as("no typed codes in a scanned class").isEqualTo("SCANNED");
+        assertThatThrownBy(() -> attendance.startSecondCheck(lecturer, id)).hasMessageContaining("no second check");
+
+        // The phone and location rules apply before a student gets their code
+        assertThat(key(kofi, id, 150, KOFI_PHONE).reason()).isEqualTo("TOO_FAR");
+        assertThat(key(outsider, id, 5, "outsider-phone-00000004").reason()).isEqualTo("NOT_LISTED");
+        AttendanceService.QrKeyResult ama1 = key(ama, id, 5, AMA_PHONE);
+        assertThat(ama1.ok()).isTrue();
+        assertThat(key(kofi, id, 5, AMA_PHONE).reason()).as("Ama's phone can't show Kofi's code").isEqualTo("PHONE_TAKEN");
+
+        clock.plusSeconds(20 * 60);   // scanning order is not arrival order: nobody is marked late
+        AttendanceService.ScanResult scanned = attendance.scanByStaff(lecturer, id, liveCode(ama1, 0));
+        assertThat(scanned.outcome()).isEqualTo("RECORDED");
+        assertThat(scanned.name()).isEqualTo("10001 Test");
+        assertThat(attendance.scanByStaff(lecturer, id, liveCode(ama1, 0)).outcome()).isEqualTo("ALREADY");
+
+        // A screenshot from 30 s ago, a tampered code, another class's code
+        AttendanceService.QrKeyResult kofiKey = key(kofi, id, 5, KOFI_PHONE);
+        AttendanceService.ScanResult old = attendance.scanByStaff(lecturer, id, liveCode(kofiKey, -3));
+        assertThat(old.outcome()).isEqualTo("EXPIRED");
+        assertThat(old.name()).as("the scanner still sees whose code it was").isEqualTo("10002 Test");
+        String good = liveCode(kofiKey, 0);
+        String forged = good.substring(0, good.length() - 1) + (good.endsWith("A") ? "B" : "A");
+        assertThat(attendance.scanByStaff(lecturer, id, forged).outcome()).isEqualTo("REFUSED");
+        assertThat(attendance.scanByStaff(lecturer, id, "hello").message()).contains("isn't a student's attendance code");
+
+        attendance.end(lecturer, id);
+        Map<Long, AttendanceRecord> byStudent = new HashMap<>();
+        records.forSession(id).forEach(r -> byStudent.put(r.getStudent().getId(), r));
+        assertThat(byStudent.get(ama.getId()).getStatus().name()).isEqualTo("PRESENT");
+        assertThat(byStudent.get(ama.getId()).getMethod()).isEqualTo(AttendanceRecord.METHOD_SCAN);
+        assertThat(byStudent.get(ama.getId()).getReviewedBy()).isEqualTo("lect1 Test");
+        assertThat(byStudent.get(kofi.getId()).getStatus().name()).as("showed only a screenshot").isEqualTo("ABSENT");
+    }
+
+    @Test
+    void aHelpersLinkScansFromInsideTheRoomUntilCancelled() {
+        Long id = openScanned();
+        Map<String, Object> helper = attendance.addHelper(lecturer, id, "Kojo (TA)");
+        String link = (String) helper.get("token");
+        assertThat(link).isNotBlank();
+        assertThat(attendance.helperView(link).get("helper")).isEqualTo("Kojo (TA)");
+
+        AttendanceService.QrKeyResult esiKey = key(esi, id, 5, ESI_PHONE);
+        AttendanceService.ScanResult outside = attendance.scanByHelper(link,
+                new AttendanceService.HelperScanRequest(liveCode(esiKey, 0), LAT + 200 * M, LNG, 8.0));
+        assertThat(outside.ok()).as("the helper's phone must be in the room").isFalse();
+        AttendanceService.ScanResult inside = attendance.scanByHelper(link,
+                new AttendanceService.HelperScanRequest(liveCode(esiKey, 0), LAT + 3 * M, LNG, 8.0));
+        assertThat(inside.outcome()).isEqualTo("RECORDED");
+        AttendanceRecord r = records.findBySession_IdAndStudent_Id(id, esi.getId()).orElseThrow();
+        assertThat(r.getReviewedBy()).isEqualTo("Kojo (TA) (helper)");
+
+        attendance.revokeHelper(lecturer, id, (Long) helper.get("id"));
+        assertThatThrownBy(() -> attendance.helperView(link)).hasMessageContaining("cancelled");
+        assertThatThrownBy(() -> attendance.helperView("not-a-real-link")).hasMessageContaining("isn't valid");
+
+        Long typed = openCourseAfter(id);
+        assertThatThrownBy(() -> attendance.addHelper(lecturer, typed, "TA")).hasMessageContaining("only for classes where staff scan");
+    }
+
+    private Long openCourseAfter(Long previous) {
+        attendance.end(lecturer, previous);
+        return openCourse("PROJECTOR", 60, false);
+    }
+
     @Test
     void scheduleStartsTodaysClass() {
         Map<String, Object> sc = schedules.create(lecturer, new ClassScheduleService.ScheduleRequest("COURSE", course.getCid(), null, null,

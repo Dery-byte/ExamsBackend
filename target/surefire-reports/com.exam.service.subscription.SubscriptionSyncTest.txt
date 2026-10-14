@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.exam.service.subscription.SubscriptionSyncTest
 -------------------------------------------------------------------------------
-Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.669 s - in com.exam.service.subscription.SubscriptionSyncTest
+Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.541 s - in com.exam.service.subscription.SubscriptionSyncTest

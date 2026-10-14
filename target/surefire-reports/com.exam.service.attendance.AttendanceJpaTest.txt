@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.exam.service.attendance.AttendanceJpaTest
 -------------------------------------------------------------------------------
-Tests run: 15, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 18.878 s - in com.exam.service.attendance.AttendanceJpaTest
+Tests run: 17, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.724 s - in com.exam.service.attendance.AttendanceJpaTest

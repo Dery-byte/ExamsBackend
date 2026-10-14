@@ -70,6 +70,15 @@ public class AttendanceSession {
 
     private Long scheduleId;
 
+    /** Typed code or staff scanning. Null on meetings from before scanning existed = typed code. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private AttendanceMethod method;
+
+    public AttendanceMethod getMethod() { return method == null ? AttendanceMethod.STUDENT_CODE : method; }
+
+    public boolean isScanned() { return getMethod() == AttendanceMethod.STAFF_SCAN; }
+
     // ── Code ─────────────────────────────────────────────────────────────────
 
     @Enumerated(EnumType.STRING)

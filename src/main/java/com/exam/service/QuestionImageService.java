@@ -40,8 +40,28 @@ public class QuestionImageService {
     @Autowired
     private QuestionImageRepository repository;
 
+    /** Profile photos: a centred square this size (px), enough for avatars on high-density screens. */
+    private static final int PROFILE_PHOTO_SIZE = 512;
+
     /** Validates, converts to WebP, persists; returns the path to store on the question. */
     public String storeAsWebp(MultipartFile file) {
+        Decoded d = decode(file);
+        return save(prepare(d.image(), d.ext(), MAX_DIMENSION, false));
+    }
+
+    /**
+     * A profile photo: the same checks and WebP compression as question images, cropped to a centred
+     * square and scaled to {@value #PROFILE_PHOTO_SIZE} px (avatars are round or square everywhere).
+     */
+    public String storeProfilePhoto(MultipartFile file) {
+        Decoded d = decode(file);
+        return save(prepare(d.image(), d.ext(), PROFILE_PHOTO_SIZE, true));
+    }
+
+    private record Decoded(BufferedImage image, String ext) {}
+
+    /** Extension, MIME type and real content checks; returns the decoded image. */
+    private Decoded decode(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw bad("No image file was provided");
         }
@@ -66,10 +86,14 @@ public class QuestionImageService {
         if (source == null) {
             throw bad("The file is not a valid PNG or JPEG image");
         }
+        return new Decoded(source, ext);
+    }
 
+    /** Encodes to WebP and stores it; returns the public path. */
+    private String save(BufferedImage prepared) {
         byte[] webp;
         try {
-            webp = encodeWebp(prepare(source, ext));
+            webp = encodeWebp(prepared);
         } catch (IOException | RuntimeException e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                     "Image conversion to WebP failed");
@@ -151,10 +175,17 @@ public class QuestionImageService {
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    /** Downscales oversized images; flattens JPEG-style sources onto white (no alpha needed). */
-    private BufferedImage prepare(BufferedImage src, String ext) {
+    /**
+     * Downscales oversized images (longest side to {@code maxDimension}); flattens JPEG-style sources
+     * onto white (no alpha needed). {@code square}: crop the centred square first (profile photos).
+     */
+    private BufferedImage prepare(BufferedImage src, String ext, int maxDimension, boolean square) {
+        if (square && src.getWidth() != src.getHeight()) {
+            int side = Math.min(src.getWidth(), src.getHeight());
+            src = src.getSubimage((src.getWidth() - side) / 2, (src.getHeight() - side) / 2, side, side);
+        }
         int w = src.getWidth(), h = src.getHeight();
-        double scale = Math.min(1.0, (double) MAX_DIMENSION / Math.max(w, h));
+        double scale = Math.min(1.0, (double) maxDimension / Math.max(w, h));
         int nw = Math.max(1, (int) Math.round(w * scale));
         int nh = Math.max(1, (int) Math.round(h * scale));
 

@@ -55,6 +55,7 @@ public class AttendanceService {
     @Autowired private AttendancePolicyService policyService;
     @Autowired private FeatureService features;
     @Autowired private AttendanceMinimum minimum;
+    @Autowired private AttendanceScannerRepository scanners;
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int DEFAULT_DURATION_MINUTES = 120;
@@ -70,6 +71,11 @@ public class AttendanceService {
         return (km >= 10 ? String.valueOf(Math.round(km)) : String.valueOf(Math.round(km * 10) / 10.0)) + " km";
     }
 
+    /** Scanned meetings keep check-in open at least this long (scanning a full class takes time). */
+    static final int SCAN_WINDOW_MINUTES = 30;
+    /** Helper scanner links open at once for one class. */
+    static final int MAX_HELPERS = 10;
+
     /** The second check never comes in the first or last few minutes of class. */
     private static final int SECOND_CHECK_MARGIN_MINUTES = 5;
 
@@ -84,7 +90,16 @@ public class AttendanceService {
 
     public record OpenRequest(String scope, Long courseId, Long programId, Integer level, Long classroomId,
                               Double latitude, Double longitude, Double accuracy, String codeDisplay,
-                              Integer durationMinutes, String topic, Long scheduleId, Boolean secondCheck) {}
+                              Integer durationMinutes, String topic, Long scheduleId, Boolean secondCheck, String method) {
+
+        /** Without the method (callers from before scanning existed): students type the code. */
+        public OpenRequest(String scope, Long courseId, Long programId, Integer level, Long classroomId,
+                           Double latitude, Double longitude, Double accuracy, String codeDisplay,
+                           Integer durationMinutes, String topic, Long scheduleId, Boolean secondCheck) {
+            this(scope, courseId, programId, level, classroomId, latitude, longitude, accuracy, codeDisplay,
+                    durationMinutes, topic, scheduleId, secondCheck, null);
+        }
+    }
 
     @Transactional
     public Map<String, Object> open(User actor, OpenRequest req) {
@@ -186,9 +201,12 @@ public class AttendanceService {
             if (duration < 15 || duration > 360) throw new IllegalArgumentException("Class length must be between 15 minutes and 6 hours.");
             endsAt = now.plusMinutes(duration);
         }
-        CodeDisplay display = parseDisplay(req.codeDisplay());
+        AttendanceMethod method = parseMethod(req.method());
+        boolean scanned = method == AttendanceMethod.STAFF_SCAN;
+        CodeDisplay display = scanned ? CodeDisplay.PROJECTOR : parseDisplay(req.codeDisplay());
 
         AttendanceSession s = new AttendanceSession();
+        s.setMethod(method);
         s.setScope(scope);
         s.setCourse(course);
         s.setProgram(program);
@@ -216,11 +234,18 @@ public class AttendanceService {
         s.setMaxAccuracyMeters(policy.getMaxAccuracyMeters());
         s.setOpenedAt(now);
         s.setEndsAt(endsAt);
-        s.setCheckInClosesAt(min(now.plusMinutes(policy.getCheckInMinutes()), endsAt));
-        s.setLateAfter(now.plusMinutes(policy.getLateAfterMinutes()));
         s.setSecondCheckMinutes(policy.getSecondCheckMinutes());
-        boolean second = req.secondCheck() != null ? req.secondCheck() : policy.isSecondCheck();
-        if (second) planSecondCheck(s, s.getCheckInClosesAt());
+        if (scanned) {
+            // Scanning a full class takes a while and the order is the scanner's, not arrival order:
+            // a longer window, nobody marked late, and no second check (the scan itself is the proof)
+            s.setCheckInClosesAt(min(now.plusMinutes(Math.max(policy.getCheckInMinutes(), SCAN_WINDOW_MINUTES)), endsAt));
+            s.setLateAfter(endsAt);
+        } else {
+            s.setCheckInClosesAt(min(now.plusMinutes(policy.getCheckInMinutes()), endsAt));
+            s.setLateAfter(now.plusMinutes(policy.getLateAfterMinutes()));
+            boolean second = req.secondCheck() != null ? req.secondCheck() : policy.isSecondCheck();
+            if (second) planSecondCheck(s, s.getCheckInClosesAt());
+        }
         return detail(actor, sessions.save(s).getId());
     }
 
@@ -276,9 +301,11 @@ public class AttendanceService {
         m.put("meetingNumber", s.getMeetingNumber());
         m.put("placeName", s.getPlaceName());
         m.put("codeDisplay", s.getCodeDisplay().name());
+        m.put("method", s.getMethod().name());
         m.put("phase", p.name());
         m.put("check", p.check());
-        if (p.check() > 0) {
+        if (s.isScanned() && p.closesAt() != null) m.put("phaseSecondsLeft", Math.max(0, Duration.between(now, p.closesAt()).getSeconds()));
+        if (p.check() > 0 && !s.isScanned()) {
             long e = elapsed(s, p.check(), now);
             m.put("code", AttendanceCodes.code(s.getSecret(), p.check(), AttendanceCodes.step(e, s.getCodeSeconds())));
             m.put("codeSeconds", s.getCodeSeconds());
@@ -364,13 +391,16 @@ public class AttendanceService {
             m.put("lecturer", CurrentUserService.displayName(s.getOpenedBy()));
             m.put("placeName", s.getPlaceName());
             m.put("codeDisplay", s.getCodeDisplay().name());
+            m.put("method", s.getMethod().name());
             m.put("phase", p.name());
             m.put("phaseSecondsLeft", p.closesAt() != null ? Math.max(0, Duration.between(now, p.closesAt()).getSeconds()) : null);
             m.put("status", r != null ? r.getStatus().name() : null);
+            // Scanned classes: show the QR code while check-in is open and nobody has recorded the student yet
+            m.put("needsScan", s.isScanned() && "CHECK_IN".equals(p.name()) && (r == null || !r.getStatus().attended()));
             m.put("manual", r != null && r.getReviewedAt() != null && !AttendanceRecord.METHOD_CODE.equals(r.getMethod()));
             m.put("firstChecked", r != null && r.getFirstCheckAt() != null);
             m.put("secondChecked", r != null && r.getSecondCheckAt() != null);
-            m.put("needsCheck", needsCheck(p, r));
+            m.put("needsCheck", s.isScanned() ? 0 : needsCheck(p, r));
             m.put("attemptsLeft", Math.max(0, s.getMaxFailedAttempts() - failures));
             m.put("locked", failures >= s.getMaxFailedAttempts());
             m.put("maxAccuracyMeters", s.getMaxAccuracyMeters());
@@ -389,6 +419,65 @@ public class AttendanceService {
         return 0;
     }
 
+    // ── Checks shared by typed codes and QR keys ────────────────────────────
+
+    /** The phone rule's outcome: a refusal, or the device hash and its link (new or existing). */
+    private record PhoneCheck(CheckInResult refusal, String hash, boolean newPhone, AttendanceDevice linked) {}
+
+    /** One phone per student, one student per phone (per meeting and overall). */
+    private PhoneCheck checkPhone(User student, AttendanceSession s, String rawDeviceId) {
+        String deviceId = rawDeviceId == null ? "" : rawDeviceId.trim();
+        if (!deviceId.matches("[A-Za-z0-9_-]{16,128}"))
+            return new PhoneCheck(CheckInResult.refused("NO_DEVICE", "This browser can't be identified. Turn off private browsing and try again."), null, false, null);
+        String hash = AttendanceCodes.hashDevice(deviceId);
+        AttendanceDevice mine = devices.findByUser_Id(student.getId()).orElse(null);
+        boolean newPhone = false;
+        if (mine == null) {
+            if (devices.findByDeviceHash(hash).isPresent())
+                return new PhoneCheck(CheckInResult.refused("PHONE_TAKEN", "This phone is already linked to another student's account. Each student checks in on their own phone."), null, false, null);
+            newPhone = true;
+        } else if (!mine.getDeviceHash().equals(hash)) {
+            return new PhoneCheck(CheckInResult.refused("OTHER_PHONE", "Your account is linked to a different phone (or browser). Check in on that one, or ask your lecturer to reset it if you changed phones."), null, false, null);
+        }
+        if (records.deviceUsedByOther(s.getId(), hash, student.getId()))
+            return new PhoneCheck(CheckInResult.refused("PHONE_TAKEN", "This phone has already checked in another student for this class."), null, false, null);
+        return new PhoneCheck(null, hash, newPhone, mine);
+    }
+
+    /** Links a new phone (on its first successful use) and notes when it was last used. */
+    private void linkPhone(PhoneCheck phone, User student, LocalDateTime now) {
+        AttendanceDevice d = phone.linked();
+        if (d == null) {
+            d = new AttendanceDevice();
+            d.setUser(student);
+            d.setDeviceHash(phone.hash());
+            d.setLinkedAt(now);
+        }
+        d.setLastUsedAt(now);
+        devices.save(d);
+    }
+
+    /** The location rule's outcome: a refusal, or the distance and accuracy (whole metres). */
+    private record PlaceCheck(CheckInResult refusal, int distance, int accuracy) {}
+
+    /** Precise enough, and inside the room's distance with the accuracy included. {@code who}: "You appear" / "This phone appears". */
+    private PlaceCheck checkPlace(AttendanceSession s, Double lat, Double lng, Double accuracy, String who) {
+        if (!AttendanceGeo.validPoint(lat, lng) || accuracy == null || accuracy <= 0 || !Double.isFinite(accuracy))
+            return new PlaceCheck(CheckInResult.refused("NO_LOCATION", "Your location couldn't be read. Turn on location (GPS), allow this site to use it, and try again."), 0, 0);
+        int acc = (int) Math.ceil(accuracy);
+        if (acc > GUESSED_LOCATION_METERS)
+            return new PlaceCheck(CheckInResult.refused("NO_GPS", "This device can't find where it is: it is only guessing from the internet connection (about "
+                    + approx(acc) + " off). Use a phone with location (GPS) turned on."), 0, acc);
+        if (acc > s.getMaxAccuracyMeters())
+            return new PlaceCheck(CheckInResult.refused("IMPRECISE", "Your location is only accurate to ±" + acc + " m (it needs to be ±" + s.getMaxAccuracyMeters()
+                    + " m or better). Turn on precise location, wait a few seconds and try again. If you are in class and it keeps failing, see your lecturer."), 0, acc);
+        int distance = (int) Math.round(AttendanceGeo.distanceMeters(s.getLatitude(), s.getLongitude(), lat, lng));
+        if (distance + acc > s.getRadiusMeters())
+            return new PlaceCheck(CheckInResult.refused("TOO_FAR", who + " to be about " + distance + " m from the classroom (±" + acc + " m), outside the "
+                    + s.getRadiusMeters() + " m allowed. If you are in class, see your lecturer."), distance, acc);
+        return new PlaceCheck(null, distance, acc);
+    }
+
     public record CheckInRequest(Long sessionId, String code, Double latitude, Double longitude, Double accuracy, String deviceId) {}
 
     /** {@code reason} is a short machine code the page uses to show help (WRONG_CODE, TOO_FAR, OTHER_PHONE …). */
@@ -405,6 +494,8 @@ public class AttendanceService {
         AttendanceSession s = sessions.findById(req.sessionId()).orElse(null);
         if (s == null || !s.isLive()) return CheckInResult.refused("ENDED", "This class has ended.");
         if (!onRoster(student, s)) return CheckInResult.refused("NOT_LISTED", "You're not on the list for this class. If you should be, see your lecturer.");
+        if (s.isScanned())
+            return CheckInResult.refused("SCANNED", "In this class your lecturer scans your QR code: open your QR code and show it to them.");
 
         LocalDateTime now = now();
         Phase p = phase(s, now);
@@ -449,49 +540,17 @@ public class AttendanceService {
             return new CheckInResult(false, null, what + tail, left == 0 ? "LOCKED" : match.name() + "_CODE", left);
         }
 
-        // ── Phone ──
-        String deviceId = req.deviceId() == null ? "" : req.deviceId().trim();
-        if (!deviceId.matches("[A-Za-z0-9_-]{16,128}"))
-            return CheckInResult.refused("NO_DEVICE", "This browser can't be identified. Turn off private browsing and try again.");
-        String hash = AttendanceCodes.hashDevice(deviceId);
-        AttendanceDevice mine = devices.findByUser_Id(student.getId()).orElse(null);
-        boolean newPhone = false;
-        if (mine == null) {
-            Optional<AttendanceDevice> taken = devices.findByDeviceHash(hash);
-            if (taken.isPresent())
-                return CheckInResult.refused("PHONE_TAKEN", "This phone is already linked to another student's account. Each student checks in on their own phone.");
-            newPhone = true;
-        } else if (!mine.getDeviceHash().equals(hash)) {
-            return CheckInResult.refused("OTHER_PHONE", "Your account is linked to a different phone (or browser). Check in on that one, or ask your lecturer to reset it if you changed phones.");
-        }
-        if (records.deviceUsedByOther(s.getId(), hash, student.getId()))
-            return CheckInResult.refused("PHONE_TAKEN", "This phone has already checked in another student for this class.");
-
-        // ── Location ──
-        if (!AttendanceGeo.validPoint(req.latitude(), req.longitude()) || req.accuracy() == null || req.accuracy() <= 0 || !Double.isFinite(req.accuracy()))
-            return CheckInResult.refused("NO_LOCATION", "Your location couldn't be read. Turn on location (GPS), allow this site to use it, and try again.");
-        int acc = (int) Math.ceil(req.accuracy());
-        if (acc > GUESSED_LOCATION_METERS)
-            return CheckInResult.refused("NO_GPS", "This device can't find where it is: it is only guessing from the internet connection (about "
-                    + approx(acc) + " off). Check in on your phone with location (GPS) turned on.");
-        if (acc > s.getMaxAccuracyMeters())
-            return CheckInResult.refused("IMPRECISE", "Your location is only accurate to ±" + acc + " m (it needs to be ±" + s.getMaxAccuracyMeters()
-                    + " m or better). Turn on precise location, wait a few seconds and try again. If you are in class and it keeps failing, see your lecturer.");
-        int distance = (int) Math.round(AttendanceGeo.distanceMeters(s.getLatitude(), s.getLongitude(), req.latitude(), req.longitude()));
-        if (distance + acc > s.getRadiusMeters())
-            return CheckInResult.refused("TOO_FAR", "You appear to be about " + distance + " m from the classroom (±" + acc + " m), outside the "
-                    + s.getRadiusMeters() + " m allowed. If you are in class, see your lecturer.");
+        // ── Phone and location ──
+        PhoneCheck phone = checkPhone(student, s, req.deviceId());
+        if (phone.refusal() != null) return phone.refusal();
+        PlaceCheck place = checkPlace(s, req.latitude(), req.longitude(), req.accuracy(), "You appear");
+        if (place.refusal() != null) return place.refusal();
+        int distance = place.distance(), acc = place.accuracy();
+        String hash = phone.hash();
+        boolean newPhone = phone.newPhone();
 
         // ── Passed: record it ──
-        if (newPhone) {
-            AttendanceDevice d = new AttendanceDevice();
-            d.setUser(student);
-            d.setDeviceHash(hash);
-            d.setLinkedAt(now);
-            mine = d;
-        }
-        mine.setLastUsedAt(now);
-        devices.save(mine);
+        linkPhone(phone, student, now);
 
         String ipShort = ip == null ? null : (ip.length() > 64 ? ip.substring(0, 64) : ip);
         if (p.check() == 1) {
@@ -745,6 +804,7 @@ public class AttendanceService {
         out.put("students", rows);
         out.put("counts", counts);
         out.put("rosterSize", people.size());
+        if (s.isScanned()) out.put("helpers", scanners.forSession(s.getId()).stream().map(AttendanceService::helperDto).toList());
         return out;
     }
 
@@ -769,6 +829,9 @@ public class AttendanceService {
         m.put("closedAt", s.getClosedAt());
         m.put("live", s.isLive());
         m.put("phase", p.name());
+        // Seconds rather than a clock time, so a browser in another time zone than the server counts down correctly
+        m.put("phaseSecondsLeft", p.closesAt() != null ? Math.max(0, Duration.between(now, p.closesAt()).getSeconds()) : null);
+        m.put("method", s.getMethod().name());
         m.put("codeDisplay", s.getCodeDisplay().name());
         m.put("codeSeconds", s.getCodeSeconds());
         m.put("placeName", s.getPlaceName());
@@ -816,6 +879,7 @@ public class AttendanceService {
     @Transactional
     public Map<String, Object> startSecondCheck(User actor, Long id) {
         AttendanceSession s = liveForStaff(actor, id);
+        if (s.isScanned()) throw new IllegalArgumentException("There is no second check when staff scan students: the scan itself shows they were in the room.");
         LocalDateTime now = now();
         Phase p = phase(s, now);
         if ("CHECK_IN".equals(p.name())) throw new IllegalArgumentException("Close check-in first, then start the second check.");
@@ -934,8 +998,197 @@ public class AttendanceService {
         AttendanceAccess.requireManage(actor, s);
         records.deleteBySession(s.getId());
         strikes.deleteBySession(s.getId());
+        scanners.deleteBySession(s.getId());
         sessions.delete(s);
         rosterSizes.remove(id);
+    }
+
+    // ══ Scanned meetings: the student's QR code, and staff / helper scanning ══
+
+    public record QrKeyRequest(Long sessionId, Double latitude, Double longitude, Double accuracy, String deviceId) {}
+
+    /** ok: the student's key for this meeting and what the phone needs to draw the changing code; else a refusal. */
+    public record QrKeyResult(boolean ok, String message, String reason, String key, Long sessionId, Long studentId,
+                              Integer stepSeconds, Long serverTime, String name, String indexNo) {
+        static QrKeyResult refused(CheckInResult r) {
+            return new QrKeyResult(false, r.message(), r.reason(), null, null, null, null, null, null, null);
+        }
+    }
+
+    /**
+     * Gives the student's phone its key for a scanned meeting, after the same phone and location
+     * checks as a typed check-in, so the code can't be produced by a phone outside the room.
+     */
+    @Transactional
+    public QrKeyResult qrKey(User student, QrKeyRequest req) {
+        if (student == null || student.getRole() != Role.NORMAL) throw new AccessDeniedException("Only students show an attendance QR code.");
+        if (!features.isOnFor(Feature.ATTENDANCE, student)) return QrKeyResult.refused(CheckInResult.refused("OFF", "Class attendance is switched off."));
+        if (req == null || req.sessionId() == null) return QrKeyResult.refused(CheckInResult.refused("NO_SESSION", "Choose the class you are in."));
+        AttendanceSession s = sessions.findById(req.sessionId()).orElse(null);
+        if (s == null || !s.isLive()) return QrKeyResult.refused(CheckInResult.refused("ENDED", "This class has ended."));
+        if (!s.isScanned()) return QrKeyResult.refused(CheckInResult.refused("TYPED", "In this class you type the code your lecturer shows."));
+        if (!onRoster(student, s))
+            return QrKeyResult.refused(CheckInResult.refused("NOT_LISTED", "You're not on the list for this class. If you should be, see your lecturer."));
+        LocalDateTime now = now();
+        if (!"CHECK_IN".equals(phase(s, now).name()))
+            return QrKeyResult.refused(CheckInResult.refused("CLOSED", "Check-in for this class is closed. If you are in class, see your lecturer."));
+        PhoneCheck phone = checkPhone(student, s, req.deviceId());
+        if (phone.refusal() != null) return QrKeyResult.refused(phone.refusal());
+        PlaceCheck place = checkPlace(s, req.latitude(), req.longitude(), req.accuracy(), "You appear");
+        if (place.refusal() != null) return QrKeyResult.refused(place.refusal());
+        linkPhone(phone, student, now);
+        return new QrKeyResult(true, "Show this code to your lecturer to be scanned.", "OK",
+                AttendanceQr.encodeKey(AttendanceQr.studentKey(s.getSecret(), student.getId())), s.getId(), student.getId(),
+                AttendanceQr.STEP_SECONDS, clock.millis(), CurrentUserService.displayName(student), student.getUsername());
+    }
+
+    /**
+     * What the scanner shows after a scan. outcome: RECORDED, ALREADY, EXPIRED (a photo or screenshot),
+     * NOT_LISTED or REFUSED. The student's name and photo are returned whenever the code is genuine,
+     * so the scanner can see whether the person holding the phone is that student.
+     */
+    public record ScanResult(boolean ok, String outcome, String message, Long studentId, String name, String indexNo, String photo, String status) {
+        static ScanResult refused(String message) { return new ScanResult(false, "REFUSED", message, null, null, null, null, null); }
+    }
+
+    /** The lecturer (or HOD / Super Admin) scanning from their own account. */
+    @Transactional
+    public ScanResult scanByStaff(User actor, Long sessionId, String code) {
+        AttendanceSession s = load(sessionId);
+        AttendanceAccess.requireManage(actor, s);
+        return scan(s, code, CurrentUserService.displayName(actor));
+    }
+
+    public record HelperScanRequest(String code, Double latitude, Double longitude, Double accuracy) {}
+
+    /** A helper scanning through their link; their phone must be in the room too. */
+    @Transactional
+    public ScanResult scanByHelper(String linkToken, HelperScanRequest req) {
+        AttendanceScanner h = helper(linkToken);
+        AttendanceSession s = h.getSession();
+        PlaceCheck place = checkPlace(s, req == null ? null : req.latitude(), req == null ? null : req.longitude(),
+                req == null ? null : req.accuracy(), "This phone appears");
+        if (place.refusal() != null) return ScanResult.refused(place.refusal().message().replace("If you are in class, see your lecturer.", "Scan from inside the classroom."));
+        ScanResult r = scan(s, req.code(), h.getLabel() + " (helper)");
+        if ("RECORDED".equals(r.outcome())) h.setScans(h.getScans() + 1);
+        h.setLastUsedAt(now());
+        scanners.save(h);
+        return r;
+    }
+
+    private ScanResult scan(AttendanceSession s, String code, String scannedBy) {
+        if (!s.isLive()) return ScanResult.refused("This class has ended.");
+        if (!s.isScanned()) return ScanResult.refused("Students type the code in this class, so there is nothing to scan.");
+        LocalDateTime now = now();
+        if (!"CHECK_IN".equals(phase(s, now).name())) return ScanResult.refused("Check-in is closed. Reopen it to scan more students.");
+        AttendanceQr.Parsed t = AttendanceQr.parse(code);
+        if (t == null) return ScanResult.refused("That isn't a student's attendance code.");
+        if (t.sessionId() != s.getId()) return ScanResult.refused("That code is for a different class.");
+        AttendanceQr.Check c = AttendanceQr.verify(s.getSecret(), t, clock.millis());
+        if (c == AttendanceQr.Check.FORGED) return ScanResult.refused("That code isn't genuine.");
+        User student = users.findById(t.studentId()).orElse(null);
+        if (student == null) return ScanResult.refused("That student no longer exists.");
+        String name = CurrentUserService.displayName(student);
+        if (c == AttendanceQr.Check.EXPIRED)
+            return new ScanResult(false, "EXPIRED", "That code has expired, so it may be a photo or screenshot. Ask " + name
+                    + " to show the live code on their own phone.", student.getId(), name, student.getUsername(), student.getProfilePic(), null);
+        if (!onRoster(student, s))
+            return new ScanResult(false, "NOT_LISTED", name + " is not on the list for this class.", student.getId(), name, student.getUsername(), student.getProfilePic(), null);
+
+        AttendanceRecord r = records.findBySession_IdAndStudent_Id(s.getId(), student.getId()).orElse(null);
+        if (r != null && r.getStatus().attended())
+            return new ScanResult(true, "ALREADY", name + " is already marked " + label(r.getStatus()).toLowerCase() + ".", student.getId(), name,
+                    student.getUsername(), student.getProfilePic(), r.getStatus().name());
+        if (r == null) {
+            r = new AttendanceRecord();
+            r.setSession(s);
+            r.setStudent(student);
+        }
+        r.setStatus(AttendanceStatus.PRESENT);
+        r.setMethod(AttendanceRecord.METHOD_SCAN);
+        r.setFirstCheckAt(now);
+        r.setReviewedBy(scannedBy);
+        r.setReviewedAt(now);
+        records.save(r);
+        return new ScanResult(true, "RECORDED", name + " is present.", student.getId(), name, student.getUsername(), student.getProfilePic(), r.getStatus().name());
+    }
+
+    /** A scanner link for a helper (e.g. a teaching assistant). The link itself is returned only now. */
+    @Transactional
+    public Map<String, Object> addHelper(User actor, Long sessionId, String label) {
+        AttendanceSession s = liveForStaff(actor, sessionId);
+        if (!s.isScanned()) throw new IllegalArgumentException("Helpers scan QR codes, so they are only for classes where staff scan students.");
+        String name = trim(label, 80);
+        if (name == null) throw new IllegalArgumentException("Enter the helper's name.");
+        if (scanners.forSession(s.getId()).stream().filter(h -> h.getRevokedAt() == null).count() >= MAX_HELPERS)
+            throw new IllegalArgumentException("A class can have up to " + MAX_HELPERS + " helpers at a time.");
+        String token = AttendanceCodes.newSecret();
+        AttendanceScanner h = new AttendanceScanner();
+        h.setSession(s);
+        h.setLabel(name);
+        h.setTokenHash(AttendanceCodes.hashDevice(token));
+        h.setCreatedBy(CurrentUserService.displayName(actor));
+        h.setCreatedAt(now());
+        Map<String, Object> m = helperDto(scanners.save(h));
+        m.put("token", token);
+        return m;
+    }
+
+    @Transactional
+    public Map<String, Object> revokeHelper(User actor, Long sessionId, Long helperId) {
+        AttendanceSession s = load(sessionId);
+        AttendanceAccess.requireManage(actor, s);
+        AttendanceScanner h = scanners.findById(helperId).filter(x -> x.getSession().getId().equals(s.getId()))
+                .orElseThrow(() -> new IllegalArgumentException("Helper not found."));
+        if (h.getRevokedAt() == null) {
+            h.setRevokedAt(now());
+            scanners.save(h);
+        }
+        return detail(actor, sessionId);
+    }
+
+    /** What a helper's scanner page shows: the class, how long check-in stays open, and the counts. */
+    @Transactional(readOnly = true)
+    public Map<String, Object> helperView(String linkToken) {
+        AttendanceScanner h = helper(linkToken);
+        AttendanceSession s = h.getSession();
+        LocalDateTime now = now();
+        Phase p = phase(s, now);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("helper", h.getLabel());
+        m.put("title", title(s));
+        m.put("meetingNumber", s.getMeetingNumber());
+        m.put("placeName", s.getPlaceName());
+        m.put("phase", p.name());
+        m.put("phaseSecondsLeft", p.closesAt() != null ? Math.max(0, Duration.between(now, p.closesAt()).getSeconds()) : null);
+        m.put("maxAccuracyMeters", s.getMaxAccuracyMeters());
+        m.put("myScans", h.getScans());
+        m.putAll(liveCounts(s));
+        return m;
+    }
+
+    private AttendanceScanner helper(String linkToken) {
+        String t = linkToken == null ? "" : linkToken.trim();
+        if (t.isEmpty() || t.length() > 100) throw new IllegalArgumentException("This scanner link isn't valid.");
+        AttendanceScanner h = scanners.findByTokenHash(AttendanceCodes.hashDevice(t))
+                .orElseThrow(() -> new IllegalArgumentException("This scanner link isn't valid."));
+        if (h.getRevokedAt() != null) throw new IllegalArgumentException("The lecturer has cancelled this scanner link.");
+        AttendanceSession s = h.getSession();
+        if (!s.isLive()) throw new IllegalArgumentException("This class has ended, so the scanner link no longer works.");
+        if (!features.isOnForDepartment(Feature.ATTENDANCE, s.getDepartment())) throw new IllegalArgumentException("Class attendance is switched off.");
+        return h;
+    }
+
+    static Map<String, Object> helperDto(AttendanceScanner h) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", h.getId());
+        m.put("label", h.getLabel());
+        m.put("createdBy", h.getCreatedBy());
+        m.put("createdAt", h.getCreatedAt());
+        m.put("lastUsedAt", h.getLastUsedAt());
+        m.put("scans", h.getScans());
+        m.put("active", h.getRevokedAt() == null);
+        return m;
     }
 
     // ══ Finalising ═══════════════════════════════════════════════════════════
@@ -1041,6 +1294,12 @@ public class AttendanceService {
         if (s == null || s.isBlank()) throw new IllegalArgumentException("Choose a course or a programme.");
         try { return AttendanceMode.valueOf(s.trim().toUpperCase()); }
         catch (IllegalArgumentException e) { throw new IllegalArgumentException("Choose a course or a programme."); }
+    }
+
+    private static AttendanceMethod parseMethod(String s) {
+        if (s == null || s.isBlank()) return AttendanceMethod.STUDENT_CODE;
+        try { return AttendanceMethod.valueOf(s.trim().toUpperCase()); }
+        catch (IllegalArgumentException e) { throw new IllegalArgumentException("Choose how attendance is taken: students type a code, or staff scan QR codes."); }
     }
 
     private static CodeDisplay parseDisplay(String s) {
