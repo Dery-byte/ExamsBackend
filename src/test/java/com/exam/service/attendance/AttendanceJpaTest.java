@@ -479,20 +479,18 @@ class AttendanceJpaTest {
     }
 
     @Test
-    void aHelpersLinkScansFromInsideTheRoomUntilCancelled() {
+    void aHelpersLinkScansUntilCancelled() {
         Long id = openScanned();
         Map<String, Object> helper = attendance.addHelper(lecturer, id, "Kojo (TA)");
         String link = (String) helper.get("token");
         assertThat(link).isNotBlank();
         assertThat(attendance.helperView(link).get("helper")).isEqualTo("Kojo (TA)");
 
+        // The helper's own location isn't needed; the student's phone still had to be in the room for its code
+        assertThat(key(esi, id, 200, ESI_PHONE).reason()).isEqualTo("TOO_FAR");
         AttendanceService.QrKeyResult esiKey = key(esi, id, 5, ESI_PHONE);
-        AttendanceService.ScanResult outside = attendance.scanByHelper(link,
-                new AttendanceService.HelperScanRequest(liveCode(esiKey, 0), LAT + 200 * M, LNG, 8.0));
-        assertThat(outside.ok()).as("the helper's phone must be in the room").isFalse();
-        AttendanceService.ScanResult inside = attendance.scanByHelper(link,
-                new AttendanceService.HelperScanRequest(liveCode(esiKey, 0), LAT + 3 * M, LNG, 8.0));
-        assertThat(inside.outcome()).isEqualTo("RECORDED");
+        AttendanceService.ScanResult scanned = attendance.scanByHelper(link, new AttendanceService.HelperScanRequest(liveCode(esiKey, 0)));
+        assertThat(scanned.outcome()).isEqualTo("RECORDED");
         AttendanceRecord r = records.findBySession_IdAndStudent_Id(id, esi.getId()).orElseThrow();
         assertThat(r.getReviewedBy()).isEqualTo("Kojo (TA) (helper)");
 

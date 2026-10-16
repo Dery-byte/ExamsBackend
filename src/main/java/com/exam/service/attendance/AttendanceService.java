@@ -1059,17 +1059,18 @@ public class AttendanceService {
         return scan(s, code, CurrentUserService.displayName(actor));
     }
 
-    public record HelperScanRequest(String code, Double latitude, Double longitude, Double accuracy) {}
+    public record HelperScanRequest(String code) {}
 
-    /** A helper scanning through their link; their phone must be in the room too. */
+    /**
+     * A helper scanning through their link. The classroom is the one the lecturer set when starting
+     * the class; the helper's own location isn't checked (indoor GPS on a helper's phone often can't
+     * pass), because every student's code can only be shown from a phone inside that room.
+     */
     @Transactional
     public ScanResult scanByHelper(String linkToken, HelperScanRequest req) {
         AttendanceScanner h = helper(linkToken);
         AttendanceSession s = h.getSession();
-        PlaceCheck place = checkPlace(s, req == null ? null : req.latitude(), req == null ? null : req.longitude(),
-                req == null ? null : req.accuracy(), "This phone appears");
-        if (place.refusal() != null) return ScanResult.refused(place.refusal().message().replace("If you are in class, see your lecturer.", "Scan from inside the classroom."));
-        ScanResult r = scan(s, req.code(), h.getLabel() + " (helper)");
+        ScanResult r = scan(s, req == null ? null : req.code(), h.getLabel() + " (helper)");
         if ("RECORDED".equals(r.outcome())) h.setScans(h.getScans() + 1);
         h.setLastUsedAt(now());
         scanners.save(h);

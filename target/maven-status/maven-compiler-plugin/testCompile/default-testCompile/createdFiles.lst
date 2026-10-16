@@ -15,6 +15,7 @@ com\exam\service\examops\QuestionBankTheoryTest.class
 com\exam\service\QuestionTypeChangeTest.class
 com\exam\service\subscription\TestKeys.class
 com\exam\service\AcademicPdfRenderTest.class
+com\exam\AttendancePhotoIntegrationTest.class
 com\exam\service\QuizTimerServiceClockTest.class
 com\exam\helper\TheoryGroupsTest.class
 com\exam\service\PdfImageRenderTest.class
