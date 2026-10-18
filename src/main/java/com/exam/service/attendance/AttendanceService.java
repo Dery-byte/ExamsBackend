@@ -214,7 +214,8 @@ public class AttendanceService {
         s.setDepartment(dept);
         AcademicSession academic = academicSessions.current();
         s.setAcademicSession(academic);
-        s.setSemester(course != null ? course.getSemester() : null);
+        // The term: a subject's own; for a programme meeting, the term most of its students are in
+        s.setSemester(course != null ? course.getSemester() : majorityTerm(roster(s)));
         s.setMeetingNumber(1 + (int) (course != null
                 ? sessions.countByCourse_CidAndAcademicSession_Id(course.getCid(), academic.getId())
                 : sessions.countProgrammeMeetings(program.getId(), level, academic.getId())));
@@ -1190,6 +1191,33 @@ public class AttendanceService {
         m.put("scans", h.getScans());
         m.put("active", h.getRevokedAt() == null);
         return m;
+    }
+
+    // ══ Terms on programme meetings ══════════════════════════════════════════
+
+    /** The term (semester) most of these students are in; students of a class move up together. */
+    static Integer majorityTerm(Collection<User> students) {
+        return students.stream().map(User::getCurrentSemester).filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(t -> t, Collectors.counting()))
+                .entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(null);
+    }
+
+    /**
+     * Programme meetings held before the term was recorded on them: takes the term most of their
+     * students were in (from the meeting's own records, else its class list). Run once at start-up.
+     */
+    @Transactional
+    public int backfillProgrammeTerms() {
+        int n = 0;
+        for (AttendanceSession s : sessions.findByScopeAndSemesterIsNull(AttendanceMode.PROGRAMME)) {
+            List<User> students = records.forSession(s.getId()).stream().map(AttendanceRecord::getStudent).toList();
+            Integer term = majorityTerm(students.isEmpty() ? roster(s) : students);
+            if (term == null) continue;
+            s.setSemester(term);
+            sessions.save(s);
+            n++;
+        }
+        return n;
     }
 
     // ══ Finalising ═══════════════════════════════════════════════════════════

@@ -43,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.datasource.password=",
         "spring.jpa.show-sql=false",
 })
-@Import({AttendanceService.class, AttendancePolicyService.class, ClassroomService.class, ClassScheduleService.class, AttendanceMinimum.class,
+@Import({AttendanceService.class, AttendancePolicyService.class, ClassroomService.class, ClassScheduleService.class, AttendanceMinimum.class, AttendanceDays.class,
         FeatureService.class, SystemSettingService.class, AcademicSessionService.class, com.exam.service.comms.CurrentUserService.class})
 class AttendanceJpaTest {
 
@@ -505,6 +505,46 @@ class AttendanceJpaTest {
     private Long openCourseAfter(Long previous) {
         attendance.end(lecturer, previous);
         return openCourse("PROJECTOR", 60, false);
+    }
+
+    // ── Report-card days ─────────────────────────────────────────────────────
+
+    @Autowired AttendanceDays attendanceDays;
+    @Autowired AttendanceSessionRepository sessionRepo;
+
+    @Test
+    void reportCardDaysCountDatesNotMeetings() {
+        meeting(ama, kofi);          // day 1, first lesson
+        meeting(kofi);               // day 1, second lesson: Ama missed it but was in school that day
+        clock.plusSeconds(86_400);
+        meeting();                   // day 2: nobody checked in
+        Long year = academicSessions.current().getId();
+
+        AttendanceDays.TermDays term1 = attendanceDays.forTerm(year, cs.getId(), 200, 1, List.of());
+        assertThat(term1.meetings()).isEqualTo(3);
+        assertThat(term1.classDays()).isEqualTo(2);
+        assertThat(term1.byStudent().get(ama.getId())).isEqualTo(new AttendanceDays.Days(1, 2));
+        assertThat(term1.byStudent().get(kofi.getId())).isEqualTo(new AttendanceDays.Days(1, 2));
+        assertThat(term1.byStudent().get(esi.getId())).isEqualTo(new AttendanceDays.Days(0, 2));
+
+        assertThat(attendanceDays.forTerm(year, cs.getId(), 200, 2, List.of()).byStudent()).as("another term").isEmpty();
+        assertThat(attendanceDays.forTerm(year, cs.getId(), 200, 1, List.of(course.getCid())).meetings()).as("the sheet's subjects").isEqualTo(3);
+    }
+
+    @Test
+    void programmeMeetingsRecordTheTermTheirStudentsAreIn() {
+        for (User s : List.of(ama, kofi, esi, outsider)) { s.setCurrentSemester(2); users.save(s); }
+        policies.saveSystem(sa, new AttendancePolicyService.PolicyRequest("PROGRAMME", null, null, null, null, null, null, null, null, null, null, null, null));
+        Long id = (Long) attendance.open(hod, new AttendanceService.OpenRequest("PROGRAMME", null, cs.getId(), 200, null,
+                LAT, LNG, 8.0, null, 60, "Roll call", null, false)).get("id");
+        assertThat(sessionRepo.findById(id).orElseThrow().getSemester()).isEqualTo(2);
+
+        // An older meeting without a term gets one from its students
+        com.exam.model.attendance.AttendanceSession old = sessionRepo.findById(id).orElseThrow();
+        old.setSemester(null);
+        sessionRepo.save(old);
+        assertThat(attendance.backfillProgrammeTerms()).isEqualTo(1);
+        assertThat(sessionRepo.findById(id).orElseThrow().getSemester()).isEqualTo(2);
     }
 
     @Test

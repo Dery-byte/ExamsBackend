@@ -112,6 +112,12 @@ public class InstitutionController {
         return termRemarkService.view(sheetId, me());
     }
 
+    /** Days present / opened worked out from class attendance, for the class teacher to check and save. */
+    @GetMapping("/api/marks/sheet/{sheetId}/term-remarks/attendance")
+    public Map<String, Object> termAttendance(@PathVariable Long sheetId) {
+        return termRemarkService.attendance(sheetId, me());
+    }
+
     @PutMapping("/api/marks/sheet/{sheetId}/term-remarks")
     public Map<String, Object> saveTermRemarks(@PathVariable Long sheetId, @RequestBody Map<String, List<TermRemarkService.Row>> body) {
         int saved = termRemarkService.save(sheetId, me(), body.get("rows"));

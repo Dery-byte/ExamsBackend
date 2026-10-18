@@ -77,6 +77,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\sub
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuizService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\ReportEmailService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\reports\ExamReports.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\AssessmentsModuleInterceptor.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\ReportRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\SystemSettingRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\admin\ConfigTransferService.java
@@ -328,6 +329,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\examops\ProctoringEvent.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\NumberOfTheoryToAnswerController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\monitoring\SubscriptionEvent.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\attendance\AttendanceDays.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\QuestionType.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\NumberOfTheoryUpdateRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\academic\DocumentVerification.java

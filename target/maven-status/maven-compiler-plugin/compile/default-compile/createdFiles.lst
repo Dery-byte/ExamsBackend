@@ -34,6 +34,7 @@ com\exam\service\PdfReportService$TheoryGroupDto.class
 com\exam\service\reports\QuestionPapers$Prompt.class
 com\exam\auth\RegisterRequest$RegisterRequestBuilder.class
 com\exam\service\subscription\SubscriptionState.class
+com\exam\service\attendance\AttendanceDays$Days.class
 com\exam\config\RedisConfig.class
 com\exam\controller\TheoryController.class
 com\exam\DTO\TheoryQuestionDTO.class
@@ -241,6 +242,7 @@ com\exam\DTO\SemesterSheetDTO$SectionMarkDTO.class
 com\exam\model\attendance\AttendanceSession.class
 com\exam\repository\QuizRepository.class
 com\exam\service\attendance\AttendanceCodes.class
+com\exam\service\attendance\AttendanceDays.class
 com\exam\service\subscription\SubscriptionMonitor$1.class
 com\exam\model\fees\FeePayment$Status.class
 com\exam\controller\ProfilePhotoController.class
@@ -411,6 +413,7 @@ com\exam\model\exam\Report.class
 com\exam\service\academic\GradingService$1.class
 com\exam\DTO\QuizProgressRequest.class
 com\exam\repository\AcademicSessionRepository.class
+com\exam\service\attendance\AttendanceDays$TermDays.class
 com\exam\DTO\QuizDTO.class
 com\exam\model\exam\AttemptStatus.class
 com\exam\DTO\QuizEvaluationResponse$Summary.class
@@ -422,6 +425,7 @@ com\exam\service\academic\InstitutionService.class
 com\exam\service\Impl\QuizEvaluationService.class
 com\exam\service\comms\AnnouncementService.class
 com\exam\service\reports\ReportQueries$ResultRow.class
+com\exam\service\SystemSettingService$CachedFlag.class
 com\exam\service\attendance\AttendanceService$QrKeyResult.class
 com\exam\service\reports\TeachingReports.class
 com\exam\model\exam\TheoryGradingJob$Status.class
@@ -527,6 +531,7 @@ com\exam\service\attendance\AttendanceQr$Check.class
 com\exam\service\TheoryProgressService.class
 com\exam\DTO\ProgramDTO$ProgramDTOBuilder.class
 com\exam\helper\UserNotFoundException.class
+com\exam\config\AssessmentsModuleInterceptor.class
 com\exam\repository\DepartmentFeatureSettingRepository.class
 com\exam\service\fees\FeePaymentService$PayRequest.class
 com\exam\repository\ReportRepository.class

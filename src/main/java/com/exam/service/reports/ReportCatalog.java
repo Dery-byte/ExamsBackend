@@ -53,6 +53,7 @@ public class ReportCatalog {
     @Autowired private FinanceReports finance;
     @Autowired private OversightReports oversight;
     @Autowired private ResultsHoldService resultsHoldService;
+    @Autowired private com.exam.service.SystemSettingService settings;
     @Autowired private AttendanceReports attendance;
     @Autowired private com.exam.service.features.FeatureService features;
 
@@ -89,29 +90,32 @@ public class ReportCatalog {
                 lvl = f("level", t.get("level")), sem = f("semester", t.get("semester")), from = f("from", "From"), to = f("to", "To");
         Filter sheets = status("Marks sheets", ResultsReports.SHEET_CHOICES);
         Filter quiz = req(f("quiz", "Quiz")), courseReq = req(f("course", course)), courseAny = f("course", course);
+        boolean quizzes = settings.assessmentsOn();
 
         List<Entry> out = new ArrayList<>();
-        // Teaching: one quiz or one course
-        out.add(e(ALL, new Definition("quiz-results", "Quiz result sheet", "Teaching",
-                "Every " + t.get("student").toLowerCase() + "'s marks on one quiz (sat, unfinished or absent) with score statistics and grades.",
-                "table", List.of(quiz)), (x, u) -> teaching.quizResults(x)));
-        out.add(e(ALL, new Definition("question-analysis", "Question analysis", "Teaching",
-                "How each question performed: correct rate, difficulty, discrimination, options chosen, and answer keys to check.",
-                "search", List.of(quiz)), (x, u) -> teaching.questionAnalysis(x)));
-        out.add(e(ALL, new Definition("question-paper", "Question paper", "Teaching",
-                "One quiz's questions, ready to print: quiz details (date, duration, course), instructions, and every objective and theory question.",
-                "paper", List.of(quiz)), (x, u) -> papers.questionPaper(x, false)));
-        out.add(e(ALL, new Definition(ANSWER_KEY, "Question paper with answers", "Teaching",
-                "The same paper with the Section A answer key: correct options, accepted answers and matching pairs; theory questions as set.",
-                "key", List.of(quiz)), (x, u) -> papers.questionPaper(x, true)));
-        out.add(e(ALL, new Definition("course-assessment", "Continuous assessment summary", "Teaching",
-                "Every " + t.get("student").toLowerCase() + "'s score on every quiz in a " + course.toLowerCase()
-                        + ", with averages, trends and who needs support.",
-                "trend", List.of(courseReq, session, from, to)), (x, u) -> teaching.courseAssessment(x)));
-        out.add(e(ALL, new Definition("remark-requests", "Re-mark requests", "Teaching",
-                "Every re-mark request: who asked and why, how long it waited, and how marks changed.",
-                "message", List.of(session, from, to, dept, courseAny, status("Status", List.of(o("PENDING", "Waiting"),
-                        o("RESOLVED", "Re-marked"), o("REJECTED", "Turned down"))))), (x, u) -> teaching.remarkRequests(x)));
+        // Teaching: one quiz or one course (only while the Assessments module is on)
+        if (quizzes) {
+            out.add(e(ALL, new Definition("quiz-results", "Quiz result sheet", "Teaching",
+                    "Every " + t.get("student").toLowerCase() + "'s marks on one quiz (sat, unfinished or absent) with score statistics and grades.",
+                    "table", List.of(quiz)), (x, u) -> teaching.quizResults(x)));
+            out.add(e(ALL, new Definition("question-analysis", "Question analysis", "Teaching",
+                    "How each question performed: correct rate, difficulty, discrimination, options chosen, and answer keys to check.",
+                    "search", List.of(quiz)), (x, u) -> teaching.questionAnalysis(x)));
+            out.add(e(ALL, new Definition("question-paper", "Question paper", "Teaching",
+                    "One quiz's questions, ready to print: quiz details (date, duration, course), instructions, and every objective and theory question.",
+                    "paper", List.of(quiz)), (x, u) -> papers.questionPaper(x, false)));
+            out.add(e(ALL, new Definition(ANSWER_KEY, "Question paper with answers", "Teaching",
+                    "The same paper with the Section A answer key: correct options, accepted answers and matching pairs; theory questions as set.",
+                    "key", List.of(quiz)), (x, u) -> papers.questionPaper(x, true)));
+            out.add(e(ALL, new Definition("course-assessment", "Continuous assessment summary", "Teaching",
+                    "Every " + t.get("student").toLowerCase() + "'s score on every quiz in a " + course.toLowerCase()
+                            + ", with averages, trends and who needs support.",
+                    "trend", List.of(courseReq, session, from, to)), (x, u) -> teaching.courseAssessment(x)));
+            out.add(e(ALL, new Definition("remark-requests", "Re-mark requests", "Teaching",
+                    "Every re-mark request: who asked and why, how long it waited, and how marks changed.",
+                    "message", List.of(session, from, to, dept, courseAny, status("Status", List.of(o("PENDING", "Waiting"),
+                            o("RESOLVED", "Re-marked"), o("REJECTED", "Turned down"))))), (x, u) -> teaching.remarkRequests(x)));
+        }
 
         // Class attendance (only while it is switched on)
         if (features.isOnSystemWide(com.exam.model.features.Feature.ATTENDANCE)) {
@@ -172,19 +176,21 @@ public class ReportCatalog {
                 "Score spread and grades per " + course.toLowerCase() + ", with unusual results flagged for the exam board.",
                 "scale", List.of(session, dept, prog, lvl, sem)), (x, u) -> academic.gradeModeration(x)));
 
-        // Exams
-        out.add(e(ALL, new Definition("exam-absentees", "Exam absentees", "Exams",
-                "Per quiz: expected, sat, never submitted and absent, with each quiz's list of absentees.",
-                "userx", List.of(session, from, to, dept, prog, lvl)), (x, u) -> exams.examAbsentees(x)));
-        out.add(e(ALL, new Definition("exam-integrity", "Exam integrity", "Exams",
-                "Proctoring violations, auto-submissions, voided attempts and re-mark requests per quiz.",
-                "shield", List.of(session, from, to, dept)), (x, u) -> exams.examIntegrity(x)));
-        out.add(e(ALL, new Definition("ai-marking", "AI marking", "Exams",
-                "Theory answers marked by AI: marked, failed, still waiting, and scripts not yet reviewed.",
-                "bot", List.of(session, from, to, dept)), (x, u) -> exams.aiMarking(x)));
-        out.add(e(ALL, new Definition("exam-load", "Exam schedule load", "Exams",
-                "How many candidates are expected to write at the same time, day by day.",
-                "activity", List.of(from, to, dept, prog, lvl)), (x, u) -> exams.examLoad(x, u)));
+        // Exams (only while the Assessments module is on)
+        if (quizzes) {
+            out.add(e(ALL, new Definition("exam-absentees", "Exam absentees", "Exams",
+                    "Per quiz: expected, sat, never submitted and absent, with each quiz's list of absentees.",
+                    "userx", List.of(session, from, to, dept, prog, lvl)), (x, u) -> exams.examAbsentees(x)));
+            out.add(e(ALL, new Definition("exam-integrity", "Exam integrity", "Exams",
+                    "Proctoring violations, auto-submissions, voided attempts and re-mark requests per quiz.",
+                    "shield", List.of(session, from, to, dept)), (x, u) -> exams.examIntegrity(x)));
+            out.add(e(ALL, new Definition("ai-marking", "AI marking", "Exams",
+                    "Theory answers marked by AI: marked, failed, still waiting, and scripts not yet reviewed.",
+                    "bot", List.of(session, from, to, dept)), (x, u) -> exams.aiMarking(x)));
+            out.add(e(ALL, new Definition("exam-load", "Exam schedule load", "Exams",
+                    "How many candidates are expected to write at the same time, day by day.",
+                    "activity", List.of(from, to, dept, prog, lvl)), (x, u) -> exams.examLoad(x, u)));
+        }
 
         // Staff
         out.add(e(ADMINS, new Definition("staff-workload", lecturer + " workload", "Staff",

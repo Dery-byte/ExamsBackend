@@ -62,8 +62,14 @@ public class SystemSettingService {
     /** Developer switch: whether the Super Admin can open the Audit Log. The developer always can. */
     public static final String AUDIT_LOG_VISIBLE_SUPER_ADMIN = "AUDIT_LOG_VISIBLE_SUPER_ADMIN";
 
+    /**
+     * Developer switch: the whole Assessments module (quizzes, questions, attempts, results, question
+     * bank, exam timetable, proctoring, re-marks, quiz reports). Off: nobody sees or reaches any of it.
+     */
+    public static final String MODULE_ASSESSMENTS = "MODULE_ASSESSMENTS";
+
     /** Keys only the developer may change; the Super Admin's settings endpoint refuses them. */
-    public static final Set<String> DEVELOPER_ONLY = Set.of(AUDIT_LOG_VISIBLE_SUPER_ADMIN, "SYSTEM_MODE");
+    public static final Set<String> DEVELOPER_ONLY = Set.of(AUDIT_LOG_VISIBLE_SUPER_ADMIN, "SYSTEM_MODE", MODULE_ASSESSMENTS);
     /** Whole families of developer-only keys: colour theme, maintenance mode, setup bookkeeping. */
     private static final List<String> DEVELOPER_ONLY_PREFIXES = List.of("THEME_", "MAINTENANCE_", "SETUP_", "SUBSCRIPTION_");
 
@@ -132,6 +138,23 @@ public class SystemSettingService {
         SystemSetting setting = systemSettingRepository.findById(key).orElse(new SystemSetting(key));
         setting.setSettingValue(value);
         systemSettingRepository.save(setting);
+        if (MODULE_ASSESSMENTS.equals(key)) assessmentsCache = null;
+    }
+
+    private record CachedFlag(boolean value, long at) {}
+    private volatile CachedFlag assessmentsCache;
+
+    /**
+     * Whether the Assessments module is on (default on). Checked on every quiz request, so it is
+     * cached for a few seconds; switching it clears the cache at once on this server.
+     */
+    public boolean assessmentsOn() {
+        CachedFlag c = assessmentsCache;
+        long now = System.currentTimeMillis();
+        if (c != null && now - c.at() < 10_000) return c.value();
+        boolean v = getBooleanSetting(MODULE_ASSESSMENTS, true);
+        assessmentsCache = new CachedFlag(v, now);
+        return v;
     }
 
     /** Navigation visibility flags, readable by every signed-in role. */
@@ -142,6 +165,7 @@ public class SystemSettingService {
         flags.put("marksSheetStudent",  getBooleanSetting(MARKS_SHEET_VISIBLE_STUDENT, true));
         flags.put("feesStudent",        getBooleanSetting(FEES_VISIBLE_STUDENT, false));
         flags.put("auditLogSuperAdmin", getBooleanSetting(AUDIT_LOG_VISIBLE_SUPER_ADMIN, true));
+        flags.put("assessments",        assessmentsOn());
         return flags;
     }
 

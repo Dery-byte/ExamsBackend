@@ -64,6 +64,7 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
             r("POST",   ".*/developer/errors/\\d+/resolve$",        "Changed an error's status"),
             r("DELETE", ".*/developer/errors/resolved$",             "Cleared resolved errors"),
             r("PUT",    ".*/developer/audit-log/access$",           "Changed Super Admin audit log access"),
+            r("PUT",    ".*/developer/modules$",                    "Switched the Assessments module"),
             r("PUT",    ".*/developer/theme$",                       "Changed the colour theme"),
             r("DELETE", ".*/developer/theme$",                       "Reset the colour theme"),
             r("PUT",    ".*/developer/maintenance$",                 "Changed maintenance mode"),

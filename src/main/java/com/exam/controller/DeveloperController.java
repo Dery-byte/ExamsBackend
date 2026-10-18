@@ -124,6 +124,23 @@ public class DeveloperController {
         return auditLogAccess();
     }
 
+    // ── Modules (what this institution uses) ────────────────────────────
+
+    @GetMapping("/api/v1/developer/modules")
+    public Map<String, Object> modules() {
+        return Map.of("assessments", systemSettingService.assessmentsOn());
+    }
+
+    /** Switches the whole Assessments (quiz) module on or off for every user. */
+    @PutMapping("/api/v1/developer/modules")
+    public Map<String, Object> setModules(@RequestBody Map<String, Boolean> body, HttpServletRequest request) {
+        Boolean assessments = body == null ? null : body.get("assessments");
+        if (assessments == null) throw new IllegalArgumentException("assessments is required.");
+        request.setAttribute(com.exam.config.AuditInterceptor.AUDIT_DETAILS, "Assessments module on = " + assessments);
+        systemSettingService.updateSetting(SystemSettingService.MODULE_ASSESSMENTS, String.valueOf(assessments));
+        return modules();
+    }
+
     // ── Health and errors ───────────────────────────────────────────────
 
     @GetMapping("/api/v1/auth/status")

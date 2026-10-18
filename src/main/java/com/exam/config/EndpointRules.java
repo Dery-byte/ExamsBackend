@@ -121,7 +121,7 @@ public final class EndpointRules {
             .requestMatchers(HttpMethod.POST, "/api/marks/sheet/*/save", "/api/marks/sheet/*/submit",
                     "/api/marks/sheet/*/sync-marks/**", "/api/marks/sheet/*/sections").hasAnyAuthority(STAFF)
             .requestMatchers(HttpMethod.DELETE, "/api/marks/sheet/*/sections/*").hasAnyAuthority(STAFF)
-            .requestMatchers("/api/marks/sheet/*/term-remarks").hasAnyAuthority(STAFF)   // class teacher / HOD checked in the service
+            .requestMatchers("/api/marks/sheet/*/term-remarks", "/api/marks/sheet/*/term-remarks/**").hasAnyAuthority(STAFF)   // class teacher / HOD checked in the service
             .requestMatchers(HttpMethod.GET, "/api/marks/sheet/my-sheets", "/api/marks/sheet/*").hasAnyAuthority(STAFF)
 
             // ── Students' own fees and online payment (Super Admin's side is under /super-admin) ─

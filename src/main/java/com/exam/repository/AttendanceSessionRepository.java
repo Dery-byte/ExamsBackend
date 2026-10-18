@@ -33,6 +33,12 @@ public interface AttendanceSessionRepository extends JpaRepository<AttendanceSes
 
     boolean existsByScheduleIdAndOpenedAtGreaterThanEqual(Long scheduleId, LocalDateTime since);
 
+    /** Finished meetings of one academic session (report-card attendance). */
+    List<AttendanceSession> findByAcademicSession_IdAndClosedAtIsNotNull(Long academicSessionId);
+
+    /** Programme meetings from before the term was recorded on them. */
+    List<AttendanceSession> findByScopeAndSemesterIsNull(com.exam.model.attendance.AttendanceMode scope);
+
     /** For the reports: one academic session's meetings, oldest first. */
     List<AttendanceSession> findByAcademicSession_IdOrderByOpenedAtAsc(Long academicSessionId);
 

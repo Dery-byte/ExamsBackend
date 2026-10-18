@@ -25,6 +25,8 @@ public class TermRemarkService {
 
     @Autowired private TermReportRemarkRepository repository;
     @Autowired private MarksEntryService marksEntryService;
+    @Autowired private com.exam.service.attendance.AttendanceDays attendanceDays;
+    @Autowired private AcademicSessionService academicSessions;
 
     public record Row(Long studentId, Integer daysPresent, Integer daysOpen, String conduct, String interest,
                       String classTeacherRemark, String headRemark) {}
@@ -100,6 +102,40 @@ public class TermRemarkService {
             saved++;
         }
         return saved;
+    }
+
+    /**
+     * Days present / opened for each student on the sheet, worked out from class attendance in the
+     * sheet's term (see {@link com.exam.service.attendance.AttendanceDays}). Shown for the class teacher
+     * to check and save; nothing is saved here.
+     */
+    public Map<String, Object> attendance(Long sheetId, User user) {
+        SemesterSheet sheet = sheet(sheetId);
+        if (!canEditHead(sheet, user) && !isClassTeacher(sheet, user))
+            throw new AccessDeniedException("Only this sheet's class teacher or the HOD can enter report remarks.");
+        Long academic = sheet.getSession() != null ? sheet.getSession().getId() : academicSessions.current().getId();
+        List<Long> courseIds = sheet.getCourses() == null ? List.of() : sheet.getCourses().stream().map(c -> c.getCid()).toList();
+        var days = attendanceDays.forTerm(academic, sheet.getProgram() != null ? sheet.getProgram().getId() : null,
+                com.exam.service.attendance.AttendanceDays.levelNumber(sheet.getLevel()), sheet.getSemester(), courseIds);
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        SemesterSheetDTO dto = marksEntryService.getSheetData(sheetId);
+        if (dto != null && dto.getStudentMarks() != null) {
+            for (SemesterSheetDTO.StudentMarkDTO sm : dto.getStudentMarks()) {
+                var d = days.byStudent().get(sm.getStudentId());
+                if (d == null) continue;
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("studentId", sm.getStudentId());
+                m.put("daysPresent", d.present());
+                m.put("daysOpen", d.opened());
+                rows.add(m);
+            }
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("rows", rows);
+        out.put("classDays", days.classDays());
+        out.put("meetings", days.meetings());
+        return out;
     }
 
     /** For the report card PDF: the student's remarks on any of the term's sheets (most recently edited first). */
