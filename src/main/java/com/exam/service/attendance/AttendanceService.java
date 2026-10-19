@@ -307,20 +307,25 @@ public class AttendanceService {
         m.put("phase", p.name());
         m.put("check", p.check());
         if (s.isScanned() && p.closesAt() != null) m.put("phaseSecondsLeft", Math.max(0, Duration.between(now, p.closesAt()).getSeconds()));
-        putCurrentCode(m, s, p, now);
+        putCurrentCode(m, s, p, now, SOURCE_LECTURER);
         m.put("serverTime", now);
         m.putAll(liveCounts(s));
         return m;
     }
 
-    /** Prefix of the class QR code students scan (STUDENT_SCAN): AQ1.&lt;session&gt;.&lt;check&gt;.&lt;code&gt;. */
+    /**
+     * Prefix of the class QR code students scan (STUDENT_SCAN): AQ1.&lt;session&gt;.&lt;check&gt;.&lt;code&gt;.&lt;source&gt;,
+     * where source says whose screen it was on: L (the lecturer's) or H&lt;id&gt; (a helper's phone).
+     */
     public static final String CLASS_QR_PREFIX = "AQ1";
+    static final String SOURCE_LECTURER = "L";
+    private static final String SOURCE_HELPER = "H";
 
     /**
      * The code open right now, its countdown, and for a class where students scan, the QR text that
      * carries it. Nothing when no check is open, or when staff scan the students instead.
      */
-    private void putCurrentCode(Map<String, Object> m, AttendanceSession s, Phase p, LocalDateTime now) {
+    private void putCurrentCode(Map<String, Object> m, AttendanceSession s, Phase p, LocalDateTime now, String source) {
         if (p.check() == 0 || s.isScanned()) return;
         long e = elapsed(s, p.check(), now);
         String code = AttendanceCodes.code(s.getSecret(), p.check(), AttendanceCodes.step(e, s.getCodeSeconds()));
@@ -328,7 +333,28 @@ public class AttendanceService {
         m.put("codeSeconds", s.getCodeSeconds());
         m.put("secondsLeft", AttendanceCodes.secondsLeft(e, s.getCodeSeconds()));
         m.put("phaseSecondsLeft", Math.max(0, Duration.between(now, p.closesAt()).getSeconds()));
-        if (s.isStudentScan()) m.put("qr", CLASS_QR_PREFIX + "." + s.getId() + "." + p.check() + "." + code);
+        if (s.isStudentScan()) m.put("qr", CLASS_QR_PREFIX + "." + s.getId() + "." + p.check() + "." + code + "." + source);
+    }
+
+    /**
+     * Who showed the class QR a student scanned: the lecturer who started the class, or the helper.
+     * Null for a typed code, or a tag that isn't this class's (it only labels the check-in; the code
+     * itself is what lets the student in).
+     */
+    private String qrSourceLabel(AttendanceSession s, String source) {
+        if (!s.isStudentScan() || source == null) return null;
+        String t = source.trim();
+        if (SOURCE_LECTURER.equals(t)) return CurrentUserService.displayName(s.getOpenedBy());
+        if (!t.matches(SOURCE_HELPER + "\\d{1,18}")) return null;
+        return scanners.findById(Long.parseLong(t.substring(1)))
+                .filter(h -> h.getSession().getId().equals(s.getId()))
+                .map(h -> {
+                    h.setScans(h.getScans() + 1);
+                    h.setLastUsedAt(now());
+                    scanners.save(h);
+                    return h.getLabel() + " (helper)";
+                })
+                .orElse(null);
     }
 
     private Map<String, Object> liveCounts(AttendanceSession s) {
@@ -492,7 +518,8 @@ public class AttendanceService {
         return new PlaceCheck(null, distance, acc);
     }
 
-    public record CheckInRequest(Long sessionId, String code, Double latitude, Double longitude, Double accuracy, String deviceId) {}
+    /** {@code source}: from a scanned class QR, whose screen it was on (L or H&lt;helper id&gt;); null when typed. */
+    public record CheckInRequest(Long sessionId, String code, Double latitude, Double longitude, Double accuracy, String deviceId, String source) {}
 
     /** {@code reason} is a short machine code the page uses to show help (WRONG_CODE, TOO_FAR, OTHER_PHONE …). */
     public record CheckInResult(boolean ok, String status, String message, String reason, Integer attemptsLeft) {
@@ -565,6 +592,7 @@ public class AttendanceService {
 
         // ── Passed: record it ──
         linkPhone(phone, student, now);
+        String qrSource = qrSourceLabel(s, req.source());
 
         String ipShort = ip == null ? null : (ip.length() > 64 ? ip.substring(0, 64) : ip);
         if (p.check() == 1) {
@@ -581,8 +609,10 @@ public class AttendanceService {
             r.setFirstAccuracyMeters(acc);
             r.setDeviceHash(hash);
             r.setIpAddress(ipShort);
+            r.setQrSource(qrSource);
         } else {
             r.setSecondCheckAt(now);
+            r.setSecondQrSource(qrSource);
             r.setSecondDistanceMeters(distance);
             r.setSecondAccuracyMeters(acc);
         }
@@ -809,6 +839,8 @@ public class AttendanceService {
             m.put("secondAccuracy", r != null ? r.getSecondAccuracyMeters() : null);
             m.put("flags", r != null && r.getFlags() != null && !r.getFlags().isBlank() ? List.of(r.getFlags().split(",")) : List.of());
             m.put("reviewedBy", r != null ? r.getReviewedBy() : null);
+            m.put("qrSource", r != null ? r.getQrSource() : null);
+            m.put("secondQrSource", r != null ? r.getSecondQrSource() : null);
             m.put("note", r != null ? r.getNote() : null);
             m.put("failures", f);
             m.put("locked", f >= s.getMaxFailedAttempts());
@@ -1196,7 +1228,7 @@ public class AttendanceService {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("method", s.getMethod().name());
         m.put("check", p.check());
-        putCurrentCode(m, s, p, now);
+        putCurrentCode(m, s, p, now, SOURCE_HELPER + h.getId());
         m.put("helper", h.getLabel());
         m.put("title", title(s));
         m.put("meetingNumber", s.getMeetingNumber());

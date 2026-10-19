@@ -56,6 +56,12 @@ public class AttendanceRecord {
     private Integer secondDistanceMeters;
     private Integer secondAccuracyMeters;
 
+    /** Students scan the class QR: whose QR they scanned (the lecturer's screen or a helper's phone), per check. */
+    @Column(length = 120)
+    private String qrSource;
+    @Column(length = 120)
+    private String secondQrSource;
+
     @Column(name = "device_hash", length = 64)
     private String deviceHash;
 

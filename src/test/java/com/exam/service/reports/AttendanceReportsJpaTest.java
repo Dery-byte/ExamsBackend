@@ -124,8 +124,8 @@ class AttendanceReportsJpaTest {
             Long id = (Long) s.get("id");
             ids[i] = id;
             String code = (String) attendance.codeView(lecturer, id).get("code");
-            assertThat(attendance.checkIn(ama, new AttendanceService.CheckInRequest(id, code, LAT, LNG, 5.0, "ama-phone-0000000001"), null).ok()).isTrue();
-            if (i == 0) assertThat(attendance.checkIn(kofi, new AttendanceService.CheckInRequest(id, code, LAT, LNG, 5.0, "kofi-phone-000000002"), null).ok()).isTrue();
+            assertThat(attendance.checkIn(ama, new AttendanceService.CheckInRequest(id, code, LAT, LNG, 5.0, "ama-phone-0000000001", null), null).ok()).isTrue();
+            if (i == 0) assertThat(attendance.checkIn(kofi, new AttendanceService.CheckInRequest(id, code, LAT, LNG, 5.0, "kofi-phone-000000002", null), null).ok()).isTrue();
             attendance.end(lecturer, id);
         }
         attendance.mark(lecturer, ids[2], esi.getId(), "EXCUSED", "Sports");

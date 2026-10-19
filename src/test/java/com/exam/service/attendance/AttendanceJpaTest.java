@@ -147,7 +147,23 @@ class AttendanceJpaTest {
     }
 
     private AttendanceService.CheckInResult checkIn(User s, Long sessionId, String code, double metresNorth, double accuracy, String device) {
-        return attendance.checkIn(s, new AttendanceService.CheckInRequest(sessionId, code, LAT + metresNorth * M, LNG, accuracy, device), "10.0.0.1");
+        return checkIn(s, sessionId, code, metresNorth, accuracy, device, null);
+    }
+
+    private AttendanceService.CheckInResult checkIn(User s, Long sessionId, String code, double metresNorth, double accuracy, String device, String source) {
+        return attendance.checkIn(s, new AttendanceService.CheckInRequest(sessionId, code, LAT + metresNorth * M, LNG, accuracy, device, source), "10.0.0.1");
+    }
+
+    /** A scanned class QR (AQ1.session.check.code.source) as the student's phone sends it: the code and the source. */
+    private AttendanceService.CheckInResult scanClassQr(User s, String qr, double metresNorth, String device) {
+        String[] p = qr.split("\\.");
+        return checkIn(s, Long.parseLong(p[1]), p[3], metresNorth, 8, device, p[4]);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> row(Long sessionId, User student) {
+        return ((List<Map<String, Object>>) attendance.detail(lecturer, sessionId).get("students")).stream()
+                .filter(m -> student.getId().equals(m.get("studentId"))).findFirst().orElseThrow();
     }
 
     static final String AMA_PHONE = "ama-phone-0000000001";
@@ -540,28 +556,36 @@ class AttendanceJpaTest {
         assertThat(view.get("method")).isEqualTo("STUDENT_SCAN");
         assertThat(view.get("codeSeconds")).as("a QR is always on a screen, never read aloud").isEqualTo(15);
         String qr = (String) view.get("qr");
-        assertThat(qr).isEqualTo("AQ1." + id + ".1." + view.get("code"));
+        assertThat(qr).as("the lecturer's own QR").isEqualTo("AQ1." + id + ".1." + view.get("code") + ".L");
 
         // The student's phone reads the QR and checks in with its code: present, from inside the room only
-        String scannedCode = qr.substring(qr.lastIndexOf('.') + 1);
-        assertThat(checkIn(kofi, id, scannedCode, 150, 8, KOFI_PHONE).reason()).isEqualTo("TOO_FAR");
-        assertThat(checkIn(ama, id, scannedCode, 5, 8, AMA_PHONE).status()).isEqualTo("PRESENT");
+        assertThat(scanClassQr(kofi, qr, 150, KOFI_PHONE).reason()).isEqualTo("TOO_FAR");
+        assertThat(scanClassQr(ama, qr, 5, AMA_PHONE).status()).isEqualTo("PRESENT");
+        assertThat(row(id, ama).get("qrSource")).as("whose QR Ama scanned").isEqualTo(com.exam.service.comms.CurrentUserService.displayName(lecturer));
         // A photo of the QR sent on: dead like a forwarded typed code
         clock.plusSeconds(40);
-        assertThat(checkIn(esi, id, scannedCode, 5, 8, ESI_PHONE).reason()).isEqualTo("EXPIRED_CODE");
+        assertThat(scanClassQr(esi, qr, 5, ESI_PHONE).reason()).isEqualTo("EXPIRED_CODE");
 
-        // A helper can hold up the same QR code (they don't scan anyone in this mode)
+        // A helper can hold up the same code on their phone (they don't scan anyone in this mode)
         Map<String, Object> added = attendance.addHelper(lecturer, id, "TA");
         String link = (String) added.get("token");
-        Map<String, Object> helper = attendance.helperView(link);
-        assertThat(helper.get("qr")).isEqualTo(attendance.codeView(lecturer, id).get("qr"));
+        String helperQr = (String) attendance.helperView(link).get("qr");
+        String lecturerQr = (String) attendance.codeView(lecturer, id).get("qr");
+        assertThat(helperQr).isEqualTo(lecturerQr.substring(0, lecturerQr.length() - 1) + "H" + added.get("id"));
         AttendanceService.ScanResult scan = attendance.scanByHelper(link, new AttendanceService.HelperScanRequest("A1.1.2.3.xxxxxxxxxxxxxxxx"));
         assertThat(scan.ok()).isFalse();
+        // Esi scans the helper's phone: the list shows she scanned the TA's code, and the TA's count goes up
+        assertThat(scanClassQr(esi, helperQr, 5, ESI_PHONE).ok()).isTrue();
+        assertThat(row(id, esi).get("qrSource")).isEqualTo("TA (helper)");
+        // A made-up source tag only loses the label, never the check-in
+        assertThat(checkIn(kofi, id, code(id), 5, 8, KOFI_PHONE, "H999999").ok()).isTrue();
+        assertThat(row(id, kofi).get("qrSource")).isNull();
 
         // The lecturer sees the helper on the session page and can cancel their link
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> helpers = (List<Map<String, Object>>) attendance.detail(lecturer, id).get("helpers");
         assertThat(helpers).extracting(h -> h.get("label")).containsExactly("TA");
+        assertThat(helpers.get(0).get("scans")).isEqualTo(1);
         attendance.revokeHelper(lecturer, id, (Long) added.get("id"));
         assertThatThrownBy(() -> attendance.helperView(link)).hasMessageContaining("cancelled");
     }
