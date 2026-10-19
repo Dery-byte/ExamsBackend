@@ -188,6 +188,12 @@ class AttendanceJpaTest {
         assertThat(checkIn(ama, id, code(id), 5, 10, AMA_PHONE).status()).isEqualTo("PRESENT");
     }
 
+    @SuppressWarnings("unchecked")
+    private boolean phoneLinked(Long sessionId, User student) {
+        return ((List<Map<String, Object>>) attendance.detail(lecturer, sessionId).get("students")).stream()
+                .filter(m -> student.getId().equals(m.get("studentId"))).findFirst().map(m -> (Boolean) m.get("phoneLinked")).orElseThrow();
+    }
+
     @Test
     void onePhonePerStudentAndOneStudentPerPhone() {
         Long id = openCourse("PROJECTOR", 120, false);
@@ -201,7 +207,11 @@ class AttendanceJpaTest {
         attendance.end(lecturer, id);
         Long next = openCourse("PROJECTOR", 120, false);
         assertThat(checkIn(ama, next, code(next), 5, 10, "ama-new-phone-00000009").reason()).isEqualTo("OTHER_PHONE");
+        // The class list shows whose phone is linked, so staff know whose to reset
+        assertThat(phoneLinked(next, ama)).isTrue();
+        assertThat(phoneLinked(next, esi)).as("never checked in").isFalse();
         attendance.resetPhone(lecturer, next, ama.getId());
+        assertThat(phoneLinked(next, ama)).isFalse();
         assertThat(checkIn(ama, next, code(next), 5, 10, "ama-new-phone-00000009").ok()).isTrue();
     }
 

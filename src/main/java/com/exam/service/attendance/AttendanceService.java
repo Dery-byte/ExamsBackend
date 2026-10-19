@@ -773,6 +773,10 @@ public class AttendanceService {
         roster(s).forEach(u -> people.put(u.getId(), u));
         byStudent.values().forEach(r -> people.putIfAbsent(r.getStudent().getId(), r.getStudent()));
 
+        // Which students have a phone linked (so staff know whose link to reset)
+        Map<Long, Object[]> phones = new HashMap<>();
+        if (!people.isEmpty()) devices.linksFor(people.keySet()).forEach(row -> phones.put((Long) row[0], row));
+
         Map<String, Long> counts = new LinkedHashMap<>();
         List<Map<String, Object>> rows = new ArrayList<>();
         for (User u : people.values()) {
@@ -795,6 +799,10 @@ public class AttendanceService {
             m.put("note", r != null ? r.getNote() : null);
             m.put("failures", f);
             m.put("locked", f >= s.getMaxFailedAttempts());
+            Object[] phone = phones.get(u.getId());
+            m.put("phoneLinked", phone != null);
+            m.put("phoneLinkedAt", phone != null ? phone[1] : null);
+            m.put("phoneLastUsedAt", phone != null ? phone[2] : null);
             rows.add(m);
             String k = r != null ? r.getStatus().name() : "NOT_YET";
             counts.merge(k, 1L, Long::sum);
