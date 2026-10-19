@@ -826,7 +826,8 @@ public class AttendanceService {
         out.put("students", rows);
         out.put("counts", counts);
         out.put("rosterSize", people.size());
-        if (s.isScanned()) out.put("helpers", scanners.forSession(s.getId()).stream().map(AttendanceService::helperDto).toList());
+        // Both QR methods can have helpers: scanning students' codes, or showing the class code
+        if (s.isScanned() || s.isStudentScan()) out.put("helpers", scanners.forSession(s.getId()).stream().map(AttendanceService::helperDto).toList());
         return out;
     }
 

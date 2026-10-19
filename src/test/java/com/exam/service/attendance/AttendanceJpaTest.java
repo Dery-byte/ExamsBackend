@@ -551,11 +551,19 @@ class AttendanceJpaTest {
         assertThat(checkIn(esi, id, scannedCode, 5, 8, ESI_PHONE).reason()).isEqualTo("EXPIRED_CODE");
 
         // A helper can hold up the same QR code (they don't scan anyone in this mode)
-        String link = (String) attendance.addHelper(lecturer, id, "TA").get("token");
+        Map<String, Object> added = attendance.addHelper(lecturer, id, "TA");
+        String link = (String) added.get("token");
         Map<String, Object> helper = attendance.helperView(link);
         assertThat(helper.get("qr")).isEqualTo(attendance.codeView(lecturer, id).get("qr"));
         AttendanceService.ScanResult scan = attendance.scanByHelper(link, new AttendanceService.HelperScanRequest("A1.1.2.3.xxxxxxxxxxxxxxxx"));
         assertThat(scan.ok()).isFalse();
+
+        // The lecturer sees the helper on the session page and can cancel their link
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> helpers = (List<Map<String, Object>>) attendance.detail(lecturer, id).get("helpers");
+        assertThat(helpers).extracting(h -> h.get("label")).containsExactly("TA");
+        attendance.revokeHelper(lecturer, id, (Long) added.get("id"));
+        assertThatThrownBy(() -> attendance.helperView(link)).hasMessageContaining("cancelled");
     }
 
     // ── Report-card days ─────────────────────────────────────────────────────
