@@ -20,6 +20,9 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     @Query("SELECT COUNT(r) > 0 FROM AttendanceRecord r WHERE r.session.id = :sessionId AND r.deviceHash = :hash AND r.student.id <> :studentId")
     boolean deviceUsedByOther(@Param("sessionId") Long sessionId, @Param("hash") String hash, @Param("studentId") Long studentId);
 
+    /** This student's check-ins with this phone in classes still running (freed when staff reset the phone link). */
+    List<AttendanceRecord> findByStudent_IdAndDeviceHashAndSession_ClosedAtIsNull(Long studentId, String deviceHash);
+
     @Query("SELECT COUNT(r) FROM AttendanceRecord r WHERE r.session.id = :sessionId AND r.status = :status")
     long countByStatus(@Param("sessionId") Long sessionId, @Param("status") AttendanceStatus status);
 

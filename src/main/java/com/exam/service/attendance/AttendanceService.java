@@ -994,7 +994,11 @@ public class AttendanceService {
         return detail(actor, id);
     }
 
-    /** Unlinks a student's phone (they changed phones); their next check-in links the new one. */
+    /**
+     * Unlinks a student's phone (they changed phones, or it was really someone else's); their next
+     * check-in links the new one. The phone is also released from their check-ins in classes still
+     * running, so it isn't refused as "already checked in another student" (their attendance stays).
+     */
     @Transactional
     public Map<String, Object> resetPhone(User actor, Long id, Long studentId) {
         AttendanceSession s = load(id);
@@ -1002,7 +1006,14 @@ public class AttendanceService {
         User student = users.findById(studentId).orElseThrow(() -> new IllegalArgumentException("Student not found."));
         if (!onRoster(student, s) && records.findBySession_IdAndStudent_Id(s.getId(), studentId).isEmpty())
             throw new IllegalArgumentException("This student is not on the list for this class.");
-        devices.findByUser_Id(studentId).ifPresent(devices::delete);
+        devices.findByUser_Id(studentId).ifPresent(d -> {
+            List<AttendanceRecord> held = records.findByStudent_IdAndDeviceHashAndSession_ClosedAtIsNull(studentId, d.getDeviceHash());
+            held.forEach(r -> r.setDeviceHash(null));
+            records.saveAll(held);
+            devices.delete(d);
+            // Written at once, so the freed phone can be used by someone else straight away
+            records.flush();
+        });
         return detail(actor, id);
     }
 

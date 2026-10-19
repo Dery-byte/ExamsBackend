@@ -216,6 +216,21 @@ class AttendanceJpaTest {
     }
 
     @Test
+    void resettingAPhoneLinkFreesThatPhoneInTheSameMeeting() {
+        Long id = openCourse("PROJECTOR", 120, false);
+        assertThat(checkIn(ama, id, code(id), 5, 10, AMA_PHONE).ok()).isTrue();
+        assertThat(checkIn(kofi, id, code(id), 5, 10, AMA_PHONE).reason()).isEqualTo("PHONE_TAKEN");
+
+        // Staff decide the phone is really Kofi's (Ama borrowed it): after the reset it is free for him
+        attendance.resetPhone(lecturer, id, ama.getId());
+        AttendanceService.CheckInResult kofiIn = checkIn(kofi, id, code(id), 5, 10, AMA_PHONE);
+        assertThat(kofiIn.ok()).as(kofiIn.message()).isTrue();
+        assertThat(phoneLinked(id, kofi)).isTrue();
+        // ...and now Ama can't take it back without another reset
+        assertThat(phoneLinked(id, ama)).isFalse();
+    }
+
+    @Test
     void distancePlusAccuracyMustFitInsideTheRoom() {
         Long id = openCourse("PROJECTOR", 120, false);   // default allowed distance 50 m, precision 30 m
         assertThat(checkIn(ama, id, code(id), 5, 45, AMA_PHONE).reason()).isEqualTo("IMPRECISE");
