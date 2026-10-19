@@ -203,7 +203,8 @@ public class AttendanceService {
         }
         AttendanceMethod method = parseMethod(req.method());
         boolean scanned = method == AttendanceMethod.STAFF_SCAN;
-        CodeDisplay display = scanned ? CodeDisplay.PROJECTOR : parseDisplay(req.codeDisplay());
+        // A QR code is shown on a screen (or a phone), never read aloud
+        CodeDisplay display = scanned || method == AttendanceMethod.STUDENT_SCAN ? CodeDisplay.PROJECTOR : parseDisplay(req.codeDisplay());
 
         AttendanceSession s = new AttendanceSession();
         s.setMethod(method);
@@ -306,16 +307,28 @@ public class AttendanceService {
         m.put("phase", p.name());
         m.put("check", p.check());
         if (s.isScanned() && p.closesAt() != null) m.put("phaseSecondsLeft", Math.max(0, Duration.between(now, p.closesAt()).getSeconds()));
-        if (p.check() > 0 && !s.isScanned()) {
-            long e = elapsed(s, p.check(), now);
-            m.put("code", AttendanceCodes.code(s.getSecret(), p.check(), AttendanceCodes.step(e, s.getCodeSeconds())));
-            m.put("codeSeconds", s.getCodeSeconds());
-            m.put("secondsLeft", AttendanceCodes.secondsLeft(e, s.getCodeSeconds()));
-            m.put("phaseSecondsLeft", Math.max(0, Duration.between(now, p.closesAt()).getSeconds()));
-        }
+        putCurrentCode(m, s, p, now);
         m.put("serverTime", now);
         m.putAll(liveCounts(s));
         return m;
+    }
+
+    /** Prefix of the class QR code students scan (STUDENT_SCAN): AQ1.&lt;session&gt;.&lt;check&gt;.&lt;code&gt;. */
+    public static final String CLASS_QR_PREFIX = "AQ1";
+
+    /**
+     * The code open right now, its countdown, and for a class where students scan, the QR text that
+     * carries it. Nothing when no check is open, or when staff scan the students instead.
+     */
+    private void putCurrentCode(Map<String, Object> m, AttendanceSession s, Phase p, LocalDateTime now) {
+        if (p.check() == 0 || s.isScanned()) return;
+        long e = elapsed(s, p.check(), now);
+        String code = AttendanceCodes.code(s.getSecret(), p.check(), AttendanceCodes.step(e, s.getCodeSeconds()));
+        m.put("code", code);
+        m.put("codeSeconds", s.getCodeSeconds());
+        m.put("secondsLeft", AttendanceCodes.secondsLeft(e, s.getCodeSeconds()));
+        m.put("phaseSecondsLeft", Math.max(0, Duration.between(now, p.closesAt()).getSeconds()));
+        if (s.isStudentScan()) m.put("qr", CLASS_QR_PREFIX + "." + s.getId() + "." + p.check() + "." + code);
     }
 
     private Map<String, Object> liveCounts(AttendanceSession s) {
@@ -1127,7 +1140,8 @@ public class AttendanceService {
     @Transactional
     public Map<String, Object> addHelper(User actor, Long sessionId, String label) {
         AttendanceSession s = liveForStaff(actor, sessionId);
-        if (!s.isScanned()) throw new IllegalArgumentException("Helpers scan QR codes, so they are only for classes where staff scan students.");
+        if (!s.isScanned() && !s.isStudentScan())
+            throw new IllegalArgumentException("Helpers are for QR classes: they scan students' codes, or show the class code for students to scan.");
         String name = trim(label, 80);
         if (name == null) throw new IllegalArgumentException("Enter the helper's name.");
         if (scanners.forSession(s.getId()).stream().filter(h -> h.getRevokedAt() == null).count() >= MAX_HELPERS)
@@ -1157,7 +1171,10 @@ public class AttendanceService {
         return detail(actor, sessionId);
     }
 
-    /** What a helper's scanner page shows: the class, how long check-in stays open, and the counts. */
+    /**
+     * What a helper's page shows: the class, how long check-in stays open and the counts; where
+     * students scan, also the class QR code for the helper to hold up.
+     */
     @Transactional(readOnly = true)
     public Map<String, Object> helperView(String linkToken) {
         AttendanceScanner h = helper(linkToken);
@@ -1165,6 +1182,9 @@ public class AttendanceService {
         LocalDateTime now = now();
         Phase p = phase(s, now);
         Map<String, Object> m = new LinkedHashMap<>();
+        m.put("method", s.getMethod().name());
+        m.put("check", p.check());
+        putCurrentCode(m, s, p, now);
         m.put("helper", h.getLabel());
         m.put("title", title(s));
         m.put("meetingNumber", s.getMeetingNumber());

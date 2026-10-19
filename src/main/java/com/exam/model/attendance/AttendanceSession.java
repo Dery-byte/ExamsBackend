@@ -77,7 +77,11 @@ public class AttendanceSession {
 
     public AttendanceMethod getMethod() { return method == null ? AttendanceMethod.STUDENT_CODE : method; }
 
+    /** Staff scan each student's personal QR code. */
     public boolean isScanned() { return getMethod() == AttendanceMethod.STAFF_SCAN; }
+
+    /** Students scan the class QR code that staff show (otherwise like a typed code). */
+    public boolean isStudentScan() { return getMethod() == AttendanceMethod.STUDENT_SCAN; }
 
     // ── Code ─────────────────────────────────────────────────────────────────
 

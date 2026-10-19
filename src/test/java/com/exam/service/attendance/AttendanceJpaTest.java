@@ -509,12 +509,38 @@ class AttendanceJpaTest {
         assertThatThrownBy(() -> attendance.helperView("not-a-real-link")).hasMessageContaining("isn't valid");
 
         Long typed = openCourseAfter(id);
-        assertThatThrownBy(() -> attendance.addHelper(lecturer, typed, "TA")).hasMessageContaining("only for classes where staff scan");
+        assertThatThrownBy(() -> attendance.addHelper(lecturer, typed, "TA")).hasMessageContaining("Helpers are for QR classes");
     }
 
     private Long openCourseAfter(Long previous) {
         attendance.end(lecturer, previous);
         return openCourse("PROJECTOR", 60, false);
+    }
+
+    @Test
+    void studentsScanTheClassQrWithTheSameChecksAsATypedCode() {
+        Long id = (Long) attendance.open(lecturer, new AttendanceService.OpenRequest("COURSE", course.getCid(), null, null, null,
+                LAT, LNG, 8.0, "READ_ALOUD", 60, null, null, false, "STUDENT_SCAN")).get("id");
+        Map<String, Object> view = attendance.codeView(lecturer, id);
+        assertThat(view.get("method")).isEqualTo("STUDENT_SCAN");
+        assertThat(view.get("codeSeconds")).as("a QR is always on a screen, never read aloud").isEqualTo(15);
+        String qr = (String) view.get("qr");
+        assertThat(qr).isEqualTo("AQ1." + id + ".1." + view.get("code"));
+
+        // The student's phone reads the QR and checks in with its code: present, from inside the room only
+        String scannedCode = qr.substring(qr.lastIndexOf('.') + 1);
+        assertThat(checkIn(kofi, id, scannedCode, 150, 8, KOFI_PHONE).reason()).isEqualTo("TOO_FAR");
+        assertThat(checkIn(ama, id, scannedCode, 5, 8, AMA_PHONE).status()).isEqualTo("PRESENT");
+        // A photo of the QR sent on: dead like a forwarded typed code
+        clock.plusSeconds(40);
+        assertThat(checkIn(esi, id, scannedCode, 5, 8, ESI_PHONE).reason()).isEqualTo("EXPIRED_CODE");
+
+        // A helper can hold up the same QR code (they don't scan anyone in this mode)
+        String link = (String) attendance.addHelper(lecturer, id, "TA").get("token");
+        Map<String, Object> helper = attendance.helperView(link);
+        assertThat(helper.get("qr")).isEqualTo(attendance.codeView(lecturer, id).get("qr"));
+        AttendanceService.ScanResult scan = attendance.scanByHelper(link, new AttendanceService.HelperScanRequest("A1.1.2.3.xxxxxxxxxxxxxxxx"));
+        assertThat(scan.ok()).isFalse();
     }
 
     // ── Report-card days ─────────────────────────────────────────────────────

@@ -371,7 +371,8 @@ public class AttendanceReports {
             if (!s.isLive() && a.percent() != null) percents.add(a.percent());
             tb.add(minute(s.getOpenedAt()), classTitle(s) + (s.getScope() == AttendanceMode.PROGRAMME && s.getLevel() != null ? " · " + t.get("level") + " " + s.getLevel() : ""),
                     s.getMeetingNumber(), s.getTopic(), name(s.getOpenedBy()), s.getPlaceName(),
-                    s.isScanned() ? "Scanned by staff" : s.getCodeDisplay() == CodeDisplay.READ_ALOUD ? "Code read aloud" : "Code on projector", a.held(), a.attended() - a.late(), a.late(), a.absent(),
+                    s.isScanned() ? "Staff scanned students" : s.isStudentScan() ? "Students scanned class QR"
+                            : s.getCodeDisplay() == CodeDisplay.READ_ALOUD ? "Code read aloud" : "Code on projector", a.held(), a.attended() - a.late(), a.late(), a.absent(),
                     a.excused(), a.pending(), s.getHeadcount(), a.percent(), missed, s.isLive() ? "Live" : "Ended");
         }
         r.stat("Meetings", d.meetings().size())
