@@ -57,6 +57,7 @@ public class SubscriptionController {
         }
         Map<String, Object> out = noticeFor(viewer);
         out.put("checked", result != null);
+        if (result != null && !sync.lastOk()) out.put("checkProblem", result);   // e.g. the vendor portal couldn't be reached
         return ResponseEntity.ok(out);
     }
 

@@ -74,6 +74,9 @@ public class SubscriptionSync {
 
     public boolean configured() { return url() != null && token() != null; }
 
+    /** Whether the last check-in reached the vendor portal. */
+    public boolean lastOk() { return Boolean.parseBoolean(settings.getSetting(LAST_OK)); }
+
     public boolean fromEnvironment() { return notBlank(envUrl) || notBlank(envToken); }
 
     String url() {
@@ -134,8 +137,10 @@ public class SubscriptionSync {
         body.put("students", users.countByRole(Role.NORMAL));
         body.put("staff", users.countByRole(Role.LECTURER) + users.countByRole(Role.ADMIN) + users.countByRole(Role.SUPER_ADMIN));
 
+        // Generous: a vendor portal on a sleeping free host takes up to a minute to wake, and it re-checks
+        // unfinished Paystack payments before answering
         HttpRequest req = HttpRequest.newBuilder(URI.create(base + "/api/v1/check-in"))
-                .timeout(Duration.ofSeconds(20))
+                .timeout(Duration.ofSeconds(75))
                 .header("Authorization", "Bearer " + token())
                 .header("Content-Type", "application/json")
                 .header("User-Agent", "ExamPortal/" + body.get("appVersion"))
