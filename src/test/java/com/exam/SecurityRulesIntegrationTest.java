@@ -117,6 +117,7 @@ class SecurityRulesIntegrationTest {
         assertThat(status(put("/api/v1/auth/save-review").with(as(student)))).isEqualTo(403);
         assertThat(status(post("/api/v1/auth/question/add").with(as(student)))).isEqualTo(403);
         assertThat(status(get("/api/v1/auth/questionAdmin/quiz/all/1").with(as(student)))).isEqualTo(403);
+        assertThat(status(get("/api/v1/auth/quiz/result/1/student/" + student.getId()).with(as(student)))).isEqualTo(403);
         assertThat(status(delete("/api/v1/auth/delete/quiz/1").with(as(student)))).isEqualTo(403);
         assertThat(status(get("/api/marks/sheet/1").with(as(student)))).isEqualTo(403);
         assertThat(status(post("/api/v1/auth/register/lecturer").with(as(student)))).isEqualTo(403);

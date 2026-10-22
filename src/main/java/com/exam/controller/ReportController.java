@@ -274,6 +274,16 @@ public ResponseEntity<List<Report>> getQuizIds(@PathVariable("quiz_Id") Long qui
         return ResponseEntity.ok(result);
     }
 
+    /** Staff view of one student's objective answers (quiz ownership is checked by QuizOwnershipInterceptor). */
+    @GetMapping("/quiz/result/{quizId}/student/{userId}")
+    public ResponseEntity<?> getStudentQuizResultForStaff(@PathVariable("quizId") Long quizId,
+                                                          @PathVariable("userId") Long userId) {
+        if (quizService.getQuiz(quizId) == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Quiz not found");
+        }
+        return ResponseEntity.ok(reportService.getStudentQuizResult(quizId, userId));
+    }
+
 
 
 

@@ -412,6 +412,9 @@ public class ReportService {
             questionMap.put("content",     question.getContent());
             questionMap.put("image",       question.getImage());
             questionMap.put("questionType", type);
+            // Every question put to the student gets an answer row (even when left blank),
+            // so this tells apart the questions they were given from ones a random draw left out.
+            questionMap.put("served",      studentAnswer != null);
 
             // ── MATCHING ─────────────────────────────────────────────────────────
             if (type == QuestionType.MATCHING) {

@@ -105,7 +105,7 @@ public final class EndpointRules {
             .requestMatchers(HttpMethod.GET, p("/question/*", "/questionAdmin/**", "/questions/quiz/all/**", "/questionSSS/**",
                     "/random-records", "/theoryquestion/*", "/theoryquestions/**", "/user/getQuiz", "/quiz/category/**",
                     "/category/taken/**", "/getReport", "/getReport/*", "/getReports/**", "/my-students-reports",
-                    "/my/quiz-titles/reports", "/quiz-results/quiz/**", "/quiz-results/report/**", "/categoriesForUser",
+                    "/my/quiz-titles/reports", "/quiz-results/quiz/**", "/quiz-results/report/**", "/quiz/result/*/student/*", "/categoriesForUser",
                     "/category/my-courses-with-quizzes", "/category/lecturer/**", "/quizGPT/health")).hasAnyAuthority(STAFF)
             .requestMatchers(p("/quiz-attempts/quiz/**", "/llm/**")).hasAnyAuthority(STAFF)
             .requestMatchers("/api/question-bank/**", "/api/remarks/manage", "/api/remarks/*/respond").hasAnyAuthority(STAFF)
