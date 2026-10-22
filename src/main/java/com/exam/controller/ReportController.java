@@ -133,6 +133,12 @@ private ReportService reportService;
 
 
 
+    /** Ids of quizzes students have taken — the Quiz Review Panel lists only these. */
+    @GetMapping("/getReports/taken-quiz-ids")
+    public ResponseEntity<java.util.Set<Long>> getTakenQuizIds() {
+        return ResponseEntity.ok(reportService.takenQuizIds());
+    }
+
 //Report on quiz id
 @GetMapping("/getReports/{quiz_Id}")
 public ResponseEntity<List<Report>> getQuizIds(@PathVariable("quiz_Id") Long quiz_Id){

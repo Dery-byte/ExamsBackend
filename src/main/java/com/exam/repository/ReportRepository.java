@@ -99,6 +99,10 @@ Optional<Report> findByUserAndQuiz(User user, Quiz quiz);
     @Query("SELECT r FROM report r WHERE r.quiz.user.id = :lecturerId")
     List<Report> findByQuizCreatorId(@Param("lecturerId") Long lecturerId);
 
+    /** Ids of quizzes that at least one student has a result for. */
+    @Query("SELECT DISTINCT r.quiz.qId FROM report r WHERE r.quiz IS NOT NULL")
+    List<Long> findQuizIdsWithReports();
+
 
 
 

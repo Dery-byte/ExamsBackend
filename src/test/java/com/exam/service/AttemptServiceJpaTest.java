@@ -60,6 +60,7 @@ class AttemptServiceJpaTest {
     @Autowired AnswerRepository      answers;
     @Autowired CategoryRepository    categories;
     @Autowired Registered_coursesRepository registrations;
+    @Autowired ReportRepository      reports;
 
     User student;
     User admin;
@@ -218,6 +219,40 @@ class AttemptServiceJpaTest {
                 .isInstanceOf(ResponseStatusException.class);
         unlock(student, quiz);
         assertThat(service.begin(student, quiz).activeAttemptNumber()).isEqualTo(2);
+    }
+
+    @Test
+    void takenQuizIdsCoverSubmittedAttemptsAndLegacyResultsOnly() {
+        Quiz inProgress = quizzes.save(sibling("In progress"));
+        Quiz legacy     = quizzes.save(sibling("Legacy"));
+        Quiz untouched  = quizzes.save(sibling("Never taken"));
+
+        service.begin(student, quiz);
+        service.recordObjective(student, quiz, new BigDecimal("4"));   // OBJ quiz: one section, so the attempt is SUBMITTED
+        service.begin(student, inProgress);                             // started, never submitted
+
+        com.exam.model.exam.Report r = new com.exam.model.exam.Report();   // result from before the attempt ledger
+        r.setUser(student);
+        r.setQuiz(legacy);
+        r.setMarks(new BigDecimal("7"));
+        reports.save(r);
+
+        java.util.Set<Long> taken = new java.util.HashSet<>(reports.findQuizIdsWithReports());
+        taken.addAll(attempts.findQuizIdsWithStatus(AttemptStatus.SUBMITTED));
+        assertThat(taken).contains(quiz.getqId(), legacy.getqId())
+                .doesNotContain(inProgress.getqId(), untouched.getqId());
+    }
+
+    private Quiz sibling(String title) {
+        Quiz q = new Quiz();
+        q.setTitle(title);
+        q.setQuizTime("30");
+        q.setQuizpassword("");
+        q.setQuizType(QuizType.OBJ);
+        q.setMaxAttempts(1);
+        q.setActive(true);
+        q.setCategory(course);
+        return q;
     }
 
     private static User user(String name, Role role) {

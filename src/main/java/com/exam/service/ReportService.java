@@ -34,6 +34,19 @@ public class ReportService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private com.exam.repository.QuizAttemptRepository quizAttemptRepository;
+
+    /**
+     * Quizzes at least one student has taken: a result exists, or an attempt was submitted
+     * (theory still being marked by AI has no result yet; attempts made before the ledger have only a result).
+     */
+    public Set<Long> takenQuizIds() {
+        Set<Long> ids = new HashSet<>(reportRepository.findQuizIdsWithReports());
+        ids.addAll(quizAttemptRepository.findQuizIdsWithStatus(AttemptStatus.SUBMITTED));
+        return ids;
+    }
+
 
     public Map<String, Object> getQuizReportsWithAnswers(Long quizId) {
         // Get all reports for this quiz

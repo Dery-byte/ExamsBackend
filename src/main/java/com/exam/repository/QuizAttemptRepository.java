@@ -26,6 +26,10 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     @Query("SELECT a FROM QuizAttempt a JOIN FETCH a.user WHERE a.quiz.qId = :quizId ORDER BY a.user.id, a.attemptNumber")
     List<QuizAttempt> findAllForQuiz(@Param("quizId") Long quizId);
 
+    /** Ids of quizzes with at least one attempt in the given status. */
+    @Query("SELECT DISTINCT a.quiz.qId FROM QuizAttempt a WHERE a.status = :status")
+    List<Long> findQuizIdsWithStatus(@Param("status") AttemptStatus status);
+
     @Modifying
     @Query("DELETE FROM QuizAttempt a WHERE a.quiz.qId = :quizId")
     void deleteByQuizId(@Param("quizId") Long quizId);
