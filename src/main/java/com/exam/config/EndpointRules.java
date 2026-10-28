@@ -21,6 +21,9 @@ public final class EndpointRules {
     public static final String DEVELOPER = "DEVELOPER";
     /** Every role that uses the school system itself; the developer only has their own area. */
     public static final String[] SYSTEM_USERS = {"SUPER_ADMIN", "ADMIN", "LECTURER", "NORMAL"};
+    /** The accounts office (bursar / cashier): fees and payments, plus their own profile and messages. */
+    public static final String ACCOUNTANT = "ACCOUNTANT";
+    private static final String[] EVERY_ACCOUNT = {"SUPER_ADMIN", "ADMIN", "LECTURER", "NORMAL", "ACCOUNTANT"};
 
     private static final String A = "/api/v1/auth";
 
@@ -63,6 +66,14 @@ public final class EndpointRules {
             .requestMatchers(HttpMethod.GET, p("/current-user", "/feature-flags", "/subscription/notice")).authenticated()
             .requestMatchers(HttpMethod.POST, p("/client-errors", "/subscription/check-payment")).authenticated()
 
+            // ── Accounts office: fees and payments (bursar / cashier rights checked in FinanceAccess);
+            //    like everyone, their own profile, password, photo, notifications and announcements ─
+            .requestMatchers("/api/finance/**").hasAnyAuthority(SUPER_ADMIN, ACCOUNTANT)
+            .requestMatchers(HttpMethod.PUT, p("/update-my-profile", "/updatepassword")).hasAnyAuthority(EVERY_ACCOUNT)
+            .requestMatchers(p("/profile/photo")).hasAnyAuthority(EVERY_ACCOUNT)
+            .requestMatchers("/api/notifications", "/api/notifications/**").hasAnyAuthority(EVERY_ACCOUNT)
+            .requestMatchers(HttpMethod.GET, "/api/announcements").hasAnyAuthority(EVERY_ACCOUNT)
+
             // ── Super Admin ──────────────────────────────────────────────────
             .requestMatchers("/api/v1/super-admin/**").hasAuthority(SUPER_ADMIN)
             .requestMatchers(HttpMethod.POST, p("/register/admin")).hasAuthority(SUPER_ADMIN)
@@ -83,15 +94,21 @@ public final class EndpointRules {
             .requestMatchers("/api/hod/**").hasAuthority("ADMIN")
             // Lecturer reports are locked to the lecturer's own courses and quizzes
             .requestMatchers("/api/lecturer/**").hasAuthority("LECTURER")
-            .requestMatchers(HttpMethod.POST, "/api/announcements").hasAnyAuthority(ADMINS)
-            .requestMatchers(HttpMethod.DELETE, "/api/announcements/*").hasAnyAuthority(ADMINS)
-            .requestMatchers("/api/announcements/manage").hasAnyAuthority(ADMINS)
+            .requestMatchers(HttpMethod.POST, "/api/announcements").hasAnyAuthority(STAFF)   // lecturers only as boarding staff (checked in the service)
+            .requestMatchers(HttpMethod.DELETE, "/api/announcements/*").hasAnyAuthority(STAFF)
+            .requestMatchers("/api/announcements/manage").hasAnyAuthority(STAFF)
             .requestMatchers(HttpMethod.GET, "/api/academic/students/**", "/api/academic/promotion-preview").hasAnyAuthority(ADMINS)
+            // Schools: class promotion (HODs only in their section, checked in ClassPromotionService)
+            .requestMatchers("/api/academic/classes/**").hasAnyAuthority(ADMINS)
+            .requestMatchers(HttpMethod.POST, "/api/academic/students/*/move").hasAnyAuthority(ADMINS)
 
             // ── Class attendance: students check in; staff run sessions; Super Admin + HODs set the rules ─
             .requestMatchers("/api/attendance/student/**").hasAuthority("NORMAL")
             .requestMatchers("/api/attendance/manage/**").hasAnyAuthority(STAFF)
             .requestMatchers("/api/attendance/settings", "/api/attendance/settings/**").hasAnyAuthority(ADMINS)
+            // ── Boarding: students see their own room; boarding staff (checked per hostel in BoardingAccess) the rest ─
+            .requestMatchers("/api/boarding/student/**").hasAuthority("NORMAL")
+            .requestMatchers("/api/boarding/manage/**", "/api/boarding/settings", "/api/boarding/reports", "/api/boarding/reports/**").hasAnyAuthority(STAFF)
 
             // ── Staff (Super Admin, HODs, lecturers): authoring, marking, review ─
             .requestMatchers(HttpMethod.POST, p("/question/add", "/upload/*", "/theoryquestion/add", "/theoryupload/*",

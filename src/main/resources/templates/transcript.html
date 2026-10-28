@@ -62,7 +62,7 @@
     <td class="lb" th:text="${terms.studentId}">Student ID</td><td style="font-weight: bold;" th:text="${t.username}">STD001</td>
   </tr>
   <tr>
-    <td class="lb">Programme</td><td th:text="${t.program ?: '-'}">BSc</td>
+    <td class="lb" th:text="${terms.program}">Programme</td><td th:text="${t.program ?: '-'}">BSc</td>
     <td class="lb" th:text="'Current ' + ${terms.level}">Current Level</td><td th:text="${t.currentLevel ?: '-'}">200</td>
   </tr>
 </table>

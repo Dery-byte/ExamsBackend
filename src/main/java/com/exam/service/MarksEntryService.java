@@ -493,9 +493,14 @@ public class MarksEntryService {
             if (data != null && data.get("courseMarks") != null) {
                 List<?> marks = (List<?>) data.get("courseMarks");
                 if (!marks.isEmpty()) {
-                    String key = data.get("sessionName") + "|" + data.get("level") + "-" + data.get("semester");
+                    // Schools: every class is level 1, so the class keeps Primary 1 and Primary 2 apart
+                    String key = data.get("sessionName") + "|"
+                            + (com.exam.model.academic.SystemMode.current().isSchool() ? data.get("programId") + "|" : "")
+                            + data.get("level") + "-" + data.get("semester");
                     if (!groupedReports.containsKey(key)) {
-                        groupedReports.put(key, new java.util.HashMap<>(data));
+                        java.util.Map<String, Object> first = new java.util.HashMap<>(data);
+                        first.put("reportKey", key);
+                        groupedReports.put(key, first);
                     } else {
                         // Merge course marks
                         java.util.Map<String, Object> existingData = groupedReports.get(key);
@@ -594,13 +599,17 @@ public class MarksEntryService {
 
     /**
      * Gathers and merges report card data for all PUBLISHED sheets for a student
-     * matching the specified level and semester.
+     * matching the specified level and semester, and the session and programme when given
+     * (a school student is at level 1 in every class, so Term 1 comes round each year).
      */
-    public java.util.Map<String, Object> getStudentReportCardDataByLevelAndSemester(String level, Integer semester, Long userId) {
+    public java.util.Map<String, Object> getStudentReportCardDataByLevelAndSemester(String level, Integer semester, Long userId,
+                                                                                    String session, Long programId) {
         List<java.util.Map<String, Object>> all = getAllStudentReportCards(userId);
         for (java.util.Map<String, Object> report : all) {
             if (level.equals(String.valueOf(report.get("level"))) &&
-                semester.equals(Integer.parseInt(String.valueOf(report.get("semester"))))) {
+                semester.equals(Integer.parseInt(String.valueOf(report.get("semester"))))
+                && (session == null || session.equals(String.valueOf(report.get("sessionName"))))
+                && (programId == null || programId.equals(report.get("programId")))) {
                 return report;
             }
         }

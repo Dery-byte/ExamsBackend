@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.exam.AssessmentsModuleIntegrationTest
 -------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 26.029 s - in com.exam.AssessmentsModuleIntegrationTest
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 35.776 s - in com.exam.AssessmentsModuleIntegrationTest

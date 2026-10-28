@@ -29,4 +29,11 @@ public class FeeComponent {
 
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
+
+    /** Who pays this item (with day students and boarders): everyone, boarders only or day students only. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "applies_to", length = 10)
+    private FeeAppliesTo appliesTo = FeeAppliesTo.EVERYONE;
+
+    public FeeAppliesTo appliesTo() { return appliesTo == null ? FeeAppliesTo.EVERYONE : appliesTo; }
 }

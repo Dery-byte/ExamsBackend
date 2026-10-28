@@ -36,7 +36,16 @@ public abstract class ReportEndpoints {
 
     @GetMapping
     public List<ReportCatalog.Definition> list() {
-        return catalog.definitions(actor());
+        return definitions(actor());
+    }
+
+    /** The reports offered here (boarding staff get only the boarding ones). */
+    protected List<ReportCatalog.Definition> definitions(User actor) {
+        return catalog.definitions(actor);
+    }
+
+    protected ReportResult runReport(String key, ReportFilters f, User actor) {
+        return catalog.run(key, f, actor);
     }
 
     @GetMapping("/{key}")
@@ -51,9 +60,10 @@ public abstract class ReportEndpoints {
                             @RequestParam(required = false) Long courseId,
                             @RequestParam(required = false) Long quizId,
                             @RequestParam(required = false) String status,
+                            @RequestParam(required = false) Long hostelId,
                             HttpServletRequest request) {
         User actor = actor();
-        ReportResult r = catalog.run(key, new ReportFilters(sessionId, departmentId, programId, level, semester, from, to, courseId, quizId, status), actor);
+        ReportResult r = runReport(key, new ReportFilters(sessionId, departmentId, programId, level, semester, from, to, courseId, quizId, status, null, hostelId), actor);
         auditAnswerKey(key, quizId, actor, OversightReports.VIEWED_ANSWER_KEY, request);
         return r;
     }
@@ -70,9 +80,10 @@ public abstract class ReportEndpoints {
                                       @RequestParam(required = false) Long courseId,
                                       @RequestParam(required = false) Long quizId,
                                       @RequestParam(required = false) String status,
+                                      @RequestParam(required = false) Long hostelId,
                                       HttpServletRequest request) throws Exception {
         User actor = actor();
-        ReportResult r = catalog.run(key, new ReportFilters(sessionId, departmentId, programId, level, semester, from, to, courseId, quizId, status), actor);
+        ReportResult r = runReport(key, new ReportFilters(sessionId, departmentId, programId, level, semester, from, to, courseId, quizId, status, null, hostelId), actor);
         auditAnswerKey(key, quizId, actor, OversightReports.PRINTED_ANSWER_KEY, request);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)

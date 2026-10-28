@@ -6,5 +6,7 @@ public enum Role {
   LECTURER,
   NORMAL,
   /** Signs in with an emailed code; only sets the system mode, watches system health and reads the audit log. */
-  DEVELOPER
+  DEVELOPER,
+  /** Accounts office (bursar or cashier, see User.financeDuty): fees, bills and payments only. */
+  ACCOUNTANT
 }

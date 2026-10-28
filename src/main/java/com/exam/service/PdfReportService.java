@@ -47,6 +47,7 @@ public class PdfReportService {
     @Autowired private com.exam.service.academic.DocumentVerificationService verificationService;
     @Autowired @Lazy private com.exam.service.academic.TermRemarkService termRemarkService;
     @Autowired @Lazy private MarksEntryService marksEntryService;
+    @Autowired @Lazy private com.exam.service.boarding.BoardingService boardingService;
 
     private static final int IMG_MAX_W_PT = 380;
     private static final int IMG_MAX_H_PT = 200;
@@ -382,6 +383,13 @@ public class PdfReportService {
         }
     }
 
+    /** "House: Aggrey House" / "Residency: Day student" under the student's details (nothing without boarding). */
+    private void applyResidence(Context ctx, Object username) {
+        String[] line = username == null ? null : boardingService.reportLine(String.valueOf(username));
+        ctx.setVariable("residenceLabel", line == null ? null : line[0]);
+        ctx.setVariable("residence", line == null ? null : line[1]);
+    }
+
     /**
      * Generates a PDF for the student's semester report card.
      */
@@ -409,6 +417,7 @@ public class PdfReportService {
         ctx.setVariable("position",     data.get("position"));
         ctx.setVariable("classSize",    data.get("classSize"));
         ctx.setVariable("remark",       data.get("remark"));
+        applyResidence(ctx, data.get("username"));
         issueCode(ctx, com.exam.model.academic.DocumentVerification.Type.REPORT_CARD, data, termSummary(data));
 
         String html  = themeService.recolor(templateEngine.process("semester-report-card", ctx));
@@ -469,8 +478,10 @@ public class PdfReportService {
     private String termSummary(Map<String, Object> data) {
         Map<String, String> terms = institutionService.terms();
         StringBuilder sb = new StringBuilder();
-        sb.append(terms.get("level")).append(' ').append(Objects.toString(data.get("level"), "-"))
-          .append(", ").append(institutionService.semesterName(data.get("semester")));
+        // Schools: the class name (Primary 4); a class is one year, so its level says nothing
+        if (institutionService.isSchool()) sb.append(Objects.toString(data.get("programName"), "-"));
+        else sb.append(terms.get("level")).append(' ').append(Objects.toString(data.get("level"), "-"));
+        sb.append(", ").append(institutionService.semesterName(data.get("semester")));
         if (data.get("sessionName") != null) sb.append(' ').append(data.get("sessionName"));
         if (data.get("courseMarks") instanceof List<?> marks)
             sb.append(" · ").append(marks.size()).append(' ').append(marks.size() == 1 ? terms.get("course").toLowerCase() : terms.get("courses").toLowerCase());
@@ -549,6 +560,7 @@ public class PdfReportService {
         ctx.setVariable("watermarkBase64", generateDiagonalWatermarkBase64(candidateId != null ? candidateId : "UCC"));
 
         applyInstitution(ctx);
+        applyResidence(ctx, allData.isEmpty() ? null : allData.get(0).get("username"));
         for (java.util.Map<String, Object> report : allData) addTermExtras(report);
         if (!allData.isEmpty()) {
             java.util.Map<String, Object> last = allData.get(allData.size() - 1);

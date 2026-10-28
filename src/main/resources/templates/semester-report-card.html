@@ -81,16 +81,20 @@
     <td style="font-weight: bold; color: #1a2744;" th:text="${username}">STD001</td>
   </tr>
   <tr>
-    <td class="lb">Programme</td>
-    <td th:text="${programName}">BSc Computer Science</td>
-    <td class="lb" th:text="${terms.level}">Academic Level</td>
-    <td th:text="${level}">200</td>
+    <td class="lb" th:text="${terms.program}">Programme</td>
+    <td th:text="${programName}" th:attr="colspan=${isSchool ? 3 : 1}">BSc Computer Science</td>
+    <td class="lb" th:unless="${isSchool}" th:text="${terms.level}">Academic Level</td>
+    <td th:unless="${isSchool}" th:text="${level}">200</td>
   </tr>
   <tr>
     <td class="lb" th:text="${terms.semester}">Semester</td>
     <td th:text="${(sessionName != null ? sessionName + ' · ' : '') + semesterName}">First Semester</td>
     <td class="lb">Report Status</td>
     <td class="s-pass">OFFICIAL</td>
+  </tr>
+  <tr th:if="${residence != null}">
+    <td class="lb" th:text="${residenceLabel}">House</td>
+    <td colspan="3" th:text="${residence}">Aggrey House</td>
   </tr>
   <tr th:if="${position != null}">
     <td class="lb">Position in Class</td>

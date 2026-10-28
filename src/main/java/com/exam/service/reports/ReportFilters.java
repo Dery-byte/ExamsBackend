@@ -10,28 +10,38 @@ import java.time.LocalDate;
  * @param quizId     one quiz: likewise
  * @param status     a report-specific choice, e.g. a marks sheet status or a student's standing
  * @param lecturerId set by the server for a lecturer: only courses they teach and quizzes they manage
+ * @param hostelId   boarding reports: one hostel (house / hall)
  */
 public record ReportFilters(Long sessionId, Long departmentId, Long programId, Integer level, Integer semester,
-                            LocalDate from, LocalDate to, Long courseId, Long quizId, String status, Long lecturerId) {
+                            LocalDate from, LocalDate to, Long courseId, Long quizId, String status, Long lecturerId, Long hostelId) {
 
     public ReportFilters(Long sessionId, Long departmentId, Long programId, Integer level, Integer semester,
                          LocalDate from, LocalDate to, Long courseId, Long quizId, String status) {
-        this(sessionId, departmentId, programId, level, semester, from, to, courseId, quizId, status, null);
+        this(sessionId, departmentId, programId, level, semester, from, to, courseId, quizId, status, null, null);
+    }
+
+    public ReportFilters(Long sessionId, Long departmentId, Long programId, Integer level, Integer semester,
+                         LocalDate from, LocalDate to, Long courseId, Long quizId, String status, Long lecturerId) {
+        this(sessionId, departmentId, programId, level, semester, from, to, courseId, quizId, status, lecturerId, null);
     }
 
     public static ReportFilters none() {
-        return new ReportFilters(null, null, null, null, null, null, null, null, null, null, null);
+        return new ReportFilters(null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     public boolean hasStatus() { return status != null && !status.isBlank(); }
 
     /** The same filters locked to one department (an HOD's reports). */
     public ReportFilters withDepartment(Long id) {
-        return new ReportFilters(sessionId, id, programId, level, semester, from, to, courseId, quizId, status, lecturerId);
+        return new ReportFilters(sessionId, id, programId, level, semester, from, to, courseId, quizId, status, lecturerId, hostelId);
     }
 
     /** The same filters locked to one lecturer's courses and quizzes (null: no lock). */
     public ReportFilters withLecturer(Long id) {
-        return new ReportFilters(sessionId, departmentId, programId, level, semester, from, to, courseId, quizId, status, id);
+        return new ReportFilters(sessionId, departmentId, programId, level, semester, from, to, courseId, quizId, status, id, hostelId);
+    }
+
+    public ReportFilters withHostel(Long id) {
+        return new ReportFilters(sessionId, departmentId, programId, level, semester, from, to, courseId, quizId, status, lecturerId, id);
     }
 }

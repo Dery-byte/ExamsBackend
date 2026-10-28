@@ -23,4 +23,12 @@ public class Department {
 
     @Column(length = 500)
     private String description;
+
+    /** Place in the list; schools use it to put Primary before JHS before SHS. Null = after the numbered ones. */
+    @Column(name = "sort_order")
+    private Integer sortOrder;
+
+    /** Schools: how many years the section runs (Primary 6, JHS 3 …); its classes sit in years 1 to this. */
+    @Column(name = "duration_years")
+    private Integer durationYears;
 }

@@ -38,6 +38,9 @@ public class SuperAdminController {
     private DepartmentService departmentService;
 
     @Autowired
+    private com.exam.service.boarding.BoardingService boardingService;
+
+    @Autowired
     private ProgramService programService;
 
     @Autowired
@@ -81,6 +84,16 @@ public class SuperAdminController {
             return ResponseEntity.ok(departmentService.updateDepartment(id, dto));
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /** Body {"ids": [...]}: the departments (school sections) in their new order. */
+    @PutMapping("/departments/order")
+    public ResponseEntity<?> reorderDepartments(@RequestBody Map<String, List<Long>> body) {
+        try {
+            return ResponseEntity.ok(departmentService.reorder(body.get("ids")));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
 
@@ -128,6 +141,16 @@ public class SuperAdminController {
             return ResponseEntity.ok(programService.updateProgram(id, dto));
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /** Body {"ids": [...]}: the programmes (school classes) of one section in their new order. */
+    @PutMapping("/programs/order")
+    public ResponseEntity<?> reorderPrograms(@RequestBody Map<String, List<Long>> body) {
+        try {
+            return ResponseEntity.ok(programService.reorder(body.get("ids")));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
 
@@ -210,6 +233,7 @@ public class SuperAdminController {
         if (blocking != null)
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message",
                     "This HOD has " + blocking + ", which deleting would erase. Deactivate the account instead."));
+        boardingService.forgetUser(id);
         userRepository.deleteById(id);
         return ResponseEntity.ok(Map.of("message", "HOD account deleted."));
     }
@@ -293,7 +317,9 @@ public class SuperAdminController {
     @GetMapping("/students")
     public ResponseEntity<List<Map<String, Object>>> getAllStudentsWithInfo() {
         List<User> students = userRepository.findByRole(Role.NORMAL);
-        List<Map<String, Object>> result = students.stream().map(s -> Map.<String, Object>ofEntries(
+        Map<Long, Map<String, Object>> residence = boardingService.residenceOf(students);
+        List<Map<String, Object>> result = students.stream().map(s -> {
+            Map<String, Object> m = new java.util.HashMap<>(Map.<String, Object>ofEntries(
                 Map.entry("id", (Object) (s.getId())),
                 Map.entry("firstname", (Object) (s.getFirstname() != null ? s.getFirstname() : "")),
                 Map.entry("lastname", (Object) (s.getLastname() != null ? s.getLastname() : "")),
@@ -305,7 +331,11 @@ public class SuperAdminController {
                 Map.entry("currentLevel", (Object) (s.getCurrentLevel() != null ? s.getCurrentLevel() : 0)),
                 Map.entry("currentSemester", (Object) (s.getCurrentSemester() != null ? s.getCurrentSemester() : 0)),
                 Map.entry("enabled", (Object) (s.isEnabled()))
-        )).collect(Collectors.toList());
+            ));
+            m.put("gender", s.getGender() != null ? s.getGender().name() : null);
+            m.putAll(residence.getOrDefault(s.getId(), Map.of()));
+            return m;
+        }).collect(Collectors.toList());
         return ResponseEntity.ok(result);
     }
 

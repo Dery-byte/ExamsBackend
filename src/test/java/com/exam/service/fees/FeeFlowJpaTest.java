@@ -45,7 +45,7 @@ import static org.mockito.Mockito.when;
         "spring.datasource.password=",
         "spring.jpa.show-sql=false",
 })
-@Import({FeeScheduleService.class, FeePaymentService.class, ResultsHoldService.class, AcademicSessionService.class, SystemSettingService.class,
+@Import({FeeDues.class, ReceiptService.class, com.exam.service.boarding.BoardingSettings.class, com.exam.service.academic.DocumentVerificationService.class, com.exam.service.features.FeatureService.class, com.exam.service.academic.InstitutionService.class, com.exam.service.academic.ThemeService.class, com.exam.service.admin.MaintenanceService.class, FeeScheduleService.class, FeePaymentService.class, FeeLedger.class, ResultsHoldService.class, AcademicSessionService.class, SystemSettingService.class,
         com.exam.service.comms.CurrentUserService.class})
 class FeeFlowJpaTest {
 
@@ -168,7 +168,7 @@ class FeeFlowJpaTest {
         assertThat((BigDecimal) payments.statement(ama).get("balance")).isEqualByComparingTo("2000");
 
         // Fees with payments can't be deleted
-        Long scheduleId = p.getSchedule().getId();
+        Long scheduleId = p.getAllocations().get(0).getSchedule().getId();
         assertThatThrownBy(() -> schedules.delete(scheduleId)).hasMessageContaining("already paid");
     }
 

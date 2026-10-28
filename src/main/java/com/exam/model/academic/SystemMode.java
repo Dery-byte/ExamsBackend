@@ -33,11 +33,16 @@ public enum SystemMode {
     public Map<String, String> terms() {
         Map<String, String> t = new LinkedHashMap<>();
         boolean school = isSchool();
-        t.put("level", switch (this) { case SHS -> "Form"; case BASIC, ALL_SCHOOLS -> "Class"; default -> "Level"; });
+        // Schools: each programme is a class (Primary 1, JHS 2 …) in a section (Primary School …), one year
+        // long, so the level is always 1 and is hidden; "Year" is only seen in what still mentions it
+        t.put("level", school ? "Year" : "Level");
         t.put("semester", school ? "Term" : "Semester");
         t.put("course", school ? "Subject" : "Course");
         t.put("courses", school ? "Subjects" : "Courses");
-        t.put("program", this == BASIC ? "Section" : "Programme");
+        t.put("program", school ? "Class" : "Programme");
+        t.put("programs", school ? "Classes" : "Programmes");
+        t.put("department", school ? "Section" : "Department");
+        t.put("departments", school ? "Sections" : "Departments");
         t.put("lecturer", school ? "Teacher" : "Lecturer");
         t.put("hod", switch (this) { case SHS -> "Headmaster"; case BASIC, ALL_SCHOOLS -> "Head Teacher"; default -> "HOD"; });
         t.put("student", this == BASIC ? "Pupil" : "Student");

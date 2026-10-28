@@ -369,7 +369,7 @@ public class AttendanceReports {
             if (s.getHeadcount() != null && checkedIn > s.getHeadcount()) over++;
             waiting += a.pending();
             if (!s.isLive() && a.percent() != null) percents.add(a.percent());
-            tb.add(minute(s.getOpenedAt()), classTitle(s) + (s.getScope() == AttendanceMode.PROGRAMME && s.getLevel() != null ? " · " + t.get("level") + " " + s.getLevel() : ""),
+            tb.add(minute(s.getOpenedAt()), classTitle(s) + (s.getScope() == AttendanceMode.PROGRAMME && s.getLevel() != null && !support.isSchool() ? " · " + t.get("level") + " " + s.getLevel() : ""),
                     s.getMeetingNumber(), s.getTopic(), name(s.getOpenedBy()), s.getPlaceName(),
                     s.isScanned() ? "Staff scanned students" : s.isStudentScan() ? "Students scanned class QR"
                             : s.getCodeDisplay() == CodeDisplay.READ_ALOUD ? "Code read aloud" : "Code on projector", a.held(), a.attended() - a.late(), a.late(), a.absent(),

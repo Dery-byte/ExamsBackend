@@ -2,6 +2,8 @@ package com.exam.service.admin;
 
 import com.exam.model.Role;
 import com.exam.model.User;
+import com.exam.model.academic.SchoolWords;
+import com.exam.model.academic.SystemMode;
 import com.exam.model.exam.Category;
 import com.exam.model.exam.Department;
 import com.exam.model.exam.Program;
@@ -29,6 +31,10 @@ import java.util.regex.Pattern;
  * each new user is also emailed their username and temporary password (generated or from the file).
  * <p>
  * HODs can only import into their own department (and can't create global courses).
+ * <p>
+ * Students may also carry Gender, Residency (day / boarding, when the institution has both) and
+ * House / Block / Room / Bed columns; the room is checked like any other (gender, level, free beds,
+ * beds taken by earlier rows) and given once the account exists, by staff who look after that house.
  */
 @Service
 public class ImportService {
@@ -44,6 +50,8 @@ public class ImportService {
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private CredentialEmailService credentialEmailService;
+    @Autowired private com.exam.service.boarding.BoardingBulkService boardingBulk;
+    @Autowired private com.exam.service.boarding.BoardingSettings boardingSettings;
 
     /** One validated row, ready to create. */
     private record Row(int number, Map<String, String> data, List<String> errors, String summary, Object resolved) {}
@@ -73,7 +81,7 @@ public class ImportService {
                 if (!r.errors().isEmpty()) continue;
                 try {
                     if (type.equals("courses")) createCourse(r);
-                    else credentials.add(createUser(r, type.equals("students") ? Role.NORMAL : Role.LECTURER));
+                    else credentials.add(createUser(actor, r, type.equals("students") ? Role.NORMAL : Role.LECTURER));
                     created++;
                 } catch (Exception e) {
                     r.errors().add("Could not be saved: " + e.getMessage());
@@ -111,6 +119,7 @@ public class ImportService {
 
     private List<Row> validateUsers(User actor, List<Map<String, String>> rows, Role role) {
         boolean student = role == Role.NORMAL;
+        boolean school = SystemMode.current().isSchool();
         Set<String> existingUsernames = new HashSet<>(), existingEmails = new HashSet<>();
         userRepository.findAll().forEach(u -> {
             if (u.getUsername() != null) existingUsernames.add(u.getUsername().toLowerCase());
@@ -119,6 +128,7 @@ public class ImportService {
         List<Program> programs = programRepository.findAll();
         List<Department> departments = departmentRepository.findAll();
         Set<String> seenUsernames = new HashSet<>(), seenEmails = new HashSet<>();
+        com.exam.service.boarding.BoardingBulkService.StudentImportRooms rooms = null;
 
         List<Row> out = new ArrayList<>();
         for (int i = 0; i < rows.size(); i++) {
@@ -127,8 +137,8 @@ public class ImportService {
             String first = req(d, errors, "First name", "firstname", "first");
             String last = req(d, errors, "Last name", "lastname", "surname", "last");
             String email = req(d, errors, "Email", "email", "emailaddress");
-            String username = req(d, errors, student ? "Student ID" : "Staff ID",
-                    student ? new String[]{"studentid", "username", "indexnumber", "id"} : new String[]{"staffid", "username", "id"});
+            String username = req(d, errors, student ? (school ? "Admission No." : "Student ID") : "Staff ID",
+                    student ? new String[]{"studentid", "username", "indexnumber", "admissionno", "admissionnumber", "id"} : new String[]{"staffid", "username", "id"});
 
             if (email != null) {
                 if (!EMAIL.matcher(email).matches()) errors.add("Email '" + email + "' is not valid.");
@@ -145,26 +155,51 @@ public class ImportService {
             Object resolved;
             if (student) {
                 Program p = null;
-                String prog = req(d, errors, "Program", "program", "programme", "programcode");
+                // Schools call it "Class" (Primary 4); either heading works
+                String prog = req(d, errors, school ? "Class" : "Program", "program", "programme", "programcode", "class", "classname", "classcode");
                 if (prog != null) {
                     p = programs.stream().filter(x -> prog.equalsIgnoreCase(x.getCode()) || prog.equalsIgnoreCase(x.getName())).findFirst().orElse(null);
-                    if (p == null) errors.add("Program '" + prog + "' not found (use its code or exact name).");
-                    else if (!inScope(actor, p.getDepartment())) errors.add("Program " + p.getName() + " is not in your department.");
+                    if (p == null) errors.add(SchoolWords.apply("Program '" + prog + "' not found (use its code or exact name)."));
+                    else if (!inScope(actor, p.getDepartment())) errors.add(SchoolWords.apply("Program " + p.getName() + " is not in your department."));
                 }
-                Integer level = intOrError(d, errors, "Level", true, "level", "currentlevel");
+                // A school class is one year: no Level column needed, its only level is used
+                boolean oneLevel = school && p != null && p.getConfiguredLevels().size() == 1;
+                Integer level = intOrError(d, errors, "Level", !oneLevel, "level", "currentlevel");
+                if (level == null && oneLevel) level = p.getConfiguredLevels().get(0);
                 if (level != null && p != null && p.getConfiguredLevels() != null && !p.getConfiguredLevels().isEmpty()
                         && !p.getConfiguredLevels().contains(level))
                     errors.add("Level " + level + " is not offered by " + p.getName() + " (" + p.getConfiguredLevels() + ").");
-                Integer semester = intOrError(d, errors, "Semester", false, "semester", "currentsemester");
-                if (semester != null && (semester < 1 || semester > 3)) errors.add("Semester must be 1, 2 or 3.");
-                resolved = new Object[]{p, level, semester == null ? 1 : semester};
+                Integer semester = intOrError(d, errors, school ? "Term" : "Semester", false, "semester", "currentsemester", "term", "currentterm");
+                if (semester != null && (semester < 1 || semester > 3)) errors.add((school ? "Term" : "Semester") + " must be 1, 2 or 3.");
+                com.exam.model.Gender gender = null;
+                com.exam.model.Residency residency = null;
+                try { gender = com.exam.model.Gender.parse(opt(d, "gender", "sex")); } catch (IllegalArgumentException e) { errors.add(e.getMessage()); }
+                String rawResidency = opt(d, "residency", "dayorboarding", "dayboarding", "boarding");
+                if (rawResidency != null && boardingSettings.mode() == com.exam.model.boarding.ResidencyMode.BOTH) {
+                    try { residency = com.exam.model.Residency.parse(rawResidency); } catch (IllegalArgumentException e) { errors.add(e.getMessage()); }
+                }
+                com.exam.service.boarding.BoardingBulkService.NewPlace place = null;
+                if (hasRoomColumns(d)) {
+                    if (rooms == null) rooms = boardingBulk.studentImportRooms(actor);
+                    User candidate = new User();
+                    candidate.setFirstname(first);
+                    candidate.setLastname(last);
+                    candidate.setRole(Role.NORMAL);
+                    candidate.setGender(gender);
+                    candidate.setCurrentLevel(level);
+                    candidate.setResidency(residency);
+                    if (errors.isEmpty()) place = rooms.check(d, candidate, errors);
+                    if (place != null && residency == null && boardingSettings.mode() == com.exam.model.boarding.ResidencyMode.BOTH)
+                        residency = com.exam.model.Residency.BOARDING;   // a room makes them a boarder
+                }
+                resolved = new Object[]{p, level, semester == null ? 1 : semester, gender, residency, place};
             } else {
-                String dep = req(d, errors, "Department", "department", "departmentcode", "dept");
+                String dep = req(d, errors, school ? "Section" : "Department", "department", "departmentcode", "dept", "section", "sectioncode");
                 Department dept = null;
                 if (dep != null) {
                     dept = departments.stream().filter(x -> dep.equalsIgnoreCase(x.getCode()) || dep.equalsIgnoreCase(x.getName())).findFirst().orElse(null);
-                    if (dept == null) errors.add("Department '" + dep + "' not found (use its code or exact name).");
-                    else if (!inScope(actor, dept)) errors.add("Department " + dept.getName() + " is not yours.");
+                    if (dept == null) errors.add(SchoolWords.apply("Department '" + dep + "' not found (use its code or exact name)."));
+                    else if (!inScope(actor, dept)) errors.add(SchoolWords.apply("Department " + dept.getName() + " is not yours."));
                 }
                 resolved = dept;
             }
@@ -174,7 +209,7 @@ public class ImportService {
         return out;
     }
 
-    private Map<String, String> createUser(Row r, Role role) {
+    private Map<String, String> createUser(User actor, Row r, Role role) {
         Map<String, String> d = r.data();
         String supplied = opt(d, "password");
         String password = supplied != null ? supplied : tempPassword();
@@ -182,7 +217,7 @@ public class ImportService {
         u.setFirstname(opt(d, "firstname", "first"));
         u.setLastname(opt(d, "lastname", "surname", "last"));
         u.setEmail(opt(d, "email", "emailaddress"));
-        u.setUsername(role == Role.NORMAL ? opt(d, "studentid", "username", "indexnumber", "id") : opt(d, "staffid", "username", "id"));
+        u.setUsername(role == Role.NORMAL ? opt(d, "studentid", "username", "indexnumber", "admissionno", "admissionnumber", "id") : opt(d, "staffid", "username", "id"));
         u.setPhone(opt(d, "phone", "phonenumber", "mobile"));
         u.setPassword(passwordEncoder.encode(password));
         u.setMustChangePassword(Boolean.TRUE);
@@ -193,10 +228,16 @@ public class ImportService {
             u.setProgram((Program) res[0]);
             u.setCurrentLevel((Integer) res[1]);
             u.setCurrentSemester((Integer) res[2]);
+            u.setGender((com.exam.model.Gender) res[3]);
+            u.setResidency((com.exam.model.Residency) res[4]);
         } else {
             u.setDepartment((Department) r.resolved());
         }
         userRepository.save(u);
+        if (role == Role.NORMAL && ((Object[]) r.resolved())[5] instanceof com.exam.service.boarding.BoardingBulkService.NewPlace place) {
+            try { boardingBulk.placeNew(u, place, actor); }
+            catch (RuntimeException e) { r.errors().add("Account created, but no room was given: " + e.getMessage()); }
+        }
         Map<String, String> c = new LinkedHashMap<>();
         c.put("name", r.summary());
         c.put("username", u.getUsername());
@@ -210,6 +251,7 @@ public class ImportService {
     // ── Courses ──────────────────────────────────────────────────────────────
 
     private List<Row> validateCourses(User actor, List<Map<String, String>> rows) {
+        boolean school = SystemMode.current().isSchool();
         Set<String> existingCodes = new HashSet<>();
         categoryRepository.findAll().forEach(c -> { if (c.getCourseCode() != null) existingCodes.add(c.getCourseCode().trim().toLowerCase()); });
         List<Program> programs = programRepository.findAll();
@@ -221,35 +263,38 @@ public class ImportService {
         for (int i = 0; i < rows.size(); i++) {
             Map<String, String> d = rows.get(i);
             List<String> errors = new ArrayList<>();
-            String code = req(d, errors, "Course code", "coursecode", "code");
-            String title = req(d, errors, "Title", "title", "coursetitle", "name");
+            String code = req(d, errors, school ? "Subject code" : "Course code", "coursecode", "code", "subjectcode");
+            String title = req(d, errors, "Title", "title", "coursetitle", "subjecttitle", "name");
             if (code != null) {
                 if (existingCodes.contains(code.toLowerCase())) errors.add("Course code " + code + " already exists.");
                 else if (!seen.add(code.toLowerCase())) errors.add("Course code " + code + " appears twice in the file.");
             }
-            Integer level = intOrError(d, errors, "Level", true, "level");
-            Integer semester = intOrError(d, errors, "Semester", true, "semester");
-            if (semester != null && (semester < 1 || semester > 3)) errors.add("Semester must be 1, 2 or 3.");
+            // Schools: a subject's classes are one year each, so its level is 1 unless the file says otherwise
+            Integer level = intOrError(d, errors, "Level", !school, "level");
+            if (level == null && school) level = 1;
+            Integer semester = intOrError(d, errors, school ? "Term" : "Semester", true, "semester", "term");
+            if (semester != null && (semester < 1 || semester > 3)) errors.add((school ? "Term" : "Semester") + " must be 1, 2 or 3.");
             Integer credits = intOrError(d, errors, "Credit units", false, "creditunits", "credits", "cu");
             if (credits != null && (credits < 0 || credits > 30)) errors.add("Credit units must be between 0 and 30.");
 
             Set<Program> chosen = new HashSet<>();
-            String progs = opt(d, "programs", "program", "programcodes");
+            String progs = opt(d, "programs", "program", "programcodes", "classes", "class", "classcodes");
             if (progs != null) {
                 for (String token : progs.split("[;,|]")) {
                     String t = token.trim();
                     if (t.isEmpty()) continue;
                     Program p = programs.stream().filter(x -> t.equalsIgnoreCase(x.getCode()) || t.equalsIgnoreCase(x.getName())).findFirst().orElse(null);
-                    if (p == null) errors.add("Program '" + t + "' not found.");
-                    else if (!inScope(actor, p.getDepartment())) errors.add("Program " + p.getName() + " is not in your department.");
+                    if (p == null) errors.add(SchoolWords.apply("Program '" + t + "' not found."));
+                    else if (!inScope(actor, p.getDepartment())) errors.add(SchoolWords.apply("Program " + p.getName() + " is not in your department."));
                     else chosen.add(p);
                 }
             }
             if (chosen.isEmpty() && progs == null && actor.getRole() != Role.SUPER_ADMIN)
-                errors.add("Programs are required. Only the Super Admin can create global courses.");
+                errors.add(SchoolWords.apply(school ? "Classes are required. Only the Super Admin can create subjects for everyone."
+                        : "Programs are required. Only the Super Admin can create global courses."));
 
             User lecturer = null;
-            String lec = opt(d, "lecturer", "lecturerid", "staffid");
+            String lec = opt(d, "lecturer", "lecturerid", "staffid", "teacher", "teacherid");
             if (lec != null) {
                 lecturer = lecturers.get(lec.toLowerCase());
                 if (lecturer == null) errors.add("Lecturer with staff ID '" + lec + "' not found.");
@@ -265,8 +310,8 @@ public class ImportService {
         Map<String, String> d = r.data();
         Object[] res = (Object[]) r.resolved();
         Category c = new Category();
-        c.setCourseCode(opt(d, "coursecode", "code").toUpperCase());
-        c.setTitle(opt(d, "title", "coursetitle", "name"));
+        c.setCourseCode(opt(d, "coursecode", "code", "subjectcode").toUpperCase());
+        c.setTitle(opt(d, "title", "coursetitle", "subjecttitle", "name"));
         c.setDescription(opt(d, "description"));
         c.setPrograms(new HashSet<>((Set<Program>) res[0]));
         c.setLevel(String.valueOf(res[1]));
@@ -277,6 +322,11 @@ public class ImportService {
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /** Any of the House / Block / Room / Bed columns filled in. */
+    private static boolean hasRoomColumns(Map<String, String> d) {
+        return opt(d, "house", "hostel", "hall", "dormitory", "dorm", "block", "wing", "room", "roomno", "roomnumber", "bed", "bedno") != null;
+    }
 
     private static boolean inScope(User actor, Department d) {
         if (actor.getRole() == Role.SUPER_ADMIN) return true;

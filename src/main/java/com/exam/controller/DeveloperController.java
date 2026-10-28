@@ -37,6 +37,7 @@ public class DeveloperController {
     @Autowired private com.exam.service.comms.CurrentUserService currentUserService;
     @Autowired private AuditService auditService;
     @Autowired private SystemSettingService systemSettingService;
+    @Autowired private com.exam.service.boarding.BoardingSettings boardingSettings;
 
     // ── Sign-in (public, rate-limited) ──────────────────────────────────
 
@@ -128,16 +129,31 @@ public class DeveloperController {
 
     @GetMapping("/api/v1/developer/modules")
     public Map<String, Object> modules() {
-        return Map.of("assessments", systemSettingService.assessmentsOn());
+        return Map.of("assessments", systemSettingService.assessmentsOn(), "residency", boardingSettings.mode().name());
     }
 
-    /** Switches the whole Assessments (quiz) module on or off for every user. */
+    /**
+     * Switches the whole Assessments (quiz) module on or off for every user, and/or sets how students
+     * are housed: DAY (day only, boarding hidden), BOARDING (everyone boards) or BOTH. Send either key.
+     */
     @PutMapping("/api/v1/developer/modules")
-    public Map<String, Object> setModules(@RequestBody Map<String, Boolean> body, HttpServletRequest request) {
-        Boolean assessments = body == null ? null : body.get("assessments");
-        if (assessments == null) throw new IllegalArgumentException("assessments is required.");
-        request.setAttribute(com.exam.config.AuditInterceptor.AUDIT_DETAILS, "Assessments module on = " + assessments);
-        systemSettingService.updateSetting(SystemSettingService.MODULE_ASSESSMENTS, String.valueOf(assessments));
+    public Map<String, Object> setModules(@RequestBody Map<String, Object> body, HttpServletRequest request) {
+        Object assessments = body == null ? null : body.get("assessments");
+        Object residency = body == null ? null : body.get("residency");
+        if (assessments == null && residency == null) throw new IllegalArgumentException("Send assessments or residency.");
+        List<String> changes = new ArrayList<>();
+        if (assessments != null) {
+            if (!(assessments instanceof Boolean on)) throw new IllegalArgumentException("assessments must be true or false.");
+            systemSettingService.updateSetting(SystemSettingService.MODULE_ASSESSMENTS, String.valueOf(on));
+            changes.add("Assessments module on = " + on);
+        }
+        if (residency != null) {
+            com.exam.model.boarding.ResidencyMode mode = com.exam.model.boarding.ResidencyMode.parse(String.valueOf(residency));
+            if (mode == null) throw new IllegalArgumentException("residency must be DAY, BOARDING or BOTH.");
+            boardingSettings.setMode(mode);
+            changes.add("Students = " + mode.label());
+        }
+        request.setAttribute(com.exam.config.AuditInterceptor.AUDIT_DETAILS, String.join("; ", changes));
         return modules();
     }
 

@@ -35,7 +35,11 @@ import java.util.*;
 
 /**
  * Students' fee statement and payments: online through Paystack (card / Mobile Money) and cash or
- * bank payments the Super Admin records.
+ * bank payments the accounts office records. What a student owes comes from {@link FeeDues}: their
+ * class's whole-year fee, or each term up to the current one, priced by the items that apply to them,
+ * plus their bills. A payment can be for a chosen fee or bill, or for everything owed; {@link FeeLedger}
+ * splits it when it succeeds (the chosen one first, then oldest first, the rest as credit). Each
+ * successful payment gets a numbered receipt with a verification code ({@link ReceiptService}).
  * <p>
  * A Paystack payment is created PENDING before the student is sent to checkout, then settled from
  * whichever arrives first: the student returning to the Fees page, Paystack's signed webhook, or
@@ -65,30 +69,78 @@ public class FeePaymentService {
     @Autowired private PaystackClient paystack;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private ResultsHoldService resultsHoldService;
+    @Autowired private FeeDues feeDues;
+    @Autowired private ReceiptService receipts;
+    @Autowired private FeeLedger ledger;
 
     @Value("${app.frontend-url:http://localhost:4200}")
     private String frontendUrl;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
-    /** amount: a part payment (null = the full balance); items: pay these items of the breakdown instead. */
-    public record PayRequest(BigDecimal amount, List<String> items) {}
+    /**
+     * amount: a part payment (null = the whole balance of what is paid for); items: pay these items of a
+     * fee's breakdown instead; scheduleId / billId: pay that fee (term) or bill first; neither = everything
+     * owed, oldest first.
+     */
+    public record PayRequest(BigDecimal amount, List<String> items, Long scheduleId, Long billId) {
+        public PayRequest(BigDecimal amount, List<String> items, Long scheduleId) { this(amount, items, scheduleId, null); }
+        public PayRequest(BigDecimal amount, List<String> items) { this(amount, items, null, null); }
+    }
 
-    /** items: what the money was for (optional); the amount is then the items' balances. */
+    /**
+     * items: what the money was for (optional); the amount is then the items' balances. scheduleId /
+     * billId: as for PayRequest. Money beyond everything owed is kept as credit.
+     */
     public record ManualPaymentRequest(Long studentId, BigDecimal amount, String method, LocalDate paidOn, String note,
-                                       List<String> items) {}
+                                       List<String> items, Long scheduleId, Long billId) {
+        public ManualPaymentRequest(Long studentId, BigDecimal amount, String method, LocalDate paidOn, String note,
+                                    List<String> items, Long scheduleId) {
+            this(studentId, amount, method, paidOn, note, items, scheduleId, null);
+        }
+        public ManualPaymentRequest(Long studentId, BigDecimal amount, String method, LocalDate paidOn, String note, List<String> items) {
+            this(studentId, amount, method, paidOn, note, items, null, null);
+        }
+    }
+
+    /** What a payment is for: one fee (items optional), one bill, or everything (both null); balance = the most it may be. */
+    private record Target(FeeDues.Due due, FeeDues.BillDue bill, BigDecimal balance) {
+        FeeSchedule schedule() { return due == null ? null : due.schedule(); }
+        String name() {
+            return due != null ? "your " + FeeDues.periodName(due.schedule()).toLowerCase(Locale.ROOT) + " fees"
+                    : bill != null ? "\"" + bill.bill().getTitle() + "\"" : "what you owe";
+        }
+    }
 
     /** One item being paid for, with the amount going to it. */
     private record Allocation(String name, BigDecimal amount) {}
 
     // ── Student ─────────────────────────────────────────────────────────
 
-    /** The signed-in student's fee for the current session, what they've paid and their payment history. */
+    /**
+     * The signed-in student's account for the current session (each term owed so far, what is coming
+     * up, their bills, credit), what they've paid and their payment history. The top-level fee / paid /
+     * balance / items are those of the fee the next payment goes to (the oldest with a balance).
+     */
     @Transactional
     public Map<String, Object> statement(User principal) {
         requireVisible();
-        User student = reloadStudent(principal);
-        Optional<FeeSchedule> schedule = scheduleService.currentScheduleFor(student.getProgram(), student.getCurrentLevel());
+        return account(reloadStudent(principal), false);
+    }
+
+    /** The accounts office's view of one student's account (bills of every status, payments with notes). */
+    @Transactional
+    public Map<String, Object> staffStatement(Long studentId) {
+        User student = userRepository.findById(studentId).filter(u -> u.getRole() == Role.NORMAL)
+                .orElseThrow(() -> new IllegalArgumentException("Student not found."));
+        return account(student, true);
+    }
+
+    private Map<String, Object> account(User student, boolean forStaff) {
+        FeeDues.Account account = ledger.settled(student);    // credit waiting for something new to pay
+        List<FeeDues.Due> dues = account.fees();
+        Optional<FeeDues.Due> next = dues.stream().filter(d -> d.balance().signum() > 0).findFirst()
+                .or(() -> dues.isEmpty() ? Optional.empty() : Optional.of(dues.get(dues.size() - 1)));
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("currency", scheduleService.currency());
@@ -104,18 +156,17 @@ public class FeePaymentService {
         who.put("email", student.getEmail());
         who.put("programName", student.getProgram() != null ? student.getProgram().getName() : null);
         who.put("level", student.getCurrentLevel());
+        if (forStaff) who.put("id", student.getId());
         out.put("student", who);
 
-        if (schedule.isPresent()) {
-            FeeSchedule s = schedule.get();
-            BigDecimal paid = paymentRepository.sumPaid(student.getId(), s.getId());
-            BigDecimal balance = s.getAmount().subtract(paid);
-            out.put("fee", scheduleService.toDto(s));
-            out.put("paid", paid);
-            out.put("balance", balance.max(BigDecimal.ZERO));
-            out.put("credit", balance.signum() < 0 ? balance.negate() : BigDecimal.ZERO);
-            out.put("status", balance.signum() <= 0 ? "PAID" : paid.signum() > 0 ? "PART_PAID" : "UNPAID");
-            out.put("items", s.isItemised() ? breakdown(s, student.getId(), paid).stream().map(FeeBreakdown.Line::toMap).toList() : List.of());
+        if (next.isPresent()) {
+            FeeDues.Due d = next.get();
+            out.put("fee", dueFee(d));
+            out.put("paid", d.paid());
+            out.put("balance", d.balance());
+            out.put("credit", d.credit());
+            out.put("status", d.status());
+            out.put("items", itemLines(d, student.getId()));
         } else {
             out.put("fee", null);
             out.put("paid", BigDecimal.ZERO);
@@ -124,9 +175,24 @@ public class FeePaymentService {
             out.put("status", student.getProgram() == null || student.getCurrentLevel() == null ? "NO_CLASS" : "NO_FEE");
             out.put("items", List.of());
         }
+        out.put("dues", dues.stream().map(d -> dueDto(d, student.getId())).toList());
+        out.put("upcoming", feeDues.upcoming(student).stream().map(this::dueFee).toList());
+        out.put("totalFees", dues.stream().map(FeeDues.Due::amount).reduce(BigDecimal.ZERO, BigDecimal::add));
+        out.put("totalPaid", dues.stream().map(FeeDues.Due::paid).reduce(BigDecimal.ZERO, BigDecimal::add));
+        out.put("totalBalance", account.feesBalance());
+        out.put("totalDiscount", dues.stream().map(FeeDues.Due::discount).reduce(BigDecimal.ZERO, BigDecimal::add));
+        out.put("arrears", account.arrears().stream().map(YearEndService::arrearsDto).toList());
+        out.put("arrearsBalance", account.arrearsBalance());
+        out.put("bills", account.bills().stream().filter(b -> forStaff || b.bill().getStatus() != com.exam.model.fees.StudentBill.Status.CANCELLED)
+                .map(BillingService::billDto).toList());
+        out.put("billsBalance", account.billsBalance());
+        out.put("accountCredit", account.credit());
+        out.put("toPay", account.toPay());
+        com.exam.model.Residency residency = feeDues.residencyOf(student);
+        out.put("residency", residency == null ? null : residency.name());
         out.put("payments", paymentRepository.findForStudent(student.getId()).stream()
-                .filter(p -> p.getStatus() != FeePayment.Status.VOIDED)
-                .map(p -> toDto(p, false)).toList());
+                .filter(p -> forStaff || p.getStatus() != FeePayment.Status.VOIDED)
+                .map(p -> toDto(p, forStaff)).toList());
         // What their unpaid fees are keeping from them (null when nothing is held)
         out.put("resultsHold", resultsHoldService.check(student, EnumSet.allOf(ResultsHoldService.Document.class)));
         return out;
@@ -143,19 +209,18 @@ public class FeePaymentService {
         User student = reloadStudent(principal);
         if (student.getEmail() == null || !student.getEmail().contains("@"))
             throw new IllegalArgumentException("Add a valid email address to your profile before paying online; Paystack sends your payment confirmation there.");
-        FeeSchedule schedule = scheduleService.currentScheduleFor(student.getProgram(), student.getCurrentLevel())
-                .orElseThrow(() -> new IllegalArgumentException("No fee has been set for your class yet."));
-
-        BigDecimal paidSoFar = paymentRepository.sumPaid(student.getId(), schedule.getId());
-        BigDecimal balance = schedule.getAmount().subtract(paidSoFar);
-        if (balance.signum() <= 0) throw new IllegalArgumentException("Your fees for this session are fully paid.");
+        boolean byItems = req != null && req.items() != null && !req.items().isEmpty();
+        Target target = target(student, req == null ? null : req.scheduleId(), req == null ? null : req.billId(), byItems);
+        BigDecimal balance = target.balance();
+        if (balance.signum() <= 0)
+            throw new IllegalArgumentException(Character.toUpperCase(target.name().charAt(0)) + target.name().substring(1) + (target.bill() != null ? " is" : " are") + " fully paid.");
 
         List<Allocation> allocations = List.of();
         BigDecimal amount;
-        if (req != null && req.items() != null && !req.items().isEmpty()) {
+        if (byItems) {
             if (!settings.getBooleanSetting(SystemSettingService.FEES_ITEM_PAYMENT, true))
                 throw new IllegalArgumentException("Paying for single items is switched off. Please pay the balance instead.");
-            allocations = allocate(schedule, student.getId(), paidSoFar, req.items(), true);
+            allocations = allocate(target.due(), student.getId(), req.items(), true);
             amount = allocations.stream().map(Allocation::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
         } else {
             amount = req == null || req.amount() == null ? balance : FeeScheduleService.money(req.amount(), "The amount");
@@ -168,25 +233,20 @@ public class FeePaymentService {
                 throw new IllegalArgumentException("The smallest payment is " + scheduleService.currency() + " " + MIN_PAYMENT.toPlainString() + ".");
         }
 
-        // Clicking Pay again for the same amount and items reopens the same checkout
+        // Clicking Pay again for the same amount, fee / bill and items reopens the same checkout
         Map<String, BigDecimal> wanted = allocationKey(allocations);
-        Optional<FeePayment> open = paymentRepository.findOpenCheckouts(student.getId(), schedule.getId(), FeePayment.Status.PENDING,
+        FeeSchedule schedule = target.schedule();
+        com.exam.model.fees.StudentBill bill = target.bill() == null ? null : target.bill().bill();
+        Optional<FeePayment> open = paymentRepository.findOpenCheckouts(student.getId(), FeePayment.Status.PENDING,
                         amount, LocalDateTime.now().minus(REUSE_CHECKOUT)).stream()
-                .filter(x -> x.getAuthorizationUrl() != null)
+                .filter(x -> x.getAuthorizationUrl() != null && x.getSchedule() == schedule && x.getBill() == bill)
                 .filter(x -> allocationKey(x.getItems().stream().map(i -> new Allocation(i.getName(), i.getAmount())).toList()).equals(wanted))
                 .findFirst();
         if (open.isPresent()) {
             return Map.of("reference", open.get().getReference(), "authorizationUrl", open.get().getAuthorizationUrl());
         }
 
-        FeePayment p = new FeePayment();
-        p.setStudent(student);
-        p.setSchedule(schedule);
-        p.setSession(schedule.getSession());
-        p.setProgramName(schedule.getProgram().getName());
-        p.setLevel(schedule.getLevel());
-        p.setAmount(amount);
-        p.setCurrency(scheduleService.currency());
+        FeePayment p = newPayment(student, schedule, bill, amount);
         p.setReference(newReference("FEE"));
         p.setMethod(FeePayment.Method.PAYSTACK);
         p.setStatus(FeePayment.Status.PENDING);
@@ -197,7 +257,7 @@ public class FeePaymentService {
         try {
             String returnUrl = frontendUrl.replaceAll("/+$", "") + "/user-dashboard/fees";
             JsonNode data = paystack.initialize(student.getEmail(), minor(amount), p.getCurrency(), p.getReference(),
-                    returnUrl, metadata(student, schedule, p, returnUrl + "?cancelled=" + p.getReference()));
+                    returnUrl, metadata(student, p, returnUrl + "?cancelled=" + p.getReference()));
             p.setAuthorizationUrl(data.path("authorization_url").asText(null));
             paymentRepository.save(p);
         } catch (PaystackClient.PaystackException e) {
@@ -296,6 +356,7 @@ public class FeePaymentService {
                         p.setChannel(trim(data.path("channel").asText(null), 32));
                         p.setGatewayMessage(trim(data.path("gateway_response").asText(null), 255));
                         if (data.hasNonNull("id")) p.setGatewayTransactionId(data.path("id").asLong());
+                        succeed(p);
                     }
                 }
                 case "failed", "reversed" -> {
@@ -361,36 +422,50 @@ public class FeePaymentService {
             m.put("email", u.getEmail());
             m.put("programName", u.getProgram() != null ? u.getProgram().getName() : null);
             m.put("level", u.getCurrentLevel());
-            Optional<FeeSchedule> s = scheduleService.currentScheduleFor(u.getProgram(), u.getCurrentLevel());
-            m.put("fee", s.map(FeeSchedule::getAmount).orElse(null));
-            BigDecimal paid = s.map(x -> paymentRepository.sumPaid(u.getId(), x.getId())).orElse(BigDecimal.ZERO);
-            m.put("balance", s.map(x -> x.getAmount().subtract(paid).max(BigDecimal.ZERO)).orElse(null));
-            m.put("items", s.filter(FeeSchedule::isItemised)
-                    .map(x -> breakdown(x, u.getId(), paid).stream().map(FeeBreakdown.Line::toMap).toList())
-                    .orElse(List.of()));
+            com.exam.model.Residency residency = feeDues.residencyOf(u);
+            m.put("residency", residency == null ? null : residency.name());
+            m.put("enabled", u.isEnabled());
+            FeeDues.Account account = feeDues.account(u);
+            List<FeeDues.Due> dues = account.fees();
+            Optional<FeeDues.Due> next = dues.stream().filter(d -> d.balance().signum() > 0).findFirst();
+            // fee / items: the fee a payment goes to by default (the oldest with a balance); balance: everything owed less credit
+            m.put("fee", next.map(FeeDues.Due::amount).orElse(dues.isEmpty() ? null : dues.get(dues.size() - 1).amount()));
+            m.put("balance", dues.isEmpty() && account.bills().isEmpty() ? null : account.toPay());
+            m.put("credit", account.credit());
+            m.put("items", next.map(d -> itemLines(d, u.getId())).orElse(List.of()));
+            m.put("dues", dues.stream().map(d -> dueDto(d, u.getId())).toList());
+            m.put("bills", account.openBills().stream().filter(b -> b.balance().signum() > 0).map(BillingService::billDto).toList());
             out.add(m);
         }
         return out;
     }
 
-    /** Records money received at the accounts office (cash, bank deposit …) against the student's current fee. */
+    /**
+     * Records money received at the accounts office (cash, bank deposit …): to the fee or bill chosen
+     * first, then whatever else is owed, oldest first; anything beyond that is kept as credit.
+     */
+    @Transactional
+    public Map<String, Object> recordManual(ManualPaymentRequest req, User actor) {
+        return record(req, CurrentUserService.displayName(actor), actor.getId());
+    }
+
+    /** Without a staff account (tests, imports): the payment is in no one's cash-up. */
     @Transactional
     public Map<String, Object> recordManual(ManualPaymentRequest req, String actor) {
+        return record(req, actor, null);
+    }
+
+    private Map<String, Object> record(ManualPaymentRequest req, String actor, Long actorId) {
         if (req == null || req.studentId() == null) throw new IllegalArgumentException("Choose a student.");
         User student = userRepository.findById(req.studentId())
                 .filter(u -> u.getRole() == Role.NORMAL)
                 .orElseThrow(() -> new IllegalArgumentException("Student not found."));
-        FeeSchedule schedule = scheduleService.currentScheduleFor(student.getProgram(), student.getCurrentLevel())
-                .orElseThrow(() -> new IllegalArgumentException("No fee is set for this student's programme and level in the current session."));
-        BigDecimal paidSoFar = paymentRepository.sumPaid(student.getId(), schedule.getId());
-        BigDecimal balance = schedule.getAmount().subtract(paidSoFar);
-        List<Allocation> allocations = req.items() == null || req.items().isEmpty() ? List.of()
-                : allocate(schedule, student.getId(), paidSoFar, req.items(), false);
+        boolean byItems = req.items() != null && !req.items().isEmpty();
+        Target target = target(student, req.scheduleId(), req.billId(), byItems);
+        List<Allocation> allocations = byItems ? allocate(target.due(), student.getId(), req.items(), false) : List.of();
         BigDecimal amount = allocations.isEmpty()
                 ? FeeScheduleService.money(req.amount(), "The amount")
                 : allocations.stream().map(Allocation::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (amount.compareTo(balance) > 0)
-            throw new IllegalArgumentException("That is more than the student's balance of " + scheduleService.currency() + " " + balance.max(BigDecimal.ZERO).toPlainString() + ".");
 
         FeePayment.Method method;
         try { method = FeePayment.Method.valueOf(req.method() == null ? "CASH" : req.method().trim().toUpperCase()); }
@@ -400,35 +475,55 @@ public class FeePaymentService {
         String note = req.note() == null || req.note().isBlank() ? null : req.note().trim();
         if (note != null && note.length() > 300) throw new IllegalArgumentException("The note is too long (300 characters at most).");
 
-        FeePayment p = new FeePayment();
-        p.setStudent(student);
-        p.setSchedule(schedule);
-        p.setSession(schedule.getSession());
-        p.setProgramName(schedule.getProgram().getName());
-        p.setLevel(schedule.getLevel());
-        p.setAmount(amount);
-        p.setCurrency(scheduleService.currency());
+        FeePayment p = newPayment(student, target.schedule(), target.bill() == null ? null : target.bill().bill(), amount);
         p.setReference(newReference("MAN"));
         p.setMethod(method);
         p.setStatus(FeePayment.Status.SUCCESS);
         p.setPaidAt(req.paidOn() == null || req.paidOn().equals(LocalDate.now()) ? LocalDateTime.now() : req.paidOn().atStartOfDay());
         p.setRecordedBy(actor);
+        p.setRecordedById(actorId);
         p.setNote(note);
         p.setPayerEmail(student.getEmail());
         addItems(p, allocations);
+        succeed(p);
         return toDto(paymentRepository.save(p), true);
     }
 
-    /** Cancels a cash / bank payment entered by mistake. Online payments can only be refunded on Paystack. */
+    /**
+     * Cancels a cash / bank payment entered by mistake (it stays in the register as cancelled). The
+     * cashier who recorded it may cancel it until they hand it in (cash-up); after that only the bursar.
+     * Online payments can't be cancelled, and a payment part of which was refunded needs that refund
+     * cancelled first.
+     */
     @Transactional
-    public Map<String, Object> voidManual(Long id, String reason, String actor) {
+    public Map<String, Object> voidManual(Long id, String reason, User actor) {
         FeePayment p = paymentRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Payment not found."));
+        if (!FinanceAccess.isBursar(actor) && !(Objects.equals(p.getRecordedById(), actor.getId()) && p.getCashUp() == null))
+            throw new org.springframework.security.access.AccessDeniedException(Objects.equals(p.getRecordedById(), actor.getId())
+                    ? "This payment is already handed in (cash-up). Only the bursar can cancel it now."
+                    : "You can cancel only payments you recorded and haven't handed in. Ask the bursar.");
+        return cancel(p, reason, CurrentUserService.displayName(actor));
+    }
+
+    /** Without a staff account (tests): as the bursar. */
+    @Transactional
+    Map<String, Object> voidManual(Long id, String reason, String actor) {
+        return cancel(paymentRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Payment not found.")), reason, actor);
+    }
+
+    private Map<String, Object> cancel(FeePayment p, String reason, String actor) {
         if (p.getMethod() == FeePayment.Method.PAYSTACK)
-            throw new IllegalArgumentException("Online payments can't be cancelled here. Refund them from the Paystack dashboard.");
+            throw new IllegalArgumentException("Online payments can't be cancelled. To pay money back, remove the charge so it becomes credit, then refund it.");
         if (p.getStatus() != FeePayment.Status.SUCCESS) throw new IllegalArgumentException("Only a recorded payment can be cancelled.");
         if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Give a reason for cancelling this payment.");
+        ledger.lock(p.getStudent());
+        if (p.getAllocations().stream().anyMatch(a -> a.getRefund() != null))
+            throw new IllegalArgumentException("Part of this payment was refunded. Cancel the refund first.");
         p.setStatus(FeePayment.Status.VOIDED);
+        p.setVoidedAt(LocalDateTime.now());
+        p.setVoidedBy(actor);
         p.setNote(trim("Cancelled by " + actor + ": " + reason.trim() + (p.getNote() != null ? " | " + p.getNote() : ""), 300));
+        receipts.revoke(p, reason.trim());
         return toDto(paymentRepository.save(p), true);
     }
 
@@ -446,20 +541,94 @@ public class FeePaymentService {
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
-    /** Each item's amount, paid and balance for this student (the schedule's components must be loaded). */
-    private List<FeeBreakdown.Line> breakdown(FeeSchedule schedule, Long studentId, BigDecimal totalPaid) {
+    /**
+     * The fee (paying by items needs one: the chosen, else the oldest unpaid), the bill, or everything.
+     * Paying everything is capped at what is owed less credit.
+     */
+    private Target target(User student, Long scheduleId, Long billId, boolean byItems) {
+        if (billId != null && !byItems) {
+            FeeDues.BillDue b = feeDues.bills(student).stream().filter(x -> x.bill().getId().equals(billId) && x.bill().isOpen()).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("That bill isn't open, or isn't this student's."));
+            return new Target(null, b, b.balance());
+        }
+        if (scheduleId != null || byItems) {
+            FeeDues.Due d = feeDues.target(student, scheduleId);
+            return new Target(d, null, d.balance());
+        }
+        FeeDues.Account a = feeDues.account(student);
+        if (a.fees().isEmpty() && a.openBills().isEmpty() && a.openArrears().isEmpty())
+            throw new IllegalArgumentException("There are no fees, arrears or bills for this student yet.");
+        return new Target(null, null, a.toPay());
+    }
+
+    private FeePayment newPayment(User student, FeeSchedule schedule, com.exam.model.fees.StudentBill bill, BigDecimal amount) {
+        FeePayment p = new FeePayment();
+        p.setStudent(student);
+        p.setSchedule(schedule);
+        p.setBill(bill);
+        p.setSession(schedule != null ? schedule.getSession() : academicSessionService.current());
+        p.setProgramName(schedule != null ? schedule.getProgram().getName() : student.getProgram() != null ? student.getProgram().getName() : null);
+        p.setLevel(schedule != null ? schedule.getLevel() : student.getCurrentLevel());
+        p.setAmount(amount);
+        p.setCurrency(scheduleService.currency());
+        return p;
+    }
+
+    /** The money is in: lock the student's account, use any old credit, split this payment, give the receipt. */
+    private void succeed(FeePayment p) {
+        ledger.lock(p.getStudent());
+        ledger.applyCredit(p.getStudent());
+        ledger.allocate(p);
+        receipts.issue(p);
+    }
+
+    /** Each item that applies to this student, with its amount, paid and balance. */
+    private List<FeeBreakdown.Line> breakdown(FeeDues.Due due, Long studentId) {
         Map<String, BigDecimal> forItems = new HashMap<>();
-        for (Object[] row : paymentRepository.paidItems(studentId, schedule.getId())) {
+        for (Object[] row : paymentRepository.paidItems(studentId, due.schedule().getId())) {
             forItems.merge((String) row[0], (BigDecimal) row[1], BigDecimal::add);
         }
-        return FeeBreakdown.compute(schedule.getComponents(), forItems, totalPaid);
+        return FeeBreakdown.compute(due.components(), forItems, due.paid());
+    }
+
+    private List<Map<String, Object>> itemLines(FeeDues.Due due, Long studentId) {
+        return due.schedule().isItemised() ? breakdown(due, studentId).stream().map(FeeBreakdown.Line::toMap).toList() : List.of();
+    }
+
+    /** The fee as this student sees it: their own amount and items (other residencies' items left out). */
+    private Map<String, Object> dueFee(FeeDues.Due d) {
+        Map<String, Object> fee = scheduleService.toDto(d.schedule());
+        fee.put("fullAmount", d.schedule().getAmount());
+        fee.put("amount", d.amount());
+        fee.put("components", d.components().stream().map(c -> {
+            Map<String, Object> cm = new LinkedHashMap<>();
+            cm.put("name", c.getName());
+            cm.put("amount", c.getAmount());
+            cm.put("appliesTo", c.appliesTo().name());
+            return cm;
+        }).toList());
+        return fee;
+    }
+
+    private Map<String, Object> dueDto(FeeDues.Due d, Long studentId) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("fee", dueFee(d));
+        m.put("gross", d.gross());
+        m.put("discount", d.discount());
+        m.put("concessions", d.concessions());
+        m.put("paid", d.paid());
+        m.put("balance", d.balance());
+        m.put("credit", d.credit());
+        m.put("status", d.status());
+        m.put("items", itemLines(d, studentId));
+        return m;
     }
 
     /** The chosen items, each with its whole remaining balance. */
-    private List<Allocation> allocate(FeeSchedule schedule, Long studentId, BigDecimal paidSoFar, List<String> names, boolean byStudent) {
-        if (!schedule.isItemised())
+    private List<Allocation> allocate(FeeDues.Due due, Long studentId, List<String> names, boolean byStudent) {
+        if (!due.schedule().isItemised())
             throw new IllegalArgumentException("This fee has no breakdown. Pay towards the balance instead.");
-        List<FeeBreakdown.Line> lines = breakdown(schedule, studentId, paidSoFar);
+        List<FeeBreakdown.Line> lines = breakdown(due, studentId);
         List<Allocation> out = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         for (String raw : names) {
@@ -528,6 +697,11 @@ public class FeePaymentService {
         m.put("createdAt", p.getCreatedAt());
         m.put("paidAt", p.getPaidAt());
         m.put("sessionName", p.getSession().getName());
+        m.put("periodName", p.getSchedule() != null ? FeeDues.periodName(p.getSchedule()) : null);
+        m.put("billTitle", p.getBill() != null ? p.getBill().getTitle() : null);
+        m.put("allocations", FeeLedger.describe(p));
+        m.put("receiptNo", p.getReceiptNo());
+        m.put("verificationCode", p.getVerificationCode());
         m.put("programName", p.getProgramName());
         m.put("level", p.getLevel());
         m.put("studentName", CurrentUserService.displayName(p.getStudent()));
@@ -541,26 +715,31 @@ public class FeePaymentService {
         if (forStaff) {
             m.put("studentEmail", p.getStudent().getEmail());
             m.put("recordedBy", p.getRecordedBy());
+            m.put("recordedById", p.getRecordedById());
+            m.put("cashedUp", p.getCashUp() != null);
+            m.put("voidedAt", p.getVoidedAt());
             m.put("note", p.getNote());
             m.put("gatewayTransactionId", p.getGatewayTransactionId());
         }
         return m;
     }
 
-    private static Map<String, Object> metadata(User student, FeeSchedule schedule, FeePayment p, String cancelUrl) {
+    private static Map<String, Object> metadata(User student, FeePayment p, String cancelUrl) {
+        FeeSchedule schedule = p.getSchedule();
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("payment_id", p.getId());
         meta.put("student_id", student.getId());
-        meta.put("schedule_id", schedule.getId());
+        if (schedule != null) meta.put("schedule_id", schedule.getId());
+        if (p.getBill() != null) meta.put("bill_id", p.getBill().getId());
         meta.put("cancel_action", cancelUrl);   // where Paystack's "Cancel payment" sends the student
         meta.put("custom_fields", List.of(
                 field("Student", CurrentUserService.displayName(student)),
                 field("Student ID", student.getUsername()),
-                field("Programme", schedule.getProgram().getName()),
-                field("Level", String.valueOf(schedule.getLevel())),
-                field("Session", schedule.getSession().getName()),
-                field("Paying for", p.getItems().isEmpty() ? "Fees"
-                        : String.join(", ", p.getItems().stream().map(FeePaymentItem::getName).toList()))));
+                field("Programme", p.getProgramName()),
+                field("Level", String.valueOf(p.getLevel())),
+                field("Session", p.getSession().getName() + (schedule != null && schedule.getTerm() != null ? " · " + FeeDues.periodName(schedule) : "")),
+                field("Paying for", !p.getItems().isEmpty() ? String.join(", ", p.getItems().stream().map(FeePaymentItem::getName).toList())
+                        : p.getBill() != null ? p.getBill().getTitle() : schedule != null ? "Fees" : "Fees and bills")));
         return meta;
     }
 

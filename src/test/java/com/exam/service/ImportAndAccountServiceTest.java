@@ -101,6 +101,31 @@ class ImportAndAccountServiceTest {
     }
 
     @Test
+    void schoolsImportStudentsByClassWithNoLevelColumn() {
+        com.exam.model.academic.SystemMode.setCurrent(com.exam.model.academic.SystemMode.BASIC);
+        try {
+            Department primary = dept(3L, "PRI");
+            Program p4 = new Program(); p4.setId(20L); p4.setName("Primary 4"); p4.setCode("P4"); p4.setDepartment(primary); p4.setDurationYears(1);
+            ProgramRepository programs = mock(ProgramRepository.class);
+            when(programs.findAll()).thenReturn(List.of(p4));
+            ReflectionTestUtils.setField(importer, "programRepository", programs);
+
+            Map<String, String> byCode = new LinkedHashMap<>(Map.of("First Name", "Kofi", "Last Name", "Asante",
+                    "Admission No.", "WGS/2026/0001", "Email", "kofi@school.edu", "Class", "P4", "Term", "2"));
+            Map<String, String> byName = new LinkedHashMap<>(Map.of("First Name", "Esi", "Last Name", "Asante",
+                    "Admission No.", "WGS/2026/0002", "Email", "esi@school.edu", "Class", "primary 4"));
+            Map<String, String> unknown = new LinkedHashMap<>(Map.of("First Name", "Yaw", "Last Name", "Asante",
+                    "Admission No.", "WGS/2026/0003", "Email", "yaw@school.edu", "Class", "Primary 9"));
+
+            var result = importer.run(superAdmin, "students", List.of(byCode, byName, unknown), false);
+            assertThat(result.get("valid")).isEqualTo(2L);
+            assertThat(rows(result).get(2).get("errors").toString()).contains("Class 'Primary 9' not found");
+        } finally {
+            com.exam.model.academic.SystemMode.setCurrent(com.exam.model.academic.SystemMode.UNIVERSITY);
+        }
+    }
+
+    @Test
     void duplicatesInsideTheFileAreCaught() {
         var result = importer.run(superAdmin, "students", List.of(
                 student("STD200", "a@uni.edu", "BCS", "100"),
@@ -177,8 +202,11 @@ class ImportAndAccountServiceTest {
         when(tokens.findAllValidTokenByUser(any())).thenReturn(List.of(t));
         ReflectionTestUtils.setField(a, "userRepository", repo);
         ReflectionTestUtils.setField(a, "tokenRepository", tokens);
+        ReflectionTestUtils.setField(a, "boardingService", boarding);
         return a;
     }
+
+    private final com.exam.service.boarding.BoardingService boarding = mock(com.exam.service.boarding.BoardingService.class);
 
     @Test
     void deactivationBlocksLoginAndRevokesSessions() {
@@ -190,6 +218,7 @@ class ImportAndAccountServiceTest {
         assertThat(student.isEnabled()).isFalse();
         assertThat(student.getDeactivationReason()).isEqualTo("Graduated");
         assertThat(student.getDeactivatedAt()).isNotNull();
+        verify(boarding).onDeactivated(student, superAdmin);   // a leaver gives up their hostel room
         a.reactivate(superAdmin, 9L);
         assertThat(student.isEnabled()).isTrue();
     }

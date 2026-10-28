@@ -62,7 +62,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.jpa.show-sql=false",
 })
 @Import({ReportQueries.class, ReportSupport.class, Standings.class, AcademicReports.class, ResultsReports.class, TeachingReports.class, QuestionPapers.class, QuestionPaperPdf.class, com.exam.service.QuestionImageService.class, ExamReports.class,
-        FinanceReports.class, OversightReports.class, ReportCatalog.class, ReportPdfService.class,
+        FinanceReports.class, OversightReports.class, ReportCatalog.class, com.exam.service.reports.AccountsReports.class, ReportPdfService.class, BoardingReports.class, com.exam.service.fees.FeeDues.class, com.exam.service.boarding.BoardingSettings.class, com.exam.service.boarding.BoardingAccess.class,
         AcademicRecordService.class, GradingService.class, AcademicSessionService.class, InstitutionService.class,
         SystemSettingService.class, TimetableService.class, FeeScheduleService.class, ResultsHoldService.class,
         com.exam.service.academic.ThemeService.class, com.exam.service.admin.MaintenanceService.class,
@@ -262,6 +262,11 @@ class ReportsJpaTest {
         pay.setMethod(FeePayment.Method.CASH);
         pay.setRecordedBy("Root");
         pay.setPaidAt(LocalDateTime.now());
+        com.exam.model.fees.FeeAllocation alloc = new com.exam.model.fees.FeeAllocation();
+        alloc.setPayment(pay);
+        alloc.setSchedule(schedule);
+        alloc.setAmount(pay.getAmount());
+        pay.getAllocations().add(alloc);
         em.persist(pay);
 
         em.persist(audit("Approved marks sheet", admin, String.valueOf(sheet.getId())));

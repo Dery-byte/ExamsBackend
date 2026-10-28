@@ -19,7 +19,9 @@ import java.util.*;
 
 /**
  * Announcements. The Super Admin can address anyone; an HOD is always limited to their own
- * department. Posting also drops a notification into each recipient's bell.
+ * department. Boarding staff (housemasters, the head of boarding) address the boarders and staff of
+ * the houses they look after. Students can also be narrowed to boarders, day students or one house.
+ * Posting also drops a notification into each recipient's bell.
  */
 @Service
 public class AnnouncementService {
@@ -30,6 +32,9 @@ public class AnnouncementService {
     @Autowired private UserRepository userRepository;
     @Autowired private NotificationService notificationService;
     @Autowired private com.exam.service.features.FeatureService featureService;
+    @Autowired private com.exam.service.boarding.BoardingService boardingService;
+    @Autowired private com.exam.service.boarding.BoardingAccess boardingAccess;
+    @Autowired private com.exam.repository.HostelRepository hostelRepository;
 
     public static class CreateRequest {
         public String title;
@@ -40,14 +45,34 @@ public class AnnouncementService {
         public Integer level;
         public Boolean pinned;
         public LocalDate expiresOn;
+        /** Students: BOARDERS or DAY; null = both. */
+        public String residency;
+        /** Only this hostel's boarders (and, for staff audiences, its boarding staff). */
+        public Long hostelId;
     }
 
     public Map<String, Object> create(User author, CreateRequest req) {
-        if (author.getRole() != Role.SUPER_ADMIN && author.getRole() != Role.ADMIN)
-            throw new AccessDeniedException("Only the Super Admin and HODs can post announcements.");
-        featureService.require(com.exam.model.features.Feature.HOD_ANNOUNCEMENTS, author);
+        if (author.getRole() != Role.SUPER_ADMIN && author.getRole() != Role.ADMIN && author.getRole() != Role.LECTURER)
+            throw new AccessDeniedException("Only staff can post announcements.");
         if (req.title == null || req.title.isBlank() || req.body == null || req.body.isBlank())
             throw new IllegalArgumentException("Title and message are required.");
+        String residency = req.residency == null || req.residency.isBlank() ? null : req.residency.trim().toUpperCase();
+        if (residency != null && !residency.equals("BOARDERS") && !residency.equals("DAY"))
+            throw new IllegalArgumentException("Choose boarders or day students.");
+        com.exam.model.boarding.Hostel hostel = req.hostelId == null ? null : hostelRepository.findById(req.hostelId)
+                .filter(com.exam.model.boarding.Hostel::isActive).orElseThrow(() -> new IllegalArgumentException("That house no longer exists."));
+        // Boarding staff post as boarding staff: to a house they look after (the head: any house, or all boarders)
+        boolean boardingPost = author.getRole() != Role.SUPER_ADMIN && (hostel != null || author.getRole() == Role.LECTURER);
+        if (boardingPost) {
+            if (hostel == null && !(boardingAccess.isHead(author) && "BOARDERS".equals(residency)))
+                throw new AccessDeniedException("Choose the house your announcement is for.");
+            if (hostel != null && !boardingAccess.canManageHostel(author, hostel.getId()))
+                throw new AccessDeniedException("You can only post to the houses you look after.");
+            if (req.audience != null && !List.of("ALL", "STUDENTS", "STAFF").contains(req.audience))
+                throw new IllegalArgumentException("A house announcement goes to its boarders, its staff, or both.");
+        } else if (author.getRole() == Role.ADMIN) {
+            featureService.require(com.exam.model.features.Feature.HOD_ANNOUNCEMENTS, author);
+        }
 
         Announcement a = new Announcement();
         a.setTitle(req.title.trim());
@@ -63,7 +88,10 @@ public class AnnouncementService {
                 .orElseThrow(() -> new IllegalArgumentException("Department not found."));
         if (dept == null && program != null) dept = program.getDepartment();
 
-        if (author.getRole() == Role.ADMIN) {
+        if (boardingPost) {
+            dept = null;          // a house cuts across departments
+            program = null;
+        } else if (author.getRole() == Role.ADMIN) {
             // An HOD can only address their own department
             Department own = author.getDepartment();
             if (own == null) throw new AccessDeniedException("Your account is not linked to a department.");
@@ -74,11 +102,14 @@ public class AnnouncementService {
         a.setDepartment(dept);
         a.setProgram(program);
         a.setLevel(req.level);
+        a.setResidency(residency);
+        a.setHostel(hostel);
 
         Announcement saved = announcementRepository.save(a);
 
+        var who = boardingService.audience();
         List<User> recipients = userRepository.findAll().stream()
-                .filter(u -> !u.getId().equals(author.getId()) && isVisibleTo(saved, u)).toList();
+                .filter(u -> !u.getId().equals(author.getId()) && isVisibleTo(saved, u, who)).toList();
         notificationService.notify(recipients, NotificationService.ANNOUNCEMENT, "Announcement: " + saved.getTitle(),
                 preview(saved.getBody()), null); // null link: the bell opens the reader's own Announcements page
         return toDto(saved);
@@ -86,8 +117,9 @@ public class AnnouncementService {
 
     /** Announcements the user should see (not expired, addressed to them). */
     public List<Map<String, Object>> visibleTo(User user) {
+        var who = boardingService.audience();
         return announcementRepository.findAllByOrderByPinnedDescCreatedAtDesc().stream()
-                .filter(a -> !isExpired(a) && (isVisibleTo(a, user) || isAuthor(a, user)))
+                .filter(a -> !isExpired(a) && (isVisibleTo(a, user, who) || isAuthor(a, user)))
                 .map(AnnouncementService::toDto).toList();
     }
 
@@ -109,8 +141,8 @@ public class AnnouncementService {
 
     private static boolean canManage(Announcement a, User user) {
         if (user.getRole() == Role.SUPER_ADMIN) return true;
+        if (isAuthor(a, user)) return true;      // boarding staff manage what they posted
         if (user.getRole() != Role.ADMIN) return false;
-        if (isAuthor(a, user)) return true;
         return a.getDepartment() != null && user.getDepartment() != null
                 && a.getDepartment().getId().equals(user.getDepartment().getId());
     }
@@ -123,7 +155,7 @@ public class AnnouncementService {
         return a.getExpiresOn() != null && a.getExpiresOn().isBefore(LocalDate.now());
     }
 
-    static boolean isVisibleTo(Announcement a, User u) {
+    static boolean isVisibleTo(Announcement a, User u, com.exam.service.boarding.BoardingService.Audience who) {
         Role role = u.getRole();
         if (role == null || role == Role.SUPER_ADMIN) return role == Role.SUPER_ADMIN;
         boolean roleOk = switch (a.getAudience()) {
@@ -139,6 +171,11 @@ public class AnnouncementService {
             if (a.getProgram() != null && (u.getProgram() == null || !a.getProgram().getId().equals(u.getProgram().getId())))
                 return false;
             if (a.getLevel() != null && !a.getLevel().equals(u.getCurrentLevel())) return false;
+            if ("BOARDERS".equals(a.getResidency()) && !who.isBoarder(u)) return false;
+            if ("DAY".equals(a.getResidency()) && !who.isDayStudent(u)) return false;
+            if (a.getHostel() != null && !who.livesIn(u, a.getHostel().getId())) return false;
+        } else if (a.getHostel() != null && !who.staffOf(u, a.getHostel().getId())) {
+            return false;        // a house's staff only
         }
         return true;
     }
@@ -159,6 +196,9 @@ public class AnnouncementService {
         m.put("programId", a.getProgram() != null ? a.getProgram().getId() : null);
         m.put("programName", a.getProgram() != null ? a.getProgram().getName() : null);
         m.put("level", a.getLevel());
+        m.put("residency", a.getResidency());
+        m.put("hostelId", a.getHostel() != null ? a.getHostel().getId() : null);
+        m.put("hostelName", a.getHostel() != null ? a.getHostel().getName() : null);
         m.put("pinned", a.isPinned());
         m.put("expiresOn", a.getExpiresOn());
         m.put("createdAt", a.getCreatedAt());

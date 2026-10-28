@@ -26,4 +26,10 @@ public class RegisterRequest {
 
   /** For lecturers and HODs: the department they belong to. */
   private Long departmentId;
+
+  /** For students: MALE / FEMALE (optional). */
+  private String gender;
+
+  /** For students added by staff while the institution has day students and boarders: DAY / BOARDING (optional). */
+  private String residency;
 }

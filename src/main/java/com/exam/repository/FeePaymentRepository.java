@@ -25,35 +25,16 @@ public interface FeePaymentRepository extends JpaRepository<FeePayment, Long> {
 
     // Statuses are passed as parameters: Hibernate 6.1 can't read nested-enum literals in JPQL.
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM FeePayment p "
-            + "WHERE p.student.id = :studentId AND p.schedule.id = :scheduleId AND p.status = :status")
-    BigDecimal sumByStatus(@Param("studentId") Long studentId, @Param("scheduleId") Long scheduleId,
-                           @Param("status") FeePayment.Status status);
-
-    /** What the student has paid towards this fee. */
-    default BigDecimal sumPaid(Long studentId, Long scheduleId) {
-        return sumByStatus(studentId, scheduleId, FeePayment.Status.SUCCESS);
-    }
-
-    @Query("SELECT p.schedule.id, SUM(p.amount) FROM FeePayment p "
-            + "WHERE p.session.id = :sessionId AND p.status = :status GROUP BY p.schedule.id")
-    List<Object[]> sumBySchedule(@Param("sessionId") Long sessionId, @Param("status") FeePayment.Status status);
-
-    /** [scheduleId, total paid] for every schedule in a session. */
-    default List<Object[]> collectedBySchedule(Long sessionId) {
-        return sumBySchedule(sessionId, FeePayment.Status.SUCCESS);
-    }
+    // What has been paid towards fees and bills is in FeeAllocationRepository.
 
     @Query("SELECT p FROM FeePayment p JOIN FETCH p.session WHERE p.student.id = :studentId ORDER BY p.createdAt DESC")
     List<FeePayment> findForStudent(@Param("studentId") Long studentId);
 
     /** Recent checkouts for this amount (with their items), newest first, so a double click reopens the same one. */
     @Query("SELECT DISTINCT p FROM FeePayment p LEFT JOIN FETCH p.items WHERE p.student.id = :studentId "
-            + "AND p.schedule.id = :scheduleId AND p.status = :status AND p.amount = :amount AND p.createdAt > :after "
-            + "ORDER BY p.createdAt DESC")
-    List<FeePayment> findOpenCheckouts(@Param("studentId") Long studentId, @Param("scheduleId") Long scheduleId,
-                                       @Param("status") FeePayment.Status status, @Param("amount") BigDecimal amount,
-                                       @Param("after") LocalDateTime after);
+            + "AND p.status = :status AND p.amount = :amount AND p.createdAt > :after ORDER BY p.createdAt DESC")
+    List<FeePayment> findOpenCheckouts(@Param("studentId") Long studentId, @Param("status") FeePayment.Status status,
+                                       @Param("amount") BigDecimal amount, @Param("after") LocalDateTime after);
 
     /** [item name, total] the student has paid for specific items of this fee. */
     @Query("SELECT i.name, SUM(i.amount) FROM FeePaymentItem i WHERE i.payment.student.id = :studentId "
@@ -65,17 +46,36 @@ public interface FeePaymentRepository extends JpaRepository<FeePayment, Long> {
         return sumItemsByStatus(studentId, scheduleId, FeePayment.Status.SUCCESS);
     }
 
-    @Query(value = "SELECT p FROM FeePayment p JOIN FETCH p.student s JOIN FETCH p.session "
+    /** [studentId, scheduleId, item name, total] paid for chosen items, for every fee of a session. */
+    @Query("SELECT i.payment.student.id, i.payment.schedule.id, i.name, SUM(i.amount) FROM FeePaymentItem i "
+            + "WHERE i.payment.schedule.session.id = :sessionId AND i.payment.status = :status GROUP BY i.payment.student.id, i.payment.schedule.id, i.name")
+    List<Object[]> sumItemsBySession(@Param("sessionId") Long sessionId, @Param("status") FeePayment.Status status);
+
+    default List<Object[]> paidItemsBySession(Long sessionId) {
+        return sumItemsBySession(sessionId, FeePayment.Status.SUCCESS);
+    }
+
+    /** [item name, total] paid for specific items of this fee by anyone. */
+    @Query("SELECT i.name, SUM(i.amount) FROM FeePaymentItem i WHERE i.payment.schedule.id = :scheduleId "
+            + "AND i.payment.status = :status GROUP BY i.name")
+    List<Object[]> sumItemsForSchedule(@Param("scheduleId") Long scheduleId, @Param("status") FeePayment.Status status);
+
+    default List<Object[]> paidItemsForSchedule(Long scheduleId) {
+        return sumItemsForSchedule(scheduleId, FeePayment.Status.SUCCESS);
+    }
+
+    /** The programme filter uses the fee paid, else the student's programme (a bill, or everything owed). */
+    @Query(value = "SELECT p FROM FeePayment p JOIN FETCH p.student s JOIN FETCH p.session LEFT JOIN p.schedule sc "
             + "WHERE p.session.id = :sessionId "
             + "AND (:status IS NULL OR p.status = :status) "
-            + "AND (:programId IS NULL OR p.schedule.program.id = :programId) "
+            + "AND (:programId IS NULL OR sc.program.id = :programId OR (sc.id IS NULL AND s.program.id = :programId)) "
             + "AND (:level IS NULL OR p.level = :level) "
             + "AND (:q IS NULL OR LOWER(p.reference) LIKE :q OR LOWER(s.username) LIKE :q "
             + "     OR LOWER(CONCAT(s.firstname, ' ', s.lastname)) LIKE :q OR LOWER(s.email) LIKE :q)",
-            countQuery = "SELECT COUNT(p) FROM FeePayment p JOIN p.student s "
+            countQuery = "SELECT COUNT(p) FROM FeePayment p JOIN p.student s LEFT JOIN p.schedule sc "
             + "WHERE p.session.id = :sessionId "
             + "AND (:status IS NULL OR p.status = :status) "
-            + "AND (:programId IS NULL OR p.schedule.program.id = :programId) "
+            + "AND (:programId IS NULL OR sc.program.id = :programId OR (sc.id IS NULL AND s.program.id = :programId)) "
             + "AND (:level IS NULL OR p.level = :level) "
             + "AND (:q IS NULL OR LOWER(p.reference) LIKE :q OR LOWER(s.username) LIKE :q "
             + "     OR LOWER(CONCAT(s.firstname, ' ', s.lastname)) LIKE :q OR LOWER(s.email) LIKE :q)")
@@ -98,5 +98,52 @@ public interface FeePaymentRepository extends JpaRepository<FeePayment, Long> {
 
     long countBySchedule_Id(Long scheduleId);
 
-    long countBySchedule_IdAndStatus(Long scheduleId, FeePayment.Status status);
+    /** Payments received from {@code from} (inclusive) to {@code to} (exclusive), including ones cancelled since, newest first. */
+    @Query("SELECT p FROM FeePayment p JOIN FETCH p.student WHERE p.status IN :statuses AND p.paidAt >= :from AND p.paidAt < :to ORDER BY p.paidAt DESC")
+    List<FeePayment> paidBetweenByStatus(@Param("statuses") java.util.Collection<FeePayment.Status> statuses,
+                                         @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    default List<FeePayment> paidBetween(LocalDateTime from, LocalDateTime to) {
+        return paidBetweenByStatus(List.of(FeePayment.Status.SUCCESS, FeePayment.Status.VOIDED), from, to);
+    }
+
+    /** [paidAt, method, amount] of successful payments received in a period (light rows for daily totals). */
+    @Query("SELECT p.paidAt, p.method, p.amount FROM FeePayment p WHERE p.status = :status AND p.paidAt >= :from AND p.paidAt < :to")
+    List<Object[]> amountsBetweenByStatus(@Param("status") FeePayment.Status status, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    default List<Object[]> amountsBetween(LocalDateTime from, LocalDateTime to) {
+        return amountsBetweenByStatus(FeePayment.Status.SUCCESS, from, to);
+    }
+
+    /** This cashier's successful payments not yet handed in (a cash-up), oldest first. */
+    @Query("SELECT p FROM FeePayment p JOIN FETCH p.student WHERE p.recordedById = :userId AND p.cashUp IS NULL "
+            + "AND p.status = :status ORDER BY p.paidAt")
+    List<FeePayment> openForCashierByStatus(@Param("userId") Long userId, @Param("status") FeePayment.Status status);
+
+    default List<FeePayment> openForCashier(Long userId) {
+        return openForCashierByStatus(userId, FeePayment.Status.SUCCESS);
+    }
+
+    /** Payments voided from {@code from} (inclusive) to {@code to} (exclusive), newest first. */
+    @Query("SELECT p FROM FeePayment p JOIN FETCH p.student WHERE p.status = :status AND p.voidedAt >= :from AND p.voidedAt < :to ORDER BY p.voidedAt DESC")
+    List<FeePayment> voidedBetweenByStatus(@Param("status") FeePayment.Status status, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    default List<FeePayment> voidedBetween(LocalDateTime from, LocalDateTime to) {
+        return voidedBetweenByStatus(FeePayment.Status.VOIDED, from, to);
+    }
+
+    /** [cashier id, cashier name, count, total] of successful payments not yet in a cash-up. */
+    @Query("SELECT p.recordedById, p.recordedBy, COUNT(p), SUM(p.amount) FROM FeePayment p WHERE p.recordedById IS NOT NULL "
+            + "AND p.cashUp IS NULL AND p.status = :status GROUP BY p.recordedById, p.recordedBy")
+    List<Object[]> notCashedUpByStatus(@Param("status") FeePayment.Status status);
+
+    default List<Object[]> notCashedUp() {
+        return notCashedUpByStatus(FeePayment.Status.SUCCESS);
+    }
+
+    /** Successful payments received from {@code from} (inclusive) to {@code to} (exclusive), newest first. */
+    @Query("SELECT p FROM FeePayment p JOIN FETCH p.student JOIN FETCH p.session WHERE p.status = :status "
+            + "AND p.paidAt >= :from AND p.paidAt < :to ORDER BY p.paidAt DESC")
+    List<FeePayment> receivedBetween(@Param("status") FeePayment.Status status, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
 }

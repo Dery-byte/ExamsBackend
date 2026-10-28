@@ -15,7 +15,7 @@ import java.time.Instant;
 @Getter @Setter
 public class DocumentVerification {
 
-    public enum Type { TRANSCRIPT, REPORT_CARD, CUMULATIVE_REPORT }
+    public enum Type { TRANSCRIPT, REPORT_CARD, CUMULATIVE_REPORT, RECEIPT }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

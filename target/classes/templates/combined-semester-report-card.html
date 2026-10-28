@@ -80,17 +80,21 @@
       <td style="font-weight: bold; color: #1a2744;" th:text="${allReports[0].username}">STD001</td>
     </tr>
     <tr>
-      <td class="lb">Programme</td>
+      <td class="lb" th:text="${terms.program}">Programme</td>
       <td th:text="${allReports[0].programName}">BSc Computer Science</td>
       <td class="lb">Report Status</td>
       <td class="s-pass">OFFICIAL CUMULATIVE</td>
+    </tr>
+    <tr th:if="${residence != null}">
+      <td class="lb" th:text="${residenceLabel}">House</td>
+      <td colspan="3" th:text="${residence}">Aggrey House</td>
     </tr>
   </table>
 </div>
 
 <!-- LOOP THROUGH ALL REPORTS -->
 <div th:each="report : ${allReports}" class="report-block">
-  <div class="s-title" th:text="${report.sessionName != null ? report.sessionName + '  ·  ' : ''} + ${terms.level} + ' ' + ${report.level} + ' - ' + ${report['semesterName']}">Level 100 - Semester 1</div>
+  <div class="s-title" th:text="${report.sessionName != null ? report.sessionName + '  ·  ' : ''} + ${isSchool ? report.programName : terms.level + ' ' + report.level} + ' - ' + ${report['semesterName']}">Level 100 - Semester 1</div>
   <table th:if="${report['position'] != null}" class="t-info" style="margin-bottom: 5pt;">
     <tr>
       <td class="lb">Position in Class</td><td style="font-weight: bold;" th:text="${report['position']}">3rd</td>

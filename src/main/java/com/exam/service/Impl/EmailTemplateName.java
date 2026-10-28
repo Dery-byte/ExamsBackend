@@ -8,7 +8,8 @@ public enum EmailTemplateName {
 //    ACTIVATE_ACCOUNT("activate_account"),
 //    PAYMENT_CONFIRMATION("payment_success"),
     RESET_PASSWORD("reset_password"),
-    ACCOUNT_CREDENTIALS("account_credentials");
+    ACCOUNT_CREDENTIALS("account_credentials"),
+    FEE_REMINDER("fee_reminder");
 
     private final String name;
     EmailTemplateName(String name) {

@@ -70,7 +70,7 @@ public class AcademicReports {
         Map<Long, Standing> standing = support.isSchool() ? Map.of() : standings.all();
 
         Table tb = r.table("departments", "Departments")
-                .text("department", "Department").col("programmes", t.get("program") + "s", INT)
+                .text("department", "Department").col("programmes", t.get("programs"), INT)
                 .col("students", t.get("student") + "s", INT).col("lecturers", t.get("lecturer") + "s", INT)
                 .col("perLecturer", t.get("student") + "s per " + t.get("lecturer").toLowerCase(), DECIMAL)
                 .col("courses", t.get("courses"), INT).col("quizzes", "Quizzes taken", INT).col("attempts", "Quiz results", INT)
@@ -183,7 +183,7 @@ public class AcademicReports {
         }
 
         Table byDept = r.table("departments", "By department")
-                .text("department", "Department").col("programmes", t.get("program") + "s with " + students.toLowerCase(), INT)
+                .text("department", "Department").col("programmes", t.get("programs") + " with " + students.toLowerCase(), INT)
                 .col("active", "Active", INT).col("deactivated", "Deactivated", INT).col("total", "Total", INT)
                 .col("share", "Share of active", PERCENT).chart("department", "active");
         long activeTotal = all.stream().filter(StudentRow::enabled).count();
@@ -222,7 +222,7 @@ public class AcademicReports {
         r.stat("Total " + students.toLowerCase(), all.size())
          .stat("Active", activeTotal, null, "good")
          .stat("Deactivated", all.size() - activeTotal)
-         .stat(t.get("program") + "s with " + students.toLowerCase(), all.stream().map(StudentRow::programId).filter(Objects::nonNull).distinct().count())
+         .stat(t.get("programs") + " with " + students.toLowerCase(), all.stream().map(StudentRow::programId).filter(Objects::nonNull).distinct().count())
          .stat("Records needing attention", fix.getRows().size(), null, fix.getRows().isEmpty() ? null : "warn");
         r.note("Counts are each " + t.get("student").toLowerCase() + "'s current " + t.get("program").toLowerCase() + ", "
                 + t.get("level").toLowerCase() + " and " + t.get("semester").toLowerCase() + " at the time the report is run.");
@@ -270,7 +270,7 @@ public class AcademicReports {
                     });
             Table missing = r.table("notRegistered", "Expected but not registered")
                     .subtitle("Active " + t.get("student").toLowerCase() + "s of this " + course.toLowerCase() + "'s "
-                            + t.get("program").toLowerCase() + "s at its " + t.get("level").toLowerCase() + " who have not registered.")
+                            + t.get("programs").toLowerCase() + " at its " + t.get("level").toLowerCase() + " who have not registered.")
                     .text("studentId", t.get("studentId")).text("name", "Name").text("email", "Email").text("phone", "Phone")
                     .text("programme", t.get("program")).col("level", t.get("level"), INT)
                     .emptyText(c.isOpenToEveryone()
@@ -284,7 +284,7 @@ public class AcademicReports {
 
         Table tb = r.table("courses", "Registrations by " + course.toLowerCase())
                 .text("code", course + " code").text("title", course + " title").text("department", "Department")
-                .text("programmes", t.get("program") + "s").col("level", t.get("level"), INT).col("semester", t.get("semester"), INT)
+                .text("programmes", t.get("programs")).col("level", t.get("level"), INT).col("semester", t.get("semester"), INT)
                 .col("credits", "Credit units", INT).text("lecturer", t.get("lecturer"))
                 .col("registered", "Registered", INT).col("expected", "Expected", INT).col("missing", "Not registered", INT)
                 .drill("courseId", "courseId", "Show who registered for this " + course.toLowerCase());

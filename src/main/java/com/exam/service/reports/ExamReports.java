@@ -376,7 +376,7 @@ public class ExamReports {
          .stat("Absence rate", AcademicReports.fmtPct(pct(absentTotal, expected)));
         r.note("Expected = " + student.toLowerCase() + "s registered for the " + t.get("course").toLowerCase() + " in the "
                 + (f.sessionId() != null ? "chosen" : "current") + " session (within the quiz's index-number range); when nobody registered, active "
-                + student.toLowerCase() + "s of its " + t.get("program").toLowerCase() + "s at its " + t.get("level").toLowerCase() + ".");
+                + student.toLowerCase() + "s of its " + t.get("programs").toLowerCase() + " at its " + t.get("level").toLowerCase() + ".");
         r.note("Only quizzes dated today or earlier are listed. Click a quiz to see who did not sit it, with phone numbers to follow up.");
         return r;
     }
@@ -464,7 +464,7 @@ public class ExamReports {
          .stat("Clashes", tt.get("clashCount"), "Same " + t.get("program").toLowerCase() + " and " + t.get("level").toLowerCase() + " at the same time", null);
         r.note("Expected " + candidates + " = " + t.get("student").toLowerCase() + "s registered for the " + t.get("course").toLowerCase()
                 + " this session (within the quiz's index-number range); when nobody has registered yet, active "
-                + t.get("student").toLowerCase() + "s of its " + t.get("program").toLowerCase() + "s at its " + t.get("level").toLowerCase() + ".");
+                + t.get("student").toLowerCase() + "s of its " + t.get("programs").toLowerCase() + " at its " + t.get("level").toLowerCase() + ".");
         r.note("Load is High from " + HIGH_LOAD + " " + candidates + " writing at once (where slowdowns were seen before) and Very high from "
                 + VERY_HIGH_LOAD + ". Only quizzes with a date and start time appear.");
         return r;

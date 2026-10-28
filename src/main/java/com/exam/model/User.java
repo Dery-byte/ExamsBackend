@@ -97,6 +97,21 @@ public class User implements UserDetails {
   /** Student's current semester (1 or 2). Set by HOD / Super Admin. */
   private Integer currentSemester;
 
+  /** Students: MALE / FEMALE, recorded by staff; keeps boys' and girls' hostels apart. Null = not recorded. */
+  @Enumerated(EnumType.STRING)
+  @Column(length = 10)
+  private Gender gender;
+
+  /** Students, while the institution has both day students and boarders: DAY or BOARDING (null = not recorded). */
+  @Enumerated(EnumType.STRING)
+  @Column(length = 10)
+  private Residency residency;
+
+  /** Accountants only: BURSAR (sets fees, discounts, voids) or CASHIER (records payments, issues bills). */
+  @Enumerated(EnumType.STRING)
+  @Column(length = 10)
+  private com.exam.model.fees.FinanceDuty financeDuty;
+
 //Trying to check for one quiz attempts
 
   @OneToMany(mappedBy = "user",cascade = CascadeType.ALL, orphanRemoval = true)

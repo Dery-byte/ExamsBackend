@@ -1,9 +1,11 @@
 com\exam\service\GradingPresetTest.class
+com\exam\service\boarding\BoardingJpaTest.class
 com\exam\service\fees\FeeFlowJpaTest.class
 com\exam\service\QuizServiceAutoOpenTest.class
 com\exam\service\AttemptServiceTest.class
 com\exam\service\FeatureServiceTest.class
 com\exam\service\admin\MaintenanceServiceTest.class
+com\exam\service\fees\StoresAndRemindersJpaTest.class
 com\exam\service\monitoring\DeveloperAuthServiceTest.class
 com\exam\service\examops\QuestionBankUploadTest$1.class
 com\exam\helper\IndexNumberRangeTest.class
@@ -14,11 +16,13 @@ com\exam\service\AnswerMatcherTest.class
 com\exam\service\examops\QuestionBankTheoryTest.class
 com\exam\service\QuestionTypeChangeTest.class
 com\exam\service\subscription\TestKeys.class
+com\exam\service\fees\AccountsJpaTest.class
 com\exam\service\AcademicPdfRenderTest.class
 com\exam\AttendancePhotoIntegrationTest.class
 com\exam\service\QuizTimerServiceClockTest.class
 com\exam\helper\TheoryGroupsTest.class
 com\exam\service\PdfImageRenderTest.class
+com\exam\service\academic\ClassPromotionJpaTest.class
 com\exam\service\QuestionImageServiceTest.class
 com\exam\RemarkFlowIntegrationTest.class
 com\exam\service\subscription\SubscriptionSyncTest.class
@@ -27,8 +31,10 @@ com\exam\service\reports\ReportsJpaTest$Templates.class
 com\exam\service\subscription\SubscriptionStatusTest.class
 com\exam\service\MatchingPairsLoadJpaTest.class
 com\exam\service\attendance\AttendanceJpaTest.class
+com\exam\service\fees\FinanceJpaTest.class
 com\exam\service\academic\ThemeServiceTest.class
 com\exam\service\monitoring\ErrorPathGroupingTest.class
+com\exam\service\SchoolStructureJpaTest.class
 com\exam\service\FakeSettings.class
 com\exam\service\reports\ReportsJpaTest.class
 com\exam\service\subscription\SubscriptionServiceTest.class
@@ -44,8 +50,10 @@ com\exam\service\academic\DocumentVerificationCodeTest.class
 com\exam\service\AttemptServiceJpaTest.class
 com\exam\service\TheoryGradingQueueTest.class
 com\exam\SecurityApplicationTests.class
+com\exam\service\boarding\BoardingBulkJpaTest.class
 com\exam\service\fees\FeeBreakdownTest.class
 com\exam\service\attendance\AttendanceJpaTest$MutableClock.class
+com\exam\service\fees\BillingJpaTest.class
 com\exam\helper\TheoryCriteriaVisibilityTest.class
 com\exam\service\admin\ConfigTransferServiceTest.class
 com\exam\SubscriptionEnforcementIntegrationTest.class

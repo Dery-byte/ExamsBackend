@@ -135,7 +135,8 @@ public class SubscriptionSync {
         body.put("appVersion", Objects.toString(getClass().getPackage().getImplementationVersion(), "dev"));
         body.put("portalUrl", portalUrl);
         body.put("students", users.countByRole(Role.NORMAL));
-        body.put("staff", users.countByRole(Role.LECTURER) + users.countByRole(Role.ADMIN) + users.countByRole(Role.SUPER_ADMIN));
+        body.put("staff", users.countByRole(Role.LECTURER) + users.countByRole(Role.ADMIN) + users.countByRole(Role.SUPER_ADMIN)
+                + users.countByRole(Role.ACCOUNTANT));
 
         // Generous: a vendor portal on a sleeping free host takes up to a minute to wake, and it re-checks
         // unfinished Paystack payments before answering

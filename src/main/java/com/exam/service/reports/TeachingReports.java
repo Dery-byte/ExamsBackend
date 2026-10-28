@@ -193,7 +193,7 @@ public class TeachingReports {
         if (theory) r.stat("Not yet reviewed", unreviewed, null, unreviewed > 0 ? "warn" : null);
         r.note("Expected = " + student.toLowerCase() + "s registered for the " + t.get("course").toLowerCase() + " in " + session.getName()
                 + " within the quiz's index-number range (when nobody registered: active " + student.toLowerCase() + "s of its "
-                + t.get("program").toLowerCase() + "s at its " + t.get("level").toLowerCase() + "). Anyone else who sat is listed too.");
+                + t.get("programs").toLowerCase() + " at its " + t.get("level").toLowerCase() + "). Anyone else who sat is listed too.");
         r.note("Each " + student.toLowerCase() + "'s latest submission is shown. A score of " + (int) PASS_MARK + "% or more is a pass.");
         return r;
     }

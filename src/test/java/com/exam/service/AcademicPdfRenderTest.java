@@ -65,6 +65,10 @@ class AcademicPdfRenderTest {
         TermRemarkService remarks = mock(TermRemarkService.class);
         when(remarks.forStudent(any(), any())).thenReturn(Optional.of(remark));
         ReflectionTestUtils.setField(pdf, "termRemarkService", remarks);
+        // The residence line under the student's details renders too
+        com.exam.service.boarding.BoardingService boarding = mock(com.exam.service.boarding.BoardingService.class);
+        when(boarding.reportLine(any())).thenReturn(new String[]{"House", "Aggrey House"});
+        ReflectionTestUtils.setField(pdf, "boardingService", boarding);
     }
 
     private static boolean isPdf(byte[] b) {

@@ -444,7 +444,8 @@ class SecurityRulesIntegrationTest {
         try {
             assertThat(json(put("/api/v1/developer/mode").with(as(developer)), "{\"mode\":\"SHS\"}")).isEqualTo(200);
             String info = mvc.perform(get("/api/v1/auth/institution")).andReturn().getResponse().getContentAsString();
-            assertThat(info).contains("\"mode\":\"SHS\"").contains("\"course\":\"Subject\"").contains("\"level\":\"Form\"");
+            assertThat(info).contains("\"mode\":\"SHS\"").contains("\"course\":\"Subject\"")
+                    .contains("\"program\":\"Class\"").contains("\"department\":\"Section\"");   // a school class is one year
             assertThat(com.exam.model.academic.SystemMode.current().defaultPeriodsPerLevel()).isEqualTo(3);
             assertThat(json(put("/api/v1/developer/mode").with(as(developer)), "{\"mode\":\"NOPE\"}")).isEqualTo(400);
         } finally {

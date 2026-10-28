@@ -25,5 +25,11 @@ public class LecturerDTO {
     private String programName;
     private Long departmentId;
     private java.util.List<Long> secondaryDepartmentIds;
+    /** Students: MALE / FEMALE or null. */
+    private String gender;
+    /** Students: DAY / BOARDING (by the institution's residency mode) or null when not recorded. */
+    private String residency;
+    /** Students with a room: "Aggrey House · Room 14 · Bed 3". */
+    private String residence;
 }
 

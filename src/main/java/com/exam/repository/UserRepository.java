@@ -38,7 +38,24 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("UPDATE User u SET u.enabled = true WHERE u.enabled = false AND u.deactivatedAt IS NULL")
     int enableAllNeverDeactivated();
 
+    /** Name / ID search among accounts with these roles; :q is a lower-case LIKE pattern. */
+    @Query("SELECT u FROM User u WHERE u.role IN :roles AND (LOWER(u.username) LIKE :q OR LOWER(u.firstname) LIKE :q"
+            + " OR LOWER(u.lastname) LIKE :q OR LOWER(CONCAT(CONCAT(u.firstname, ' '), u.lastname)) LIKE :q) ORDER BY u.firstname, u.lastname")
+    List<User> searchByRoles(@Param("roles") java.util.Collection<Role> roles, @Param("q") String q, org.springframework.data.domain.Pageable page);
+
+    /** Boarding: students with no residency recorded get this one (when the institution starts having both). */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE User u SET u.residency = :residency WHERE u.role = com.exam.model.Role.NORMAL AND u.residency IS NULL")
+    int fillMissingResidency(@Param("residency") com.exam.model.Residency residency);
+
     long countByRole(Role role);
+
+    List<User> findByRoleAndUsernameIn(Role role, java.util.Collection<String> usernames);
+
+    /** Active students with their programme, of one programme / level when given (billing a group). */
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.program p WHERE u.role = com.exam.model.Role.NORMAL AND u.enabled = true "
+            + "AND (:programId IS NULL OR p.id = :programId) AND (:level IS NULL OR u.currentLevel = :level)")
+    List<User> findActiveStudents(@Param("programId") Long programId, @Param("level") Integer level);
 
     List<User> findByProgramAndCurrentLevel(com.exam.model.exam.Program program, Integer currentLevel);
 

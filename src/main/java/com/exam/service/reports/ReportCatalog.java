@@ -1,5 +1,7 @@
 package com.exam.service.reports;
 
+import com.exam.model.academic.SchoolWords;
+import com.exam.model.academic.SystemMode;
 import com.exam.model.Role;
 import com.exam.model.User;
 import com.exam.model.exam.Category;
@@ -41,6 +43,8 @@ public class ReportCatalog {
     private static final Set<Role> ALL = EnumSet.of(Role.SUPER_ADMIN, Role.ADMIN, Role.LECTURER);
     private static final Set<Role> ADMINS = EnumSet.of(Role.SUPER_ADMIN, Role.ADMIN);
     private static final Set<Role> SUPER = EnumSet.of(Role.SUPER_ADMIN);
+    /** Fee reports: the Super Admin and the accounts office (bursars and cashiers). */
+    private static final Set<Role> FINANCE = EnumSet.of(Role.SUPER_ADMIN, Role.ACCOUNTANT);
     /** The question paper with its answers: opening and printing it is recorded in the audit log. */
     public static final String ANSWER_KEY = "question-paper-answers";
 
@@ -51,19 +55,56 @@ public class ReportCatalog {
     @Autowired private QuestionPapers papers;
     @Autowired private ExamReports exams;
     @Autowired private FinanceReports finance;
+    @Autowired private AccountsReports accounts;
     @Autowired private OversightReports oversight;
     @Autowired private ResultsHoldService resultsHoldService;
     @Autowired private com.exam.service.SystemSettingService settings;
     @Autowired private AttendanceReports attendance;
     @Autowired private com.exam.service.features.FeatureService features;
+    @Autowired private BoardingReports boarding;
+    @Autowired private com.exam.service.boarding.BoardingSettings boardingSettings;
+    @Autowired private com.exam.service.boarding.BoardingAccess boardingAccess;
+    @Autowired private com.exam.repository.HostelRepository hostelRepository;
+
+    /** The group the boarding reports are filed under; boarding staff get only these. */
+    public static final String BOARDING = "Boarding";
 
     /** The reports this person may run, as the hub and filter bar show them. */
     public List<Definition> definitions(User viewer) {
         Role role = viewer.getRole();
         Lookups l = support.lookups();
-        List<Option> courses = courseOptions(viewer, l), quizzes = quizOptions(viewer, l);
+        List<Option> courses = courseOptions(viewer, l), quizzes = quizOptions(viewer, l), houses = hostelOptions(viewer);
         return entries().stream().filter(e -> e.roles().contains(role))
-                .map(e -> forViewer(e.definition(), role, courses, quizzes)).toList();
+                .map(e -> forViewer(e.definition(), role, courses, quizzes, houses)).toList();
+    }
+
+    /** Boarding staff (housemasters, the head of boarding, the Super Admin): the boarding reports only. */
+    public List<Definition> boardingDefinitions(User viewer) {
+        boardingSettings.requireOn();
+        boardingAccess.requireStaff(viewer);
+        List<Option> houses = hostelOptions(viewer);
+        return entries().stream().filter(e -> BOARDING.equals(e.definition().group()))
+                .map(e -> forViewer(e.definition(), Role.SUPER_ADMIN, List.of(), List.of(), houses)).toList();
+    }
+
+    /** A boarding report for boarding staff, whatever their role (the houses they may see are locked in the report). */
+    public ReportResult runBoarding(String key, ReportFilters f, User actor) {
+        boardingSettings.requireOn();
+        boardingAccess.requireStaff(actor);
+        Entry entry = entries().stream().filter(e -> e.definition().key().equals(key) && BOARDING.equals(e.definition().group())).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown report: " + key));
+        ReportResult r = entry.run().apply(f, actor);
+        r.setGeneratedBy(CurrentUserService.displayName(actor));
+        return r.forSchools();
+    }
+
+    private List<Option> hostelOptions(User viewer) {
+        if (!boardingSettings.on()) return List.of();
+        boolean head = viewer.getRole() == Role.SUPER_ADMIN || boardingAccess.isHead(viewer);
+        java.util.Set<Long> mine = head ? null : boardingAccess.houseHostelIds(viewer);
+        return hostelRepository.findAllByOrderByNameAsc().stream()
+                .filter(h -> mine == null || mine.contains(h.getId()))
+                .map(h -> o(String.valueOf(h.getId()), h.getName() + (h.isActive() ? "" : " (archived)"))).toList();
     }
 
     public ReportResult run(String key, ReportFilters f, User actor) {
@@ -73,12 +114,12 @@ public class ReportCatalog {
         ReportFilters scoped = switch (actor.getRole()) {
             case ADMIN -> support.scopeToDepartment(f, actor);
             case LECTURER -> support.scopeToLecturer(f, actor);
-            case SUPER_ADMIN -> f;
+            case SUPER_ADMIN, ACCOUNTANT -> f;
             default -> throw new AccessDeniedException("Reports are for staff only.");
         };
         ReportResult r = entry.run().apply(scoped, actor);
         r.setGeneratedBy(CurrentUserService.displayName(actor));
-        return r;
+        return r.forSchools();
     }
 
     private List<Entry> entries() {
@@ -135,6 +176,29 @@ public class ReportCatalog {
             out.add(e(ALL, new Definition("attendance-sessions", "Class meetings", "Attendance",
                     "Every meeting where attendance was taken: present, late, absent, waiting for review, and the headcount check.",
                     "calendarcheck", List.of(session, from, to, dept, prog, courseAny)), (x, u) -> attendance.meetings(x)));
+        }
+
+        // Boarding (only while the developer has boarding on); boarding staff run them from the Boarding pages
+        if (boardingSettings.on()) {
+            String word = boardingSettings.word(), houses = boardingSettings.plural().toLowerCase();
+            Filter house = f("hostel", word);
+            out.add(e(SUPER, new Definition("boarding-roster", word + " roster", BOARDING,
+                    "Every boarder in every room, in building order (" + word.toLowerCase() + ", block, floor, room, bed): door lists and roll-call sheets.",
+                    "bed", List.of(house, dept, prog, lvl)), boarding::roster));
+            out.add(e(SUPER, new Definition("boarding-occupancy", "Beds and occupancy", BOARDING,
+                    "Beds, occupied and free beds per " + word.toLowerCase() + " and per floor, and closed rooms.",
+                    "building", List.of(house)), boarding::occupancy));
+            out.add(e(SUPER, new Definition("boarding-waiting", "Boarders waiting for a room", BOARDING,
+                    "Active boarders with no room yet, by " + level + ", with how to reach them.",
+                    "userx", List.of(dept, prog, lvl, status("Gender", BoardingReports.GENDER_CHOICES.stream()
+                            .map(v -> o(v, BoardingReports.genderChoice(v))).toList()))), boarding::waiting));
+            out.add(e(SUPER, new Definition("boarding-residency",
+                    boardingSettings.mode() == com.exam.model.boarding.ResidencyMode.BOTH ? "Day and boarding numbers" : "Boarders by class", BOARDING,
+                    "Day students and boarders per " + program + " and " + level + ", boys and girls, and boarders with and without a room.",
+                    "users", List.of(dept, prog, lvl)), boarding::residency));
+            out.add(e(SUPER, new Definition("boarding-moves", "Room changes", BOARDING,
+                    "Students given a room or leaving one in a period across the " + houses + ": moves, swaps, leavers and who made each change.",
+                    "activity", List.of(session, from, to, house, prog, lvl)), boarding::moves));
         }
 
         // Institution
@@ -198,14 +262,32 @@ public class ReportCatalog {
                 "briefcase", List.of(session, from, to, dept)), (x, u) -> oversight.staffWorkload(x)));
 
         // Finance
-        out.add(e(SUPER, new Definition("fee-collections", "Fee collections", "Finance",
+        out.add(e(FINANCE, new Definition("fee-collections", "Fee collections", "Finance",
                 "Billed, collected and outstanding per " + program + " and " + level + ", payment methods, and staff-entered or voided payments.",
                 "wallet", List.of(session, dept, prog, lvl)), (x, u) -> finance.feeCollections(x)));
-        out.add(e(SUPER, new Definition("fee-debtors", "Fee debtors", "Finance",
+        out.add(e(FINANCE, new Definition("fee-debtors", "Fee debtors", "Finance",
                 students + " who still owe this session's fee, with contact details and whether their results are on hold.",
                 "receipt", List.of(dept, prog, lvl)), (x, u) -> finance.feeDebtors(x)));
+        out.add(e(FINANCE, new Definition("account-balances", "Student account balances", "Finance",
+                students + "' whole accounts: earlier years, this session's fees, bills, credit and what is left to pay.",
+                "wallet", List.of(dept, prog, lvl)), (x, u) -> accounts.accountBalances(x)));
+        out.add(e(FINANCE, new Definition("daily-collections", "Daily collections", "Finance",
+                "Money received each day by method, refunds and the net: the cash book over a period.",
+                "calendarcheck", List.of(from, to)), (x, u) -> accounts.dailyCollections(x)));
+        out.add(e(FINANCE, new Definition("concessions", "Fee concessions", "Finance",
+                "Scholarships, bursaries, discounts and waivers, and what they are worth this session.",
+                "gift", List.of(session, prog, lvl)), (x, u) -> accounts.concessions(x)));
+        out.add(e(FINANCE, new Definition("arrears", "Arrears", "Finance",
+                "Fees owed from earlier sessions and opening balances: carried, paid, written off.",
+                "history", List.of(prog, lvl)), (x, u) -> accounts.arrears(x)));
+        out.add(e(FINANCE, new Definition("stock", "Stores", "Finance",
+                "Stock of uniform, books and other items: in, out, held, owed to " + students.toLowerCase() + " and value.",
+                "box", List.of(from, to)), (x, u) -> accounts.stock(x)));
+        out.add(e(FINANCE, new Definition("refunds-voids", "Refunds and cancelled payments", "Finance",
+                "Money paid back and recorded payments cancelled, with who and why.",
+                "undo", List.of(session, from, to)), (x, u) -> accounts.refundsAndVoids(x)));
         if (!resultsHoldService.programsWithRule().isEmpty())
-            out.add(e(ADMINS, new Definition("results-on-hold", "Results on hold for fees", "Finance",
+            out.add(e(EnumSet.of(Role.SUPER_ADMIN, Role.ADMIN, Role.ACCOUNTANT), new Definition("results-on-hold", "Results on hold for fees", "Finance",
                     students + " whose " + t.get("reportCard").toLowerCase() + "s or transcript are held until they pay more of this session's fee.",
                     "lock", List.of(dept, prog, lvl)), (x, u) -> finance.resultsOnHold(x)));
 
@@ -223,16 +305,19 @@ public class ReportCatalog {
     }
 
     /** The definition as this role sees it: locked filters removed, course and quiz pickers filled in. */
-    private static Definition forViewer(Definition d, Role role, List<Option> courses, List<Option> quizzes) {
+    private static Definition forViewer(Definition d, Role role, List<Option> courses, List<Option> quizzes, List<Option> houses) {
         List<Filter> filters = new ArrayList<>();
+        boolean school = SystemMode.current().isSchool();
         for (Filter x : d.filters()) {
-            if (x.key().equals("department") && role != Role.SUPER_ADMIN) continue;
+            if (x.key().equals("department") && role != Role.SUPER_ADMIN && role != Role.ACCOUNTANT) continue;
             if (x.key().equals("program") && role == Role.LECTURER) continue;
+            if (x.key().equals("level") && school) continue;   // a school class is one year: its class says it all
             if (x.key().equals("course")) x = new Filter(x.key(), x.label(), courses, x.required());
             else if (x.key().equals("quiz")) x = new Filter(x.key(), x.label(), quizzes, x.required());
-            filters.add(x);
+            else if (x.key().equals("hostel")) x = new Filter(x.key(), x.label(), houses, x.required());
+            filters.add(new Filter(x.key(), SchoolWords.apply(x.label()), x.options(), x.required()));
         }
-        return new Definition(d.key(), d.title(), d.group(), d.description(), d.icon(), filters);
+        return new Definition(d.key(), SchoolWords.apply(d.title()), d.group(), SchoolWords.apply(d.description()), d.icon(), filters);
     }
 
     private static List<Option> courseOptions(User viewer, Lookups l) {

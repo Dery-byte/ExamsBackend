@@ -10,6 +10,15 @@ public class LecturerUpdateDTO {
     private Long programId;
     private Long departmentId;
     private java.util.List<Long> secondaryDepartmentIds;
+    /** Students: MALE / FEMALE; "" clears it, null leaves it unchanged. */
+    private String gender;
+    /** Students: DAY / BOARDING; "" clears it, null leaves it unchanged. */
+    private String residency;
+
+    public String getGender() { return gender; }
+    public void setGender(String gender) { this.gender = gender; }
+    public String getResidency() { return residency; }
+    public void setResidency(String residency) { this.residency = residency; }
 
     public Long getDepartmentId() { return departmentId; }
     public void setDepartmentId(Long departmentId) { this.departmentId = departmentId; }

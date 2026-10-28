@@ -216,7 +216,7 @@ public class QuestionPapers {
         details.add(new Detail("Session", session));
         if (c != null && c.getLevel() != null) details.add(new Detail(t.get("level"), ReportSupport.normLevel(c.getLevel())));
         if (c != null && c.getSemester() != null) details.add(new Detail(t.get("semester"), support.semesterName(c.getSemester())));
-        if (c != null && !l.courseProgramNames(c).isEmpty()) details.add(new Detail(t.get("program") + "s", l.courseProgramNames(c)));
+        if (c != null && !l.courseProgramNames(c).isEmpty()) details.add(new Detail(t.get("programs"), l.courseProgramNames(c)));
         if (hasA) details.add(new Detail("Section A", objective.size() + " objective question" + (objective.size() == 1 ? "" : "s") + ", " + fmt(maxObjective) + " marks"));
         if (hasB) details.add(new Detail("Section B", (answerAll ? "Answer all " + groupCount : "Answer " + toAnswer + " of " + groupCount)
                 + " theory question" + (groupCount == 1 ? "" : "s") + (theoryMarks != null ? ", " + theoryMarks + " marks" : "")));
@@ -267,7 +267,7 @@ public class QuestionPapers {
         if (depts.isEmpty() && c != null) l.courseDepts(c).stream().map(l::deptName).filter(Objects::nonNull).forEach(depts::add);
         for (String d : depts) heading.add(d.toLowerCase().startsWith("department") ? d : "Department of " + d);
         String programme = programmes.isEmpty() ? null
-                : t.get("program") + (programmes.size() > 1 ? "s" : "") + ": " + String.join(", ", programmes);
+                : (programmes.size() > 1 ? t.get("programs") : t.get("program")) + ": " + String.join(", ", programmes);
         String examLine = Objects.toString(q.getTitle(), "Examination") + ", " + session + " academic year";
         String semesterLine = c == null || c.getSemester() == null ? null : support.semesterName(c.getSemester());
         String courseLine = c == null ? null

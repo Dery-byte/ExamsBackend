@@ -23,7 +23,9 @@ import java.time.LocalDateTime;
                 @Index(name = "idx_fee_payment_student", columnList = "student_id"),
                 @Index(name = "idx_fee_payment_schedule_status", columnList = "schedule_id, status"),
                 @Index(name = "idx_fee_payment_session_status", columnList = "session_id, status"),
-                @Index(name = "idx_fee_payment_status_created", columnList = "status, created_at")
+                @Index(name = "idx_fee_payment_status_created", columnList = "status, created_at"),
+                @Index(name = "idx_fee_payment_paid_at", columnList = "paid_at"),
+                @Index(name = "idx_fee_payment_cashier", columnList = "recorded_by_id, cash_up_id")
         })
 public class FeePayment {
 
@@ -40,9 +42,18 @@ public class FeePayment {
     @JoinColumn(name = "student_id", nullable = false)
     private User student;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "schedule_id", nullable = false)
+    /**
+     * What the payer chose to pay: one fee (term), or {@link #bill}, or neither (everything owed,
+     * oldest first). Where the money actually went is in {@link #allocations}.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "schedule_id")
     private FeeSchedule schedule;
+
+    /** A bill the payer chose to pay instead of a fee. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bill_id")
+    private StudentBill bill;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "session_id", nullable = false)
@@ -93,14 +104,43 @@ public class FeePayment {
     @Column(name = "recorded_by", length = 120)
     private String recordedBy;
 
+    /** The staff account that recorded it (for cash-ups); null for online payments and older entries. */
+    @Column(name = "recorded_by_id")
+    private Long recordedById;
+
+    /** The cash-up that handed this payment in; until then its cashier may still cancel it. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cash_up_id")
+    private CashUp cashUp;
+
+    @Column(name = "voided_at")
+    private LocalDateTime voidedAt;
+
+    @Column(name = "voided_by", length = 120)
+    private String voidedBy;
+
     @Column(length = 300)
     private String note;
+
+    /** RC-2026-000123: given when the money is received (cash entry, or Paystack confirming), never reused. */
+    @Column(name = "receipt_no", length = 30, unique = true)
+    private String receiptNo;
+
+    /** The code printed on the receipt, checked on the public verification page (revoked when voided). */
+    @Column(name = "verification_code", length = 20)
+    private String verificationCode;
 
     /** The items of an itemised fee this payment is for; empty when it is for the fee as a whole. */
     @OneToMany(mappedBy = "payment", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id ASC")
     @org.hibernate.annotations.BatchSize(size = 50)
     private java.util.List<FeePaymentItem> items = new java.util.ArrayList<>();
+
+    /** Where the money went (fee terms, bills, credit): made when the payment succeeds. */
+    @OneToMany(mappedBy = "payment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private java.util.List<FeeAllocation> allocations = new java.util.ArrayList<>();
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

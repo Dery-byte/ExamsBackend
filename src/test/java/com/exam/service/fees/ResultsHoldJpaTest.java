@@ -44,7 +44,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.datasource.password=",
         "spring.jpa.show-sql=false",
 })
-@Import({FeeScheduleService.class, FeePaymentService.class, ResultsHoldService.class, AcademicSessionService.class,
+@Import({FeeDues.class, ReceiptService.class, com.exam.service.boarding.BoardingSettings.class, com.exam.service.academic.DocumentVerificationService.class, com.exam.service.features.FeatureService.class, com.exam.service.academic.InstitutionService.class, com.exam.service.academic.ThemeService.class, com.exam.service.admin.MaintenanceService.class, FeeScheduleService.class, FeePaymentService.class, FeeLedger.class, ResultsHoldService.class, AcademicSessionService.class,
         SystemSettingService.class, com.exam.service.comms.CurrentUserService.class})
 class ResultsHoldJpaTest {
 

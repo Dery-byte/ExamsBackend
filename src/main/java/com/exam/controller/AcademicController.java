@@ -46,6 +46,7 @@ public class AcademicController {
     @Autowired private UserRepository userRepository;
     @Autowired private com.exam.service.features.FeatureService featureService;
     @Autowired private ResultsHoldService resultsHoldService;
+    @Autowired private com.exam.service.academic.ClassPromotionService classPromotionService;
 
     // ── Sessions ─────────────────────────────────────────────────────────────
 
@@ -167,6 +168,36 @@ public class AcademicController {
     @GetMapping("/students/{id}/eligibility")
     public ResponseEntity<?> eligibility(@PathVariable Long id) {
         return withUser(u -> ResponseEntity.ok(recordService.eligibility(requireRecordAccess(u, id))));
+    }
+
+    // ── Schools: promotion moves students to their next class ─────────────────
+
+    /** Who in a class moves where (next class, or out of the school after a final class). */
+    @GetMapping("/classes/{programId}/promotion")
+    public ResponseEntity<?> classPromotion(@PathVariable Long programId) {
+        return withUser(u -> ResponseEntity.ok(classPromotionService.preview(u, programId)));
+    }
+
+    /** Body: {"studentIds": [...] (optional: everyone), "override": false}. */
+    @PostMapping("/classes/{programId}/promote")
+    public ResponseEntity<?> promoteClass(@PathVariable Long programId, @RequestBody(required = false) Map<String, Object> body) {
+        Map<String, Object> b = body == null ? Map.of() : body;
+        List<Long> ids = b.get("studentIds") instanceof List<?> l ? l.stream().map(x -> Long.valueOf(String.valueOf(x))).toList() : null;
+        return withUser(u -> ResponseEntity.ok(classPromotionService.promoteClass(u, programId, ids, Boolean.TRUE.equals(b.get("override")))));
+    }
+
+    /** Body: {"programId": id (Super Admin: any class; omitted = the next class), "override": false}. */
+    @PostMapping("/students/{id}/move")
+    public ResponseEntity<?> moveStudent(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> body) {
+        Map<String, Object> b = body == null ? Map.of() : body;
+        Long to = b.get("programId") == null || "".equals(b.get("programId")) ? null : Long.valueOf(String.valueOf(b.get("programId")));
+        return withUser(u -> {
+            try {
+                return ResponseEntity.ok(classPromotionService.moveStudent(u, id, to, Boolean.TRUE.equals(b.get("override"))));
+            } catch (com.exam.service.academic.ClassPromotionService.PromotionRefused e) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", e.getMessage(), "reasons", e.reasons(), "canOverride", e.canOverride()));
+            }
+        });
     }
 
     /** Promotion preview for everyone at one program + level. */

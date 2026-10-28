@@ -27,6 +27,7 @@ public class AcademicSessionService {
     @Autowired private AcademicSessionRepository sessionRepository;
     @Autowired private SemesterSheetRepository semesterSheetRepository;
     @Autowired private Registered_coursesRepository registeredCoursesRepository;
+    @Autowired private org.springframework.context.ApplicationEventPublisher events;
 
     /** The current session, creating one for the present academic year if none exists yet. */
     @Transactional
@@ -85,10 +86,13 @@ public class AcademicSessionService {
     @Transactional
     public Map<String, Object> setCurrent(Long id) {
         AcademicSession target = get(id);
+        Long previous = null;
         for (AcademicSession s : sessionRepository.findAll()) {
             boolean should = s.getId().equals(target.getId());
+            if (s.isCurrent() && !should) previous = s.getId();
             if (s.isCurrent() != should) { s.setCurrent(should); sessionRepository.save(s); }
         }
+        if (previous != null) events.publishEvent(new CurrentSessionChanged(previous, target.getId()));   // e.g. the accounts office closes the old session's fees
         return toDto(target);
     }
 

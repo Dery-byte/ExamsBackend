@@ -132,7 +132,7 @@ public class NotificationService {
                     .filter(s -> featureService.isOnFor(com.exam.model.features.Feature.STUDENT_REPORT_CARD, s))   // their department shows report cards
                     .toList();
             notify(students, SHEET_PUBLISHED, "Semester results published",
-                    "Your Level " + sheet.getLevel() + " Semester " + sheet.getSemester() + " results are now available.",
+                    "Your " + sheetLabel(sheet).replace(" · ", " ") + " results are now available.",
                     "/user-dashboard/report-cards");
         } catch (Exception e) {
             log.warn("sheetPublished notification failed: {}", e.getMessage());
@@ -172,6 +172,8 @@ public class NotificationService {
 
     private static String sheetLabel(SemesterSheet s) {
         String prog = s.getProgram() != null ? s.getProgram().getName() : "Marks sheet";
+        // Schools: the class name says the year (Primary 4 · Term 2)
+        if (com.exam.model.academic.SystemMode.current().isSchool()) return prog + " · Term " + s.getSemester();
         return prog + " · Level " + s.getLevel() + " · Semester " + s.getSemester();
     }
 

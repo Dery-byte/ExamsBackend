@@ -48,6 +48,27 @@ public class Program {
     @Column(columnDefinition = "TEXT")
     private String semestersPerLevel;
 
+    // ── Schools: each programme is one class (Primary 1, JHS 2 …), one year long ──
+
+    /** Place within its department / section; null = after the numbered ones. */
+    @Column(name = "sort_order")
+    private Integer sortOrder;
+
+    /** Year of its section this class is in (Primary 4 = year 4 of Primary's 6); streams share a year. */
+    @Column(name = "section_year")
+    private Integer sectionYear;
+
+    /** Class its students are promoted to; null = the next class in order. */
+    @Column(name = "next_program_id")
+    private Long nextProgramId;
+
+    /** Students leave the school after this class (e.g. JHS 3 in a basic school). */
+    @Column(name = "final_class")
+    private Boolean finalClass;
+
+    /** Not a bean getter on purpose: Jackson would see two "finalClass" properties. */
+    public boolean endsSchool() { return Boolean.TRUE.equals(finalClass); }
+
     /**
      * Derives the configured academic levels based on durationYears.
      * E.g. durationYears=4 → [100, 200, 300, 400]

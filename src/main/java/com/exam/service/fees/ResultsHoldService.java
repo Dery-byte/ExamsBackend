@@ -42,6 +42,7 @@ public class ResultsHoldService {
     @Autowired private FeeScheduleRepository scheduleRepository;
     @Autowired private FeePaymentRepository paymentRepository;
     @Autowired private FeeScheduleService scheduleService;
+    @Autowired private FeeDues feeDues;
     @Autowired private AcademicSessionService academicSessionService;
     @Autowired private SystemSettingService settings;
 
@@ -175,27 +176,37 @@ public class ResultsHoldService {
         if (student == null || student.getRole() != Role.NORMAL || student.getProgram() == null) return null;
         ResultsFeeHold rule = holdRepository.findByProgram_Id(student.getProgram().getId()).orElse(null);
         if (rule == null) return null;
+        BigDecimal arrears = feeDues.arrears(student).stream().map(FeeDues.ArrearsDue::balance).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return evaluate(rule, documents, feeDues.dues(student), arrears,
+                scheduleId -> sums(paymentRepository.paidItems(student.getId(), scheduleId)));
+    }
 
+    /**
+     * The rule applied to what the student owes: this session's fees so far (all, a percentage, or
+     * chosen items) and, always in full, fees from earlier years (arrears). No queries of its own, so
+     * reports can check many students from data loaded once.
+     */
+    Map<String, Object> evaluate(ResultsFeeHold rule, Set<Document> documents, List<FeeDues.Due> dues, BigDecimal arrears,
+                                 java.util.function.Function<Long, Map<String, BigDecimal>> paidItems) {
         List<Document> held = new ArrayList<>();
         if (rule.isHoldReportCards() && documents.contains(Document.REPORT_CARDS)) held.add(Document.REPORT_CARDS);
         if (rule.isHoldTranscript() && documents.contains(Document.TRANSCRIPT)) held.add(Document.TRANSCRIPT);
         if (held.isEmpty()) return null;
-
-        FeeSchedule schedule = scheduleService.currentScheduleFor(student.getProgram(), student.getCurrentLevel()).orElse(null);
-        if (schedule == null) return null;    // no fee set for their class: nothing to hold them for
+        if (dues.isEmpty() && arrears.signum() <= 0) return null;    // nothing owed for their class: nothing to hold them for
 
         String currency = scheduleService.currency();
-        BigDecimal fee = schedule.getAmount();
-        BigDecimal paid = paymentRepository.sumPaid(student.getId(), schedule.getId());
+        BigDecimal fee = dues.stream().map(FeeDues.Due::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal paid = dues.stream().map(d -> d.paid().min(d.amount())).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal balance = fee.subtract(paid).max(BigDecimal.ZERO);
-        String sessionName = schedule.getSession().getName();
+        String sessionName = dues.isEmpty() ? academicSessionService.current().getName() : dues.get(0).schedule().getSession().getName();
         String what = describe(held);
 
         BigDecimal toPay;
         List<Map<String, Object>> unpaidItems = new ArrayList<>();
         String condition;
         ResultsFeeHold.Mode mode = rule.getMode();
-        if (mode == ResultsFeeHold.Mode.ITEMS && !schedule.isItemised()) mode = ResultsFeeHold.Mode.FULL;   // no breakdown to pick items from
+        if (mode == ResultsFeeHold.Mode.ITEMS && dues.stream().noneMatch(d -> d.schedule().isItemised()))
+            mode = ResultsFeeHold.Mode.FULL;   // no breakdown to pick items from
 
         switch (mode) {
             case PERCENT -> {
@@ -207,14 +218,16 @@ public class ResultsHoldService {
             case ITEMS -> {
                 Set<String> required = new HashSet<>();
                 for (String n : splitItems(rule.getRequiredItems())) required.add(FeeBreakdown.key(n));
-                Map<String, BigDecimal> forItems = new HashMap<>();
-                for (Object[] row : paymentRepository.paidItems(student.getId(), schedule.getId()))
-                    forItems.merge((String) row[0], (BigDecimal) row[1], BigDecimal::add);
                 toPay = BigDecimal.ZERO;
-                for (FeeBreakdown.Line line : FeeBreakdown.compute(schedule.getComponents(), forItems, paid)) {
-                    if (!required.contains(FeeBreakdown.key(line.name())) || line.balance().signum() <= 0) continue;
-                    toPay = toPay.add(line.balance());
-                    unpaidItems.add(line.toMap());
+                for (FeeDues.Due d : dues) {
+                    if (!d.schedule().isItemised()) continue;
+                    for (FeeBreakdown.Line line : FeeBreakdown.compute(d.components(), paidItems.apply(d.schedule().getId()), d.paid())) {
+                        if (!required.contains(FeeBreakdown.key(line.name())) || line.balance().signum() <= 0) continue;
+                        toPay = toPay.add(line.balance());
+                        Map<String, Object> m = line.toMap();
+                        if (dues.size() > 1) m.put("name", line.name() + " (" + FeeDues.periodName(d.schedule()) + ")");
+                        unpaidItems.add(m);
+                    }
                 }
                 condition = "you have paid for " + String.join(", ", unpaidItems.stream().map(i -> (String) i.get("name")).toList());
             }
@@ -222,6 +235,10 @@ public class ResultsHoldService {
                 toPay = balance;
                 condition = "your " + sessionName + " fees are paid in full";
             }
+        }
+        if (arrears.signum() > 0) {
+            condition = (toPay.signum() > 0 ? condition + " and " : "") + "your fees from earlier years (" + money(currency, arrears) + ") are paid";
+            toPay = toPay.add(arrears);
         }
         if (toPay.signum() <= 0) return null;
 
@@ -239,11 +256,41 @@ public class ResultsHoldService {
         out.put("sessionName", sessionName);
         out.put("fee", fee);
         out.put("paid", paid);
-        out.put("balance", balance);
+        out.put("balance", balance.add(arrears));
+        out.put("arrears", arrears);
         out.put("amountToRelease", toPay);
         out.put("unpaidItems", unpaidItems);
         out.put("feesPage", feesPage);
         return out;
+    }
+
+    /**
+     * For a report: tells from data already loaded (a live {@link FeeDues.Book} and each student's
+     * arrears) whose results are held. Loads the rules and the session's item payments once.
+     */
+    @Transactional(readOnly = true)
+    public java.util.function.BiPredicate<User, List<FeeDues.Due>> heldTester(FeeDues.Book book, Map<Long, BigDecimal[]> arrearsAndCredit) {
+        if (!isOn()) return (u, d) -> false;
+        Map<Long, ResultsFeeHold> rules = new HashMap<>();
+        for (ResultsFeeHold h : holdRepository.findAllWithProgram()) rules.put(h.getProgram().getId(), h);
+        if (rules.isEmpty()) return (u, d) -> false;
+        Map<List<Long>, Map<String, BigDecimal>> items = new HashMap<>();
+        for (Object[] r : paymentRepository.paidItemsBySession(book.session().getId()))
+            items.computeIfAbsent(List.of((Long) r[0], (Long) r[1]), k -> new HashMap<>()).merge((String) r[2], (BigDecimal) r[3], BigDecimal::add);
+        Set<Document> all = EnumSet.allOf(Document.class);
+        return (u, dues) -> {
+            ResultsFeeHold rule = u.getProgram() == null ? null : rules.get(u.getProgram().getId());
+            if (rule == null) return false;
+            BigDecimal[] ac = arrearsAndCredit.get(u.getId());
+            return evaluate(rule, all, dues, ac == null ? BigDecimal.ZERO : ac[0],
+                    scheduleId -> items.getOrDefault(List.of(u.getId(), scheduleId), Map.of())) != null;
+        };
+    }
+
+    private static Map<String, BigDecimal> sums(List<Object[]> rows) {
+        Map<String, BigDecimal> m = new HashMap<>();
+        for (Object[] r : rows) m.merge((String) r[0], (BigDecimal) r[1], BigDecimal::add);
+        return m;
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

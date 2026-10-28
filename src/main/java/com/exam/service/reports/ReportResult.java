@@ -1,5 +1,7 @@
 package com.exam.service.reports;
 
+import com.exam.model.academic.SchoolWords;
+import com.exam.model.academic.SystemMode;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -18,8 +20,8 @@ public class ReportResult {
             MONEY = "money", DATE = "date", DATETIME = "datetime";
 
     private final String key;
-    private final String title;
-    private final String description;
+    private String title;
+    private String description;
     /** What the report covers, e.g. "Session: 2025/2026", "Department: All departments". */
     private final List<String> scope = new ArrayList<>();
     private final List<Stat> summary = new ArrayList<>();
@@ -67,6 +69,21 @@ public class ReportResult {
         return t;
     }
 
+    /**
+     * Schools: university words become school words ({@link SchoolWords}), and the level column goes from
+     * every table where each row is level 1 or blank, since a class is one year long. Call once, last.
+     */
+    public ReportResult forSchools() {
+        if (!SystemMode.current().isSchool()) return this;
+        title = SchoolWords.apply(title);
+        description = SchoolWords.apply(description);
+        scope.replaceAll(SchoolWords::apply);
+        notes.replaceAll(SchoolWords::apply);
+        summary.replaceAll(s -> new Stat(SchoolWords.apply(s.label()), s.value(), SchoolWords.apply(s.hint()), s.tone()));
+        tables.forEach(Table::forSchools);
+        return this;
+    }
+
     /** Whether the PDF should be printed landscape. */
     public boolean isWide() {
         return tables.stream().anyMatch(t -> t.getColumns().size() > 7);
@@ -75,7 +92,7 @@ public class ReportResult {
     @Getter
     public static class Table {
         private final String id;
-        private final String title;
+        private String title;
         private String subtitle;
         private final List<Column> columns = new ArrayList<>();
         private final List<Map<String, Object>> rows = new ArrayList<>();
@@ -115,5 +132,20 @@ public class ReportResult {
         }
 
         public boolean isEmpty() { return rows.isEmpty(); }
+
+        void forSchools() {
+            title = SchoolWords.apply(title);
+            subtitle = SchoolWords.apply(subtitle);
+            emptyText = SchoolWords.apply(emptyText);
+            // The rows keep their level value (drill-downs may use it); only the column goes
+            if (rows.stream().allMatch(r -> firstLevel(r.get("level"))) && columns.removeIf(c -> c.key().equals("level"))
+                    && chart != null && (chart.label().equals("level") || chart.value().equals("level"))) chart = null;
+            columns.replaceAll(c -> new Column(c.key(), SchoolWords.apply(c.label()), c.type()));
+        }
+
+        private static boolean firstLevel(Object v) {
+            String s = v == null ? "" : v.toString().trim();
+            return s.isEmpty() || s.equals("1") || s.equals("-");
+        }
     }
 }

@@ -315,8 +315,8 @@ public class ReportQueries {
     /** (student id, schedule id) → total successfully paid, for one session. */
     public Map<List<Long>, BigDecimal> paidByStudentAndSchedule(Long sessionId) {
         Map<List<Long>, BigDecimal> out = new HashMap<>();
-        for (Object[] r : rows("SELECT st.id, sc.id, SUM(p.amount) FROM FeePayment p JOIN p.student st JOIN p.schedule sc "
-                + "WHERE p.session.id = :sessionId AND p.status = :status GROUP BY st.id, sc.id",
+        for (Object[] r : rows("SELECT p.student.id, a.schedule.id, SUM(a.amount) FROM FeeAllocation a JOIN a.payment p "
+                + "WHERE a.schedule.session.id = :sessionId AND p.status = :status GROUP BY p.student.id, a.schedule.id",
                 Map.of("sessionId", sessionId, "status", FeePayment.Status.SUCCESS)))
             out.put(List.of((Long) r[0], (Long) r[1]), (BigDecimal) r[2]);
         return out;

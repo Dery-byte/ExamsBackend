@@ -14,4 +14,7 @@ public class DepartmentDTO {
     private String name;
     private String code;
     private String description;
+    private Integer sortOrder;
+    /** Schools: years the section runs (Primary 6, JHS 3 …). */
+    private Integer durationYears;
 }

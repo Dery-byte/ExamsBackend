@@ -105,6 +105,10 @@ public class AuthenticationService {
                 .program(program)
                 .currentLevel(request.getCurrentLevel())
                 .mustChangePassword(createdByStaff() ? Boolean.TRUE : null)
+                .gender(com.exam.model.Gender.parse(request.getGender()))
+                // Only staff decide who boards
+                .residency(createdByStaff() && boardingSettings.mode() == com.exam.model.boarding.ResidencyMode.BOTH
+                        ? com.exam.model.Residency.parse(request.getResidency()) : null)
                 .build();
         var savedUser = userRepository.save(user);
         var jwtToken = jwtService.generateToken(user);
@@ -514,6 +518,7 @@ public class AuthenticationService {
         dto.setPhone(user.getPhone());
         dto.setCurrentLevel(user.getCurrentLevel());
         dto.setCurrentSemester(user.getCurrentSemester());
+        dto.setGender(user.getGender() != null ? user.getGender().name() : null);
         if (user.getProgram() != null) {
             dto.setProgramId(user.getProgram().getId());
             dto.setProgramName(user.getProgram().getName());
@@ -584,10 +589,20 @@ public class AuthenticationService {
 
     // Get all lecturers as DTOs
     public List<LecturerDTO> getAllStudents(String username) {
-        return filterByDepartmentIfAdmin(userRepository.findByRole(Role.NORMAL), username)
-                .stream()
-                .map(this::toDTO)
-                .toList();
+        List<User> students = filterByDepartmentIfAdmin(userRepository.findByRole(Role.NORMAL), username);
+        return withResidence(students, students.stream().map(this::toDTO).toList());
+    }
+
+    /** Adds each student's residency and room (while the institution has boarding). */
+    private List<LecturerDTO> withResidence(List<User> students, List<LecturerDTO> dtos) {
+        Map<Long, Map<String, Object>> where = boardingService.residenceOf(students);
+        for (LecturerDTO d : dtos) {
+            Map<String, Object> m = where.get(d.getId());
+            if (m == null) continue;
+            d.setResidency((String) m.get("residency"));
+            d.setResidence((String) m.get("residence"));
+        }
+        return dtos;
     }
 
 
@@ -605,7 +620,7 @@ public class AuthenticationService {
     // Get lecturer by id as DTO
     public Optional<LecturerDTO> getStuentById(Long id) {
         return userRepository.findByIdAndRole(id, Role.NORMAL)
-                .map(this::toDTO);
+                .map(u -> withResidence(List.of(u), List.of(toDTO(u))).get(0));
     }
 
     // Create or update lecturer and return DTO
@@ -709,6 +724,12 @@ public class AuthenticationService {
                     if (updateDTO.getProgramId() != null) {
                         existing.setProgram(programRepository.findById(updateDTO.getProgramId()).orElse(null));
                     }
+                    // Must still fit the student's room; a boarder made a day student leaves it
+                    boolean residencyGiven = updateDTO.getResidency() != null && boardingSettings.mode() == com.exam.model.boarding.ResidencyMode.BOTH;
+                    boardingService.applyStudentDetails(existing,
+                            updateDTO.getGender() != null, com.exam.model.Gender.parse(updateDTO.getGender()),
+                            residencyGiven, residencyGiven ? com.exam.model.Residency.parse(updateDTO.getResidency()) : null,
+                            currentUserService.current().orElse(null));
                     User saved = userRepository.save(existing);
                     userRepository.flush();
                     return toDTO(saved);
@@ -744,11 +765,17 @@ public class AuthenticationService {
     public void deleteLecturer(Long id) {
         refuseIfHistory(id);
         Optional<User> lecturer = userRepository.findByIdAndRole(id, Role.LECTURER);
-        lecturer.ifPresent(userRepository::delete);
+        lecturer.ifPresent(u -> { boardingService.forgetUser(u.getId()); userRepository.delete(u); });
     }
 
     @Autowired
     private com.exam.service.admin.AccountService accountService;
+    @Autowired
+    private com.exam.service.boarding.BoardingService boardingService;
+    @Autowired
+    private com.exam.service.boarding.BoardingSettings boardingSettings;
+    @Autowired
+    private com.exam.service.comms.CurrentUserService currentUserService;
 
     /** Deleting cascades to results, quizzes and courses, so accounts with history are deactivated instead. */
     private void refuseIfHistory(Long id) {
@@ -762,7 +789,7 @@ public class AuthenticationService {
     public void deleteStudent(Long id) {
         refuseIfHistory(id);
         Optional<User> student = userRepository.findByIdAndRole(id, Role.NORMAL);
-        student.ifPresent(userRepository::delete);
+        student.ifPresent(u -> { boardingService.forgetUser(u.getId()); userRepository.delete(u); });
     }
 
 

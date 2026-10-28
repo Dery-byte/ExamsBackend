@@ -462,18 +462,22 @@ public class MarksEntryController {
     public org.springframework.http.ResponseEntity<?> downloadMergedSemesterReportCard(
             @PathVariable("level") String level,
             @PathVariable("semester") Integer semester,
+            @RequestParam(value = "session", required = false) String session,
+            @RequestParam(value = "programId", required = false) Long programId,
             Principal principal) {
         if (principal == null) return org.springframework.http.ResponseEntity.status(401).body("Not authenticated.");
         try {
             User user = (User) userDetailsService.loadUserByUsername(principal.getName());
-            java.util.Map<String, Object> data = marksEntryService.getStudentReportCardDataByLevelAndSemester(level, semester, user.getId());
+            java.util.Map<String, Object> data = marksEntryService.getStudentReportCardDataByLevelAndSemester(level, semester, user.getId(), session, programId);
             if (data == null) {
                 return org.springframework.http.ResponseEntity.status(404).body("No marks found for this level and semester.");
             }
 
             byte[] pdf = pdfReportService.generateSemesterReportCardPdf(data, user.getUsername().toUpperCase());
 
-            String filename = "SemesterReportCard_Level" + level + "_Sem" + semester + "_" + user.getUsername() + ".pdf";
+            String filename = com.exam.model.academic.SystemMode.current().isSchool()
+                    ? "TerminalReport_" + data.get("programName") + "_Term" + semester + "_" + user.getUsername() + ".pdf"
+                    : "SemesterReportCard_Level" + level + "_Sem" + semester + "_" + user.getUsername() + ".pdf";
             filename = filename.replaceAll("[^a-zA-Z0-9_.\\-]", "_");
 
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();

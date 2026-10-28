@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * A message posted by the Super Admin (any scope) or an HOD (own department only).
+ * A message posted by the Super Admin (any scope), an HOD (own department only) or boarding staff (their house).
  * Optional department / program / level narrow who sees it.
  */
 @Entity
@@ -48,6 +48,15 @@ public class Announcement {
 
     /** Students only: restrict to one level (100, 200 …). */
     private Integer level;
+
+    /** Students only: BOARDERS or DAY (day students); null = both. */
+    @Column(length = 10)
+    private String residency;
+
+    /** Only the boarders living in this hostel (and, for staff audiences, its boarding staff). */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "hostel_id")
+    private com.exam.model.boarding.Hostel hostel;
 
     private boolean pinned = false;
 

@@ -38,6 +38,7 @@ public class AccountService {
     @Autowired private StudentCourseMarkRepository studentCourseMarkRepository;
     @Autowired private Registered_coursesRepository registeredCoursesRepository;
     @Autowired private CategoryRepository categoryRepository;
+    @Autowired private com.exam.service.boarding.BoardingService boardingService;
 
     /** One-time: before this feature 'enabled' was ignored, so accounts stored as disabled are re-enabled. */
     @EventListener(ApplicationReadyEvent.class)
@@ -62,6 +63,7 @@ public class AccountService {
         target.setDeactivationReason(reason == null || reason.isBlank() ? null : reason.trim().substring(0, Math.min(reason.trim().length(), 300)));
         userRepository.save(target);
         revokeSessions(target);
+        if (target.getRole() == Role.NORMAL) boardingService.onDeactivated(target, actor);   // a leaver gives up their room
         return status(target);
     }
 

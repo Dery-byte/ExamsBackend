@@ -52,6 +52,12 @@ public class SystemSettingService {
     public static final String FEES_ITEM_PAYMENT     = "FEES_ITEM_PAYMENT";
     /** Master switch for holding report cards / transcripts until fees are paid (rules are per programme). */
     public static final String FEES_RESULTS_HOLD     = "FEES_RESULTS_HOLD";
+    /** Stores: hand stocked items over before the bill is paid in full. */
+    public static final String FEES_STOCK_ISSUE_UNPAID = "FEES_STOCK_ISSUE_UNPAID";
+    /** Remind students who owe every N days automatically (0 = off). */
+    public static final String FEES_AUTO_REMINDER_DAYS = "FEES_AUTO_REMINDER_DAYS";
+    /** Super Admin: a one-person accounts office; the bursar's own cash-ups need no second check. */
+    public static final String FEES_SELF_CASHUP = "FEES_SELF_CASHUP";
 
     /**
      * Super Admin switch: show the "Verify a transcript or report card" link on the sign-in page.
@@ -69,7 +75,7 @@ public class SystemSettingService {
     public static final String MODULE_ASSESSMENTS = "MODULE_ASSESSMENTS";
 
     /** Keys only the developer may change; the Super Admin's settings endpoint refuses them. */
-    public static final Set<String> DEVELOPER_ONLY = Set.of(AUDIT_LOG_VISIBLE_SUPER_ADMIN, "SYSTEM_MODE", MODULE_ASSESSMENTS);
+    public static final Set<String> DEVELOPER_ONLY = Set.of(AUDIT_LOG_VISIBLE_SUPER_ADMIN, "SYSTEM_MODE", MODULE_ASSESSMENTS, "RESIDENCY_MODE");
     /** Whole families of developer-only keys: colour theme, maintenance mode, setup bookkeeping. */
     private static final List<String> DEVELOPER_ONLY_PREFIXES = List.of("THEME_", "MAINTENANCE_", "SETUP_", "SUBSCRIPTION_");
 

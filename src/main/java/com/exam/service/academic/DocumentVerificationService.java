@@ -87,6 +87,16 @@ public class DocumentVerificationService {
         return repository.findByStudentUsernameContainingIgnoreCaseOrCodeContainingIgnoreCaseOrderByIssuedAtDesc(term, term, page);
     }
 
+    /** Revokes the document with this code (e.g. the receipt of a voided payment); no-op if unknown. */
+    public void revokeCode(String code, String reason) {
+        if (code == null) return;
+        repository.findByCode(code).ifPresent(d -> {
+            d.setRevoked(true);
+            d.setRevokedReason(cut(reason, 300));
+            repository.save(d);
+        });
+    }
+
     public DocumentVerification setRevoked(Long id, boolean revoked, String reason) {
         DocumentVerification d = repository.findById(id).orElseThrow(() -> new IllegalArgumentException("Document not found."));
         d.setRevoked(revoked);

@@ -148,7 +148,7 @@ public class ReportSupport {
         Map<String, String> t = terms();
         r.scope("Department: " + (f.departmentId() == null ? "All departments" : Objects.toString(l.deptName(f.departmentId()), "?")));
         if (f.programId() != null) r.scope(t.get("program") + ": " + Objects.toString(l.programName(f.programId()), "?"));
-        if (f.level() != null) r.scope(t.get("level") + ": " + f.level());
+        if (f.level() != null && !isSchool()) r.scope(t.get("level") + ": " + f.level());   // schools: a class is one year
         if (f.semester() != null) r.scope(t.get("semester") + ": " + semesterName(f.semester()));
     }
 
