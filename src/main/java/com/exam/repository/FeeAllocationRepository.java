@@ -52,7 +52,7 @@ public interface FeeAllocationRepository extends JpaRepository<FeeAllocation, Lo
     }
 
     @Query("SELECT COALESCE(SUM(a.amount), 0) FROM FeeAllocation a WHERE a.payment.student.id = :studentId "
-            + "AND a.schedule IS NULL AND a.bill IS NULL AND a.arrears IS NULL AND a.refund IS NULL AND a.payment.status = :status")
+            + "AND a.schedule IS NULL AND a.bill IS NULL AND a.arrears IS NULL AND a.refund IS NULL AND a.payment.walletDeposit = false AND a.payment.status = :status")
     BigDecimal sumCredit(@Param("studentId") Long studentId, @Param("status") FeePayment.Status status);
 
     /** Money the student paid beyond everything owed, not yet used. */
@@ -61,7 +61,7 @@ public interface FeeAllocationRepository extends JpaRepository<FeeAllocation, Lo
     }
 
     @Query("SELECT a FROM FeeAllocation a JOIN FETCH a.payment p WHERE p.student.id = :studentId "
-            + "AND a.schedule IS NULL AND a.bill IS NULL AND a.arrears IS NULL AND a.refund IS NULL AND p.status = :status AND a.amount > 0 ORDER BY p.paidAt ASC, a.id ASC")
+            + "AND a.schedule IS NULL AND a.bill IS NULL AND a.arrears IS NULL AND a.refund IS NULL AND p.walletDeposit = false AND p.status = :status AND a.amount > 0 ORDER BY p.paidAt ASC, a.id ASC")
     List<FeeAllocation> findCredit(@Param("studentId") Long studentId, @Param("status") FeePayment.Status status);
 
     /** The student's unused credit, oldest payment first. */
@@ -70,7 +70,7 @@ public interface FeeAllocationRepository extends JpaRepository<FeeAllocation, Lo
     }
 
     @Query("SELECT a.payment.student.id, SUM(a.amount) FROM FeeAllocation a WHERE a.schedule IS NULL AND a.bill IS NULL AND a.arrears IS NULL AND a.refund IS NULL "
-            + "AND a.payment.status = :status GROUP BY a.payment.student.id HAVING SUM(a.amount) > 0")
+            + "AND a.payment.walletDeposit = false AND a.payment.status = :status GROUP BY a.payment.student.id HAVING SUM(a.amount) > 0")
     List<Object[]> creditByStudentAndStatus(@Param("status") FeePayment.Status status);
 
     /** [studentId, unused credit] of every student who has some. */
@@ -80,6 +80,36 @@ public interface FeeAllocationRepository extends JpaRepository<FeeAllocation, Lo
 
     default List<Long> studentsWithCredit() {
         return creditByStudent().stream().map(r -> (Long) r[0]).toList();
+    }
+
+    // ── Wallets: the unspent part of wallet deposits (never counted as credit) ──
+
+    @Query("SELECT COALESCE(SUM(a.amount), 0) FROM FeeAllocation a WHERE a.payment.student.id = :studentId "
+            + "AND a.schedule IS NULL AND a.bill IS NULL AND a.arrears IS NULL AND a.refund IS NULL AND a.payment.walletDeposit = true AND a.payment.status = :status")
+    BigDecimal sumWallet(@Param("studentId") Long studentId, @Param("status") FeePayment.Status status);
+
+    /** What is in the student's wallet. */
+    default BigDecimal wallet(Long studentId) {
+        return sumWallet(studentId, FeePayment.Status.SUCCESS);
+    }
+
+    @Query("SELECT a FROM FeeAllocation a JOIN FETCH a.payment p WHERE p.student.id = :studentId "
+            + "AND a.schedule IS NULL AND a.bill IS NULL AND a.arrears IS NULL AND a.refund IS NULL AND p.walletDeposit = true AND p.status = :status AND a.amount > 0 ORDER BY p.paidAt ASC, a.id ASC")
+    List<FeeAllocation> findWallet(@Param("studentId") Long studentId, @Param("status") FeePayment.Status status);
+
+    /** The student's wallet money, oldest deposit first (spent and paid back in that order). */
+    default List<FeeAllocation> openWallet(Long studentId) {
+        return findWallet(studentId, FeePayment.Status.SUCCESS);
+    }
+
+    @Query("SELECT COUNT(DISTINCT a.payment.student.id), COALESCE(SUM(a.amount), 0) FROM FeeAllocation a WHERE a.schedule IS NULL AND a.bill IS NULL "
+            + "AND a.arrears IS NULL AND a.refund IS NULL AND a.payment.walletDeposit = true AND a.payment.status = :status AND a.amount > 0")
+    List<Object[]> walletTotalsByStatus(@Param("status") FeePayment.Status status);
+
+    /** [students with wallet money, total held in wallets]: what the school is keeping for students. */
+    default Object[] walletTotals() {
+        List<Object[]> rows = walletTotalsByStatus(FeePayment.Status.SUCCESS);
+        return rows.isEmpty() ? new Object[]{0L, BigDecimal.ZERO} : rows.get(0);
     }
 
     @Query("SELECT a.arrears.id, SUM(a.amount) FROM FeeAllocation a WHERE a.arrears.id IN :ids AND a.payment.status = :status GROUP BY a.arrears.id")

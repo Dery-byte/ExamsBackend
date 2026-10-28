@@ -33,6 +33,7 @@ public class RefundService {
     @Autowired private FeeLedger ledger;
     @Autowired private ReceiptService numbers;
     @Autowired private FeeScheduleService scheduleService;
+    @Autowired private com.exam.repository.WalletWithdrawalRepository withdrawals;
 
     public record RefundRequest(Long studentId, BigDecimal amount, String method, String paidTo, String reason) {}
 
@@ -84,8 +85,12 @@ public class RefundService {
         r.setVoidedBy(CurrentUserService.displayName(actor));
         r.setVoidReason(why);
         refunds.save(r);
-        ledger.unrefund(r);                        // the money is credit again …
-        ledger.applyCredit(r.getStudent());        // … and goes to anything owed
+        ledger.unrefund(r);                        // the money is credit (or back in the wallet) again …
+        ledger.applyCredit(r.getStudent());        // … and credit goes to anything owed
+        withdrawals.findByRefund_Id(r.getId()).ifPresent(w -> {
+            w.setStatus(com.exam.model.fees.WalletWithdrawal.Status.REVERSED);
+            withdrawals.save(w);
+        });
         return dto(r);
     }
 

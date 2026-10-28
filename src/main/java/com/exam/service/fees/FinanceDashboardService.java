@@ -21,7 +21,7 @@ import java.util.*;
 
 /**
  * The accounts office at a glance: money received today (by method and by who took it), this week and
- * this month, what students owe so far this session, and the latest payments.
+ * this month, what students owe so far this session, what their wallets hold, and the latest payments.
  */
 @Service
 public class FinanceDashboardService {
@@ -32,6 +32,7 @@ public class FinanceDashboardService {
     @Autowired private FeeScheduleService schedules;
     @Autowired private AcademicSessionService academicSessions;
     @Autowired private CashBookService cashBook;
+    @Autowired private com.exam.repository.FeeAllocationRepository allocations;
 
     @Transactional(readOnly = true)
     public Map<String, Object> dashboard(User me) {
@@ -109,6 +110,9 @@ public class FinanceDashboardService {
         s.put("credit", credit);
         s.put("closed", !book.live());
         out.put("session", s);
+        // Money students paid in ahead and haven't used: the school holds it for them
+        Object[] wallets = allocations.walletTotals();
+        out.put("wallets", Map.of("students", ((Number) wallets[0]).longValue(), "held", wallets[1]));
 
         out.put("recent", month.stream().limit(10).map(p -> {
             Map<String, Object> m = new LinkedHashMap<>();

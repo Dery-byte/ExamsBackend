@@ -71,6 +71,13 @@ public class FeePayment {
     @Column(nullable = false, length = 3)
     private String currency;
 
+    /**
+     * Money paid into the student's wallet rather than towards what they owe: it stays there (an
+     * allocation with no target) until the student spends it or it is paid back (see FeeLedger).
+     */
+    @Column(name = "wallet_deposit", nullable = false)
+    private boolean walletDeposit;
+
     /** Our reference, also sent to Paystack; printed on the receipt. */
     @Column(nullable = false, length = 64)
     private String reference;

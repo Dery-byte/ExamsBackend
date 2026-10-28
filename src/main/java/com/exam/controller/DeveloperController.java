@@ -129,19 +129,35 @@ public class DeveloperController {
 
     @GetMapping("/api/v1/developer/modules")
     public Map<String, Object> modules() {
-        return Map.of("assessments", systemSettingService.assessmentsOn(), "residency", boardingSettings.mode().name());
+        return Map.of("assessments", systemSettingService.assessmentsOn(), "residency", boardingSettings.mode().name(),
+                "walletSpendSuperAdmin", systemSettingService.getBooleanSetting(SystemSettingService.WALLET_STAFF_SPEND_SUPER_ADMIN, false),
+                "walletSpendBursar", systemSettingService.getBooleanSetting(SystemSettingService.WALLET_STAFF_SPEND_BURSAR, false));
     }
 
     /**
      * Switches the whole Assessments (quiz) module on or off for every user, and/or sets how students
-     * are housed: DAY (day only, boarding hidden), BOARDING (everyone boards) or BOTH. Send either key.
+     * are housed: DAY (day only, boarding hidden), BOARDING (everyone boards) or BOTH, and/or who may pay
+     * students' fees and bills from their wallets (walletSpendSuperAdmin, walletSpendBursar). Send any key.
      */
     @PutMapping("/api/v1/developer/modules")
     public Map<String, Object> setModules(@RequestBody Map<String, Object> body, HttpServletRequest request) {
         Object assessments = body == null ? null : body.get("assessments");
         Object residency = body == null ? null : body.get("residency");
-        if (assessments == null && residency == null) throw new IllegalArgumentException("Send assessments or residency.");
+        Object spendSa = body == null ? null : body.get("walletSpendSuperAdmin");
+        Object spendBursar = body == null ? null : body.get("walletSpendBursar");
+        if (assessments == null && residency == null && spendSa == null && spendBursar == null)
+            throw new IllegalArgumentException("Send assessments, residency, walletSpendSuperAdmin or walletSpendBursar.");
         List<String> changes = new ArrayList<>();
+        if (spendSa != null) {
+            if (!(spendSa instanceof Boolean on)) throw new IllegalArgumentException("walletSpendSuperAdmin must be true or false.");
+            systemSettingService.updateSetting(SystemSettingService.WALLET_STAFF_SPEND_SUPER_ADMIN, String.valueOf(on));
+            changes.add("Super Admin can pay from student wallets = " + on);
+        }
+        if (spendBursar != null) {
+            if (!(spendBursar instanceof Boolean on)) throw new IllegalArgumentException("walletSpendBursar must be true or false.");
+            systemSettingService.updateSetting(SystemSettingService.WALLET_STAFF_SPEND_BURSAR, String.valueOf(on));
+            changes.add("Bursar can pay from student wallets = " + on);
+        }
         if (assessments != null) {
             if (!(assessments instanceof Boolean on)) throw new IllegalArgumentException("assessments must be true or false.");
             systemSettingService.updateSetting(SystemSettingService.MODULE_ASSESSMENTS, String.valueOf(on));

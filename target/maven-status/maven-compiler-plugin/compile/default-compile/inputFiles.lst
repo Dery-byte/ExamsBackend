@@ -46,6 +46,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\fee
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\AttendanceDeviceRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\ProgramRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\UpdateQuizStatusRequest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\WalletController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\SmsRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\GradeBandRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\attendance\AttendanceGeo.java
@@ -53,6 +54,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\Redi
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\FeePaymentRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\TheoryGradingQueue.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\boarding\HostelGender.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\WalletWithdrawalRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\examops\QuestionBankService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\reports\AccountsReports.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\fees\FinanceAccess.java
@@ -114,6 +116,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\fees\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\DepartmentFeatureSettingRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\LlmProviderController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\QuizUnlockRepository.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\WalletSpendRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\examops\RemarkRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\examops\TimetableService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\reports\ResultsReports.java
@@ -254,6 +257,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\Category.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\subscription\SubscriptionMonitor.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\boarding\ResidencyMode.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\fees\WalletService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\fees\YearEndService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\User.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\GPTRequest.java
@@ -370,6 +374,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\Stri
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\fees\PriceItem.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\examops\ExamAccess.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\HostelBlockRepository.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\fees\WalletWithdrawal.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\llm\DeepSeekEvaluationStrategy.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\boarding\RoomAllocation.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\QuizTimerController.java
@@ -418,6 +423,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\boa
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\SubscriptionEventRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\AttemptStatus.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\monitoring\DeveloperEmail.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\fees\WalletSpend.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\QuizAttemptController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuizProgressService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\ForgottenPasswordRequest.java

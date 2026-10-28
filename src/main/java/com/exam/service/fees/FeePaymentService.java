@@ -72,6 +72,8 @@ public class FeePaymentService {
     @Autowired private FeeDues feeDues;
     @Autowired private ReceiptService receipts;
     @Autowired private FeeLedger ledger;
+    @Autowired private com.exam.repository.FeeAllocationRepository allocationRepository;
+    @Autowired private com.exam.repository.WalletWithdrawalRepository withdrawalRepository;
 
     @Value("${app.frontend-url:http://localhost:4200}")
     private String frontendUrl;
@@ -239,7 +241,7 @@ public class FeePaymentService {
         com.exam.model.fees.StudentBill bill = target.bill() == null ? null : target.bill().bill();
         Optional<FeePayment> open = paymentRepository.findOpenCheckouts(student.getId(), FeePayment.Status.PENDING,
                         amount, LocalDateTime.now().minus(REUSE_CHECKOUT)).stream()
-                .filter(x -> x.getAuthorizationUrl() != null && x.getSchedule() == schedule && x.getBill() == bill)
+                .filter(x -> x.getAuthorizationUrl() != null && !x.isWalletDeposit() && x.getSchedule() == schedule && x.getBill() == bill)
                 .filter(x -> allocationKey(x.getItems().stream().map(i -> new Allocation(i.getName(), i.getAmount())).toList()).equals(wanted))
                 .findFirst();
         if (open.isPresent()) {
@@ -248,15 +250,40 @@ public class FeePaymentService {
 
         FeePayment p = newPayment(student, schedule, bill, amount);
         p.setReference(newReference("FEE"));
+        addItems(p, allocations);
+        return checkout(student, p, "/user-dashboard/fees");
+    }
+
+    /**
+     * Starts a Paystack checkout that puts money in the student's wallet (WalletService checks the
+     * wallet is on and has room). Clicking Deposit again for the same amount reopens the same checkout.
+     */
+    public Map<String, Object> startDeposit(User student, BigDecimal amount) {
+        if (!onlinePaymentAvailable())
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Online payment isn't open right now. You can pay into your wallet at the accounts office.");
+        if (student.getEmail() == null || !student.getEmail().contains("@"))
+            throw new IllegalArgumentException("Add a valid email address to your profile before paying online; Paystack sends your payment confirmation there.");
+        Optional<FeePayment> open = paymentRepository.findOpenCheckouts(student.getId(), FeePayment.Status.PENDING,
+                        amount, LocalDateTime.now().minus(REUSE_CHECKOUT)).stream()
+                .filter(x -> x.getAuthorizationUrl() != null && x.isWalletDeposit())
+                .findFirst();
+        if (open.isPresent()) return Map.of("reference", open.get().getReference(), "authorizationUrl", open.get().getAuthorizationUrl());
+        FeePayment p = newPayment(student, null, null, amount);
+        p.setWalletDeposit(true);
+        p.setReference(newReference("WAL"));
+        return checkout(student, p, "/user-dashboard/wallet");
+    }
+
+    /** Saves the payment as PENDING and opens Paystack's checkout for it; Paystack sends the student back to returnPath. */
+    private Map<String, Object> checkout(User student, FeePayment p, String returnPath) {
         p.setMethod(FeePayment.Method.PAYSTACK);
         p.setStatus(FeePayment.Status.PENDING);
         p.setPayerEmail(student.getEmail());
-        addItems(p, allocations);
         p = paymentRepository.save(p);
 
         try {
-            String returnUrl = frontendUrl.replaceAll("/+$", "") + "/user-dashboard/fees";
-            JsonNode data = paystack.initialize(student.getEmail(), minor(amount), p.getCurrency(), p.getReference(),
+            String returnUrl = frontendUrl.replaceAll("/+$", "") + returnPath;
+            JsonNode data = paystack.initialize(student.getEmail(), minor(p.getAmount()), p.getCurrency(), p.getReference(),
                     returnUrl, metadata(student, p, returnUrl + "?cancelled=" + p.getReference()));
             p.setAuthorizationUrl(data.path("authorization_url").asText(null));
             paymentRepository.save(p);
@@ -268,7 +295,7 @@ public class FeePaymentService {
         }
         if (p.getAuthorizationUrl() == null)
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Paystack did not return a checkout page. Please try again.");
-        log.info("[Fees] Checkout {} started for student {} ({} {})", p.getReference(), student.getId(), p.getCurrency(), amount);
+        log.info("[Fees] Checkout {} started for student {} ({} {})", p.getReference(), student.getId(), p.getCurrency(), p.getAmount());
         return Map.of("reference", p.getReference(), "authorizationUrl", p.getAuthorizationUrl());
     }
 
@@ -300,7 +327,7 @@ public class FeePaymentService {
             String event = root.path("event").asText("");
             JsonNode data = root.path("data");
             String reference = data.path("reference").asText("");
-            if (reference.isEmpty() || !reference.startsWith("FEE-")) return true;    // not one of ours
+            if (!reference.startsWith("FEE-") && !reference.startsWith("WAL-")) return true;    // not one of ours
             if ("charge.success".equals(event)) {
                 FeePayment p = settle(reference, data);
                 if (p != null) log.info("[Fees] Webhook settled {} as {}", reference, p.getStatus());
@@ -467,24 +494,42 @@ public class FeePaymentService {
                 ? FeeScheduleService.money(req.amount(), "The amount")
                 : allocations.stream().map(Allocation::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        FeePayment.Method method;
-        try { method = FeePayment.Method.valueOf(req.method() == null ? "CASH" : req.method().trim().toUpperCase()); }
-        catch (IllegalArgumentException e) { throw new IllegalArgumentException("Choose how the money was paid."); }
-        if (method == FeePayment.Method.PAYSTACK) throw new IllegalArgumentException("Online payments are recorded automatically.");
-        if (req.paidOn() != null && req.paidOn().isAfter(LocalDate.now())) throw new IllegalArgumentException("The payment date can't be in the future.");
-        String note = req.note() == null || req.note().isBlank() ? null : req.note().trim();
-        if (note != null && note.length() > 300) throw new IllegalArgumentException("The note is too long (300 characters at most).");
-
         FeePayment p = newPayment(student, target.schedule(), target.bill() == null ? null : target.bill().bill(), amount);
         p.setReference(newReference("MAN"));
+        manual(p, req.method(), req.paidOn(), req.note(), actor, actorId);
+        addItems(p, allocations);
+        succeed(p);
+        return toDto(paymentRepository.save(p), true);
+    }
+
+    /** Fills in money received at the office: how, when, the note and who recorded it. */
+    private static void manual(FeePayment p, String methodName, LocalDate paidOn, String rawNote, String actor, Long actorId) {
+        FeePayment.Method method;
+        try { method = FeePayment.Method.valueOf(methodName == null ? "CASH" : methodName.trim().toUpperCase()); }
+        catch (IllegalArgumentException e) { throw new IllegalArgumentException("Choose how the money was paid."); }
+        if (method == FeePayment.Method.PAYSTACK) throw new IllegalArgumentException("Online payments are recorded automatically.");
+        if (paidOn != null && paidOn.isAfter(LocalDate.now())) throw new IllegalArgumentException("The payment date can't be in the future.");
+        String note = rawNote == null || rawNote.isBlank() ? null : rawNote.trim();
+        if (note != null && note.length() > 300) throw new IllegalArgumentException("The note is too long (300 characters at most).");
         p.setMethod(method);
         p.setStatus(FeePayment.Status.SUCCESS);
-        p.setPaidAt(req.paidOn() == null || req.paidOn().equals(LocalDate.now()) ? LocalDateTime.now() : req.paidOn().atStartOfDay());
+        p.setPaidAt(paidOn == null || paidOn.equals(LocalDate.now()) ? LocalDateTime.now() : paidOn.atStartOfDay());
         p.setRecordedBy(actor);
         p.setRecordedById(actorId);
         p.setNote(note);
-        p.setPayerEmail(student.getEmail());
-        addItems(p, allocations);
+        p.setPayerEmail(p.getStudent().getEmail());
+    }
+
+    /**
+     * Money paid into a student's wallet at the accounts office (cash, bank deposit …); WalletService
+     * checks the wallet is on and has room. It stays in the wallet until the student uses it.
+     */
+    @Transactional
+    public Map<String, Object> recordDeposit(User student, BigDecimal amount, String method, LocalDate paidOn, String note, User actor) {
+        FeePayment p = newPayment(student, null, null, amount);
+        p.setWalletDeposit(true);
+        p.setReference(newReference("WAL"));
+        manual(p, method, paidOn, note, CurrentUserService.displayName(actor), actor.getId());
         succeed(p);
         return toDto(paymentRepository.save(p), true);
     }
@@ -519,6 +564,14 @@ public class FeePaymentService {
         ledger.lock(p.getStudent());
         if (p.getAllocations().stream().anyMatch(a -> a.getRefund() != null))
             throw new IllegalArgumentException("Part of this payment was refunded. Cancel the refund first.");
+        if (p.isWalletDeposit()) {
+            // Only money still sitting in the wallet can be taken back out of it
+            if (p.getAllocations().stream().anyMatch(a -> !a.isWallet()))
+                throw new IllegalArgumentException("The student has already used part of this deposit, so it can't be cancelled.");
+            Long studentId = p.getStudent().getId();
+            if (allocationRepository.wallet(studentId).subtract(p.getAmount()).compareTo(withdrawalRepository.held(studentId)) < 0)
+                throw new IllegalArgumentException("Part of this deposit is held for a withdrawal request. Reject or finish that request first.");
+        }
         p.setStatus(FeePayment.Status.VOIDED);
         p.setVoidedAt(LocalDateTime.now());
         p.setVoidedBy(actor);
@@ -683,11 +736,17 @@ public class FeePaymentService {
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found.")));
     }
 
+    /** As the payment lists show it. Needs an open transaction (student and session are lazy). */
+    public Map<String, Object> dto(FeePayment p, boolean forStaff) {
+        return toDto(p, forStaff);
+    }
+
     /** Needs an open transaction (student and session are lazy). */
     private Map<String, Object> toDto(FeePayment p, boolean forStaff) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", p.getId());
         m.put("reference", p.getReference());
+        m.put("walletDeposit", p.isWalletDeposit());
         m.put("amount", p.getAmount());
         m.put("currency", p.getCurrency());
         m.put("status", p.getStatus().name());
@@ -738,7 +797,8 @@ public class FeePaymentService {
                 field("Programme", p.getProgramName()),
                 field("Level", String.valueOf(p.getLevel())),
                 field("Session", p.getSession().getName() + (schedule != null && schedule.getTerm() != null ? " · " + FeeDues.periodName(schedule) : "")),
-                field("Paying for", !p.getItems().isEmpty() ? String.join(", ", p.getItems().stream().map(FeePaymentItem::getName).toList())
+                field("Paying for", p.isWalletDeposit() ? "Wallet deposit (paid in advance)"
+                        : !p.getItems().isEmpty() ? String.join(", ", p.getItems().stream().map(FeePaymentItem::getName).toList())
                         : p.getBill() != null ? p.getBill().getTitle() : schedule != null ? "Fees" : "Fees and bills")));
         return meta;
     }

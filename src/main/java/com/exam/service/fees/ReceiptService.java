@@ -46,13 +46,14 @@ public class ReceiptService {
         verification.revokeCode(p.getVerificationCode(), "Payment cancelled: " + reason);
     }
 
-    /** The next number for the year, under a row lock (the year's row is created on its own first). */
+    /**
+     * The next number for the year, under a row lock. The year's row is created (on its own) before
+     * locking: on MySQL, locking a row that isn't there gap-locks it, and the insert would then wait on
+     * our own lock until it timed out, rolling back the payment.
+     */
     long next(int year) {
-        ReceiptSequence s = sequences.lockYear(year).orElse(null);
-        if (s == null) {
-            createYear(year);
-            s = sequences.lockYear(year).orElseThrow();
-        }
+        if (!sequences.existsById(year)) createYear(year);
+        ReceiptSequence s = sequences.lockYear(year).orElseThrow();
         s.setLastNumber(s.getLastNumber() + 1);
         sequences.save(s);
         return s.getLastNumber();
@@ -78,8 +79,8 @@ public class ReceiptService {
     /** The next number of a named series for this year, e.g. "RF" → RF-2026-000001 (never reused). */
     public String nextNumber(String prefix) {
         String name = prefix + "-" + LocalDateTime.now().getYear();
-        com.exam.model.fees.FinanceSequence s = series.lock(name).orElse(null);
-        if (s == null) {
+        // Created before locking, as in next(year)
+        if (!series.existsById(name)) {
             TransactionTemplate tx = new TransactionTemplate(transactionManager);
             tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
             try {
@@ -92,8 +93,8 @@ public class ReceiptService {
             } catch (DataIntegrityViolationException e) {
                 // created by someone else a moment earlier
             }
-            s = series.lock(name).orElseThrow();
         }
+        com.exam.model.fees.FinanceSequence s = series.lock(name).orElseThrow();
         s.setLastNumber(s.getLastNumber() + 1);
         series.save(s);
         return String.format(Locale.ROOT, "%s-%06d", name, s.getLastNumber());

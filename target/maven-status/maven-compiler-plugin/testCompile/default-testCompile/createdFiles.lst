@@ -49,6 +49,7 @@ com\exam\service\QuizServiceAutoCloseTest.class
 com\exam\service\academic\DocumentVerificationCodeTest.class
 com\exam\service\AttemptServiceJpaTest.class
 com\exam\service\TheoryGradingQueueTest.class
+com\exam\service\fees\WalletJpaTest.class
 com\exam\SecurityApplicationTests.class
 com\exam\service\boarding\BoardingBulkJpaTest.class
 com\exam\service\fees\FeeBreakdownTest.class
@@ -57,4 +58,5 @@ com\exam\service\fees\BillingJpaTest.class
 com\exam\helper\TheoryCriteriaVisibilityTest.class
 com\exam\service\admin\ConfigTransferServiceTest.class
 com\exam\SubscriptionEnforcementIntegrationTest.class
+com\exam\WalletStaffSpendIntegrationTest.class
 com\exam\config\JacksonProxyJpaTest.class

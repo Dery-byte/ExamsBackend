@@ -74,8 +74,16 @@ public class SystemSettingService {
      */
     public static final String MODULE_ASSESSMENTS = "MODULE_ASSESSMENTS";
 
+    /**
+     * Developer switches: whether the Super Admin / the bursar may pay a student's fees and bills from
+     * the student's wallet (cashiers never may). Both off until the developer switches them on.
+     */
+    public static final String WALLET_STAFF_SPEND_SUPER_ADMIN = "WALLET_STAFF_SPEND_SUPER_ADMIN";
+    public static final String WALLET_STAFF_SPEND_BURSAR = "WALLET_STAFF_SPEND_BURSAR";
+
     /** Keys only the developer may change; the Super Admin's settings endpoint refuses them. */
-    public static final Set<String> DEVELOPER_ONLY = Set.of(AUDIT_LOG_VISIBLE_SUPER_ADMIN, "SYSTEM_MODE", MODULE_ASSESSMENTS, "RESIDENCY_MODE");
+    public static final Set<String> DEVELOPER_ONLY = Set.of(AUDIT_LOG_VISIBLE_SUPER_ADMIN, "SYSTEM_MODE", MODULE_ASSESSMENTS, "RESIDENCY_MODE",
+            WALLET_STAFF_SPEND_SUPER_ADMIN, WALLET_STAFF_SPEND_BURSAR);
     /** Whole families of developer-only keys: colour theme, maintenance mode, setup bookkeeping. */
     private static final List<String> DEVELOPER_ONLY_PREFIXES = List.of("THEME_", "MAINTENANCE_", "SETUP_", "SUBSCRIPTION_");
 

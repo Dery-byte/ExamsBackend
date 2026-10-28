@@ -27,7 +27,10 @@ import java.util.*;
  *   <li>money counted against a charge beyond what it now comes to (after a concession, a lower price
  *       or residency, a cancelled bill) goes back to credit, newest payment first;</li>
  *   <li>credit goes to what is owed, oldest first, straight away ({@link #applyCredit});</li>
- *   <li>a refund pays back credit only, oldest payment first.</li>
+ *   <li>a refund pays back credit only, oldest payment first;</li>
+ *   <li>a wallet deposit stays whole in the wallet (no target, on a deposit) and only moves when the
+ *       student spends it ({@link #spendWallet}) or it is paid back ({@link #payOutWallet}); money
+ *       released from a charge it paid goes back to the wallet, never to credit.</li>
  * </ul>
  * A student's money only moves under a row lock on the student, so two changes never count the same
  * balance twice. A sweep each hour settles accounts nobody opened (a new term, a new concession).
@@ -44,7 +47,7 @@ public class FeeLedger {
     @Autowired private AcademicSessionService academicSessions;
     @Autowired private PlatformTransactionManager transactionManager;
 
-    /** Where money sits: exactly one of these, or none for credit. */
+    /** Where money sits: exactly one of these, or none for credit (wallet money on a wallet deposit). */
     private record Target(FeeSchedule schedule, StudentBill bill, FeeArrears arrears, FeeRefund refund) {
         static final Target CREDIT = new Target(null, null, null, null);
         boolean credit() { return schedule == null && bill == null && arrears == null && refund == null; }
@@ -73,6 +76,10 @@ public class FeeLedger {
      */
     public void allocate(FeePayment p) {
         if (!p.getAllocations().isEmpty()) return;
+        if (p.isWalletDeposit()) {
+            add(p, Target.CREDIT, p.getAmount());
+            return;
+        }
         if (!p.getItems().isEmpty() && p.getSchedule() != null) {
             add(p, new Target(p.getSchedule(), null, null, null), p.getAmount());
             return;
@@ -185,7 +192,68 @@ public class FeeLedger {
         if (left.signum() > 0) throw new IllegalStateException("Not enough credit to refund.");
     }
 
-    /** A refund was voided: the money is credit again. Then call {@link #applyCredit}. */
+    /**
+     * Moves {@code amount} of the student's wallet money, oldest deposit first, to what they owe: only the
+     * chosen fee or bill, else everything oldest first (arrears, fees by term, bills). Returns what it
+     * paid ("Term 1 fees · 2026/2027" → amount). The caller has locked the student, settled their credit
+     * and checked the wallet holds enough.
+     */
+    public Map<String, BigDecimal> spendWallet(User student, FeeSchedule chosenFee, StudentBill chosenBill, BigDecimal amount) {
+        List<Slot> slots = new ArrayList<>(slots(feeDues.account(student), chosenFee, chosenBill));
+        if (chosenFee != null || chosenBill != null) slots.removeIf(s -> !chosen(s.target(), chosenFee, chosenBill));
+        BigDecimal owed = slots.stream().map(Slot::balance).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (amount.compareTo(owed) > 0) throw new IllegalArgumentException(owed.signum() <= 0 ? "Nothing is owed there."
+                : "That is more than is owed there (" + owed.toPlainString() + ").");
+        Map<String, BigDecimal> paid = new LinkedHashMap<>();
+        BigDecimal left = amount;
+        int i = 0;
+        BigDecimal slotLeft = slots.isEmpty() ? BigDecimal.ZERO : slots.get(0).balance();
+        for (FeeAllocation w : allocations.openWallet(student.getId())) {
+            while (w.getAmount().signum() > 0 && left.signum() > 0 && i < slots.size()) {
+                BigDecimal take = w.getAmount().min(slotLeft).min(left);
+                Target t = slots.get(i).target();
+                add(w.getPayment(), t, take);
+                paid.merge(label(t), take, BigDecimal::add);
+                w.setAmount(w.getAmount().subtract(take));
+                slotLeft = slotLeft.subtract(take);
+                left = left.subtract(take);
+                if (slotLeft.signum() <= 0 && ++i < slots.size()) slotLeft = slots.get(i).balance();
+            }
+            if (w.getAmount().signum() <= 0) w.getPayment().getAllocations().remove(w);
+            payments.save(w.getPayment());
+            if (left.signum() <= 0) break;
+        }
+        if (left.signum() > 0) throw new IllegalStateException("Not enough in the wallet.");
+        allocations.flush();
+        return paid;
+    }
+
+    /**
+     * Pays back {@code amount} of the student's wallet money through this refund, oldest deposit first.
+     * The caller has locked the student and checked the wallet holds enough.
+     */
+    public void payOutWallet(User student, FeeRefund refund, BigDecimal amount) {
+        BigDecimal left = amount;
+        Target t = new Target(null, null, null, refund);
+        for (FeeAllocation w : allocations.openWallet(student.getId())) {
+            if (left.signum() <= 0) break;
+            BigDecimal take = left.min(w.getAmount());
+            add(w.getPayment(), t, take);
+            w.setAmount(w.getAmount().subtract(take));
+            if (w.getAmount().signum() <= 0) w.getPayment().getAllocations().remove(w);
+            left = left.subtract(take);
+            payments.save(w.getPayment());
+        }
+        if (left.signum() > 0) throw new IllegalStateException("Not enough in the wallet to pay back.");
+        allocations.flush();
+    }
+
+    private static boolean chosen(Target t, FeeSchedule fee, StudentBill bill) {
+        return (fee != null && t.schedule() != null && t.schedule().getId().equals(fee.getId()))
+                || (bill != null && t.bill() != null && t.bill().getId().equals(bill.getId()));
+    }
+
+    /** A refund was voided: the money is credit again (wallet money, if it came from a wallet). Then call {@link #applyCredit}. */
     public void unrefund(FeeRefund refund) {
         for (FeeAllocation a : allocations.findForRefund(refund.getId())) a.setRefund(null);
         allocations.flush();
@@ -230,8 +298,7 @@ public class FeeLedger {
         for (FeeDues.BillDue b : account.openBills())
             if (b.balance().signum() > 0) out.add(new Slot(new Target(null, b.bill(), null, null), b.balance()));
         if (chosenFee != null || chosenBill != null)   // stable sort: oldest-first order kept after the chosen one
-            out.sort(Comparator.comparingInt(s -> (chosenFee != null && s.target().schedule() != null && s.target().schedule().getId().equals(chosenFee.getId()))
-                    || (chosenBill != null && s.target().bill() != null && s.target().bill().getId().equals(chosenBill.getId())) ? 0 : 1));
+            out.sort(Comparator.comparingInt(s -> chosen(s.target(), chosenFee, chosenBill) ? 0 : 1));
         return out;
     }
 
@@ -256,13 +323,18 @@ public class FeeLedger {
 
     // ── How it reads ─────────────────────────────────────────────────────────
 
-    /** "Term 1 fees · 2026/2027", "School uniform", "2025/2026 fees (arrears)", "Refunded", "Credit". */
+    /** "Term 1 fees · 2026/2027", "School uniform", "2025/2026 fees (arrears)", "Refunded", "Credit", "Wallet". */
     public static String label(FeeAllocation a) {
-        if (a.getSchedule() != null)
-            return FeeDues.periodName(a.getSchedule()) + " fees" + (a.getSchedule().getSession() != null ? " · " + a.getSchedule().getSession().getName() : "");
-        if (a.getBill() != null) return a.getBill().getTitle();
-        if (a.getArrears() != null) return a.getArrears().label();
-        if (a.getRefund() != null) return "Refunded (" + a.getRefund().getNumber() + ")";
+        if (a.isWallet()) return "Wallet (kept until you use it)";
+        return label(new Target(a.getSchedule(), a.getBill(), a.getArrears(), a.getRefund()));
+    }
+
+    private static String label(Target t) {
+        if (t.schedule() != null)
+            return FeeDues.periodName(t.schedule()) + " fees" + (t.schedule().getSession() != null ? " · " + t.schedule().getSession().getName() : "");
+        if (t.bill() != null) return t.bill().getTitle();
+        if (t.arrears() != null) return t.arrears().label();
+        if (t.refund() != null) return "Refunded (" + t.refund().getNumber() + ")";
         return "Credit (kept for what is billed next)";
     }
 
@@ -271,7 +343,7 @@ public class FeeLedger {
         for (FeeAllocation a : p.getAllocations()) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("kind", a.getSchedule() != null ? "FEE" : a.getBill() != null ? "BILL" : a.getArrears() != null ? "ARREARS"
-                    : a.getRefund() != null ? "REFUND" : "CREDIT");
+                    : a.getRefund() != null ? "REFUND" : a.isWallet() ? "WALLET" : "CREDIT");
             m.put("label", label(a));
             if (a.getSchedule() != null) m.put("scheduleId", a.getSchedule().getId());
             if (a.getBill() != null) m.put("billId", a.getBill().getId());
@@ -288,7 +360,7 @@ public class FeeLedger {
             return p.getSchedule() != null ? FeeDues.periodName(p.getSchedule()) + " fees" : p.getBill() != null ? p.getBill().getTitle() : "Fees";
         LinkedHashSet<String> parts = new LinkedHashSet<>();
         for (FeeAllocation a : p.getAllocations())
-            parts.add(a.getSchedule() != null ? FeeDues.periodName(a.getSchedule()) + " fees" : a.isCredit() ? "credit" : label(a));
+            parts.add(a.getSchedule() != null ? FeeDues.periodName(a.getSchedule()) + " fees" : a.isCredit() ? "credit" : a.isWallet() ? "wallet deposit" : label(a));
         return String.join(", ", parts);
     }
 }

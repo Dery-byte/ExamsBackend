@@ -8,7 +8,8 @@ import java.math.BigDecimal;
 
 /**
  * Part of a payment counted against one target: a fee (term), a bill, arrears, or a refund (money paid
- * back). No target = credit: money paid beyond everything owed, kept for whatever comes next.
+ * back). No target = credit: money paid beyond everything owed, kept for whatever comes next; or, on a
+ * wallet deposit, wallet money, kept until the student spends it.
  */
 @Entity
 @Table(name = "fee_payment_allocation", indexes = {
@@ -48,5 +49,9 @@ public class FeeAllocation {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
-    public boolean isCredit() { return schedule == null && bill == null && arrears == null && refund == null; }
+    public boolean isCredit() { return untargeted() && !payment.isWalletDeposit(); }
+
+    public boolean isWallet() { return untargeted() && payment.isWalletDeposit(); }
+
+    private boolean untargeted() { return schedule == null && bill == null && arrears == null && refund == null; }
 }
