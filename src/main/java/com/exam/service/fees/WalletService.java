@@ -39,7 +39,7 @@ import java.util.*;
  * bursar pay a student's fees and bills from it ({@link #staffSpend}: with a reason, and the student is
  * told); cashiers never may.
  * <p>
- * The wallet is switched on and off under Feature Controls ({@link Feature#STUDENT_WALLET}, off at
+ * The wallet is switched on and off under Feature Controls ({@link Feature#STUDENT_WALLET}, on at
  * first). Off, nobody can add or spend wallet money, but a student with a balance still sees it and can
  * ask for it back.
  */
@@ -79,11 +79,18 @@ public class WalletService {
     public record PayOutRequest(String method, String paidTo) {}
     public record SettingsRequest(BigDecimal maxBalance) {}
 
-    /** New, and the school decides whether to offer it, so it starts switched off. */
+    /** Set once the wallet has been switched on by default (see {@link #startSwitchedOn}). */
+    static final String ON_BY_DEFAULT_APPLIED = "SETUP_WALLET_ON_BY_DEFAULT";
+
+    /**
+     * The wallet is offered by default. Servers started before that saved it as off automatically, so
+     * it is switched on once there too; after that the Super Admin's choice under Feature Controls stands.
+     */
     @PostConstruct
-    void startSwitchedOff() {
-        String key = Feature.STUDENT_WALLET.settingKey();
-        if (settings.getSetting(key) == null) settings.updateSetting(key, "false");
+    void startSwitchedOn() {
+        if (settings.getSetting(ON_BY_DEFAULT_APPLIED) != null) return;
+        settings.updateSetting(Feature.STUDENT_WALLET.settingKey(), "true");
+        settings.updateSetting(ON_BY_DEFAULT_APPLIED, "true");
     }
 
     // ── Student ─────────────────────────────────────────────────────────

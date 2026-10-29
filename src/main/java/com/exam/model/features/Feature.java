@@ -29,7 +29,7 @@ public enum Feature {
     HOD_ANNOUNCEMENTS(Scope.SYSTEM, "HODs", "HODs can post announcements",
             "HODs can post announcements to their department."),
     STUDENT_WALLET(Scope.SYSTEM, "Students", "Student wallet (pay in advance)",
-            "Students put money in a wallet ahead of time (online or at the accounts office) and use it on their fees and bills when they choose. Taking money out goes through the bursar, the Super Admin and the accounts office. When off, students can't add or spend wallet money, but anyone with a balance can still see it and ask for it back. Starts off."),
+            "Students put money in a wallet ahead of time (online or at the accounts office) and use it on their fees and bills when they choose. Taking money out goes through the bursar, the Super Admin and the accounts office. When off, students can't add or spend wallet money, but anyone with a balance can still see it and ask for it back. Starts on."),
 
     STUDENT_COURSE_REGISTRATION(Scope.DEPARTMENT, "Students", "Students register for their own courses",
             "Students pick their courses on the Register Course page. When off, staff enrol them."),

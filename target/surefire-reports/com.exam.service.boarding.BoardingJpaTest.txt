@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.exam.service.boarding.BoardingJpaTest
 -------------------------------------------------------------------------------
-Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.038 s - in com.exam.service.boarding.BoardingJpaTest
+Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.467 s - in com.exam.service.boarding.BoardingJpaTest
