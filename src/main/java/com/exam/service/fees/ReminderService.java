@@ -18,7 +18,6 @@ import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -63,9 +62,6 @@ public class ReminderService {
     @Autowired private InstitutionService institution;
     @Autowired private SystemSettingService settings;
     @Autowired private FeeScheduleService scheduleService;
-
-    @Value("${app.frontend-url:http://localhost:4200}")
-    private String frontendUrl;
 
     /** Who: a class (or everyone), owing at least minOwed, not reminded in the last skipDays; how; and the message. */
     public record ReminderRequest(Long programId, Integer level, BigDecimal minOwed, Integer skipDays,
@@ -149,7 +145,7 @@ public class ReminderService {
         String batch = UUID.randomUUID().toString();
         boolean feesPage = settings.getBooleanSetting(SystemSettingService.FEES_VISIBLE_STUDENT, false);
         String link = feesPage ? "/user-dashboard/fees" : null;
-        String feesUrl = feesPage ? frontendUrl.replaceAll("/+$", "") + "/user-dashboard/fees" : null;
+        String feesUrl = feesPage ? institution.portalUrl() + "/user-dashboard/fees" : null;
         List<FeeReminder> rows = new ArrayList<>(list.size());
         int emails = 0, texts = 0;
         for (Target t : list) {

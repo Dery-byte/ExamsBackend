@@ -9,13 +9,15 @@ import com.exam.repository.FeePaymentRepository;
 import com.exam.repository.UserRepository;
 import com.exam.service.SystemSettingService;
 import com.exam.service.academic.AcademicSessionService;
+import com.exam.service.academic.InstitutionService;
 import com.exam.service.comms.CurrentUserService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -25,6 +27,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -75,8 +81,8 @@ public class FeePaymentService {
     @Autowired private com.exam.repository.FeeAllocationRepository allocationRepository;
     @Autowired private com.exam.repository.WalletWithdrawalRepository withdrawalRepository;
 
-    @Value("${app.frontend-url:http://localhost:4200}")
-    private String frontendUrl;
+    @Autowired private InstitutionService institution;
+    @Autowired @Lazy @Qualifier("corsConfigurationSource") private CorsConfigurationSource cors;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -282,7 +288,7 @@ public class FeePaymentService {
         p = paymentRepository.save(p);
 
         try {
-            String returnUrl = frontendUrl.replaceAll("/+$", "") + returnPath;
+            String returnUrl = webAppAddress() + returnPath;
             JsonNode data = paystack.initialize(student.getEmail(), minor(p.getAmount()), p.getCurrency(), p.getReference(),
                     returnUrl, metadata(student, p, returnUrl + "?cancelled=" + p.getReference()));
             p.setAuthorizationUrl(data.path("authorization_url").asText(null));
@@ -297,6 +303,21 @@ public class FeePaymentService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Paystack did not return a checkout page. Please try again.");
         log.info("[Fees] Checkout {} started for student {} ({} {})", p.getReference(), student.getId(), p.getCurrency(), p.getAmount());
         return Map.of("reference", p.getReference(), "authorizationUrl", p.getAuthorizationUrl());
+    }
+
+    /**
+     * Where Paystack sends the student back to: the web app they are paying from (the request's Origin,
+     * if CORS allows it), otherwise the portal address from Institution settings / FRONTEND_URL.
+     */
+    private String webAppAddress() {
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs) {
+            var request = attrs.getRequest();
+            String origin = request.getHeader("Origin");
+            CorsConfiguration allowed = cors.getCorsConfiguration(request);
+            if (origin != null && allowed != null && allowed.checkOrigin(origin) != null && !"*".equals(allowed.checkOrigin(origin)))
+                return origin.replaceAll("/+$", "");
+        }
+        return institution.portalUrl();
     }
 
     /** Called when the student comes back from Paystack: confirms the payment with Paystack and returns it. */
