@@ -667,9 +667,11 @@ public class AttendanceService {
             r.setSecondDistanceMeters(distance);
             r.setSecondAccuracyMeters(acc);
             if (unclear) {
-                r.addFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
-                // Approving puts back Late or Present (from the LATE flag); a student the lecturer already confirmed stays confirmed
-                if (r.getReviewedAt() == null) r.setStatus(AttendanceStatus.PENDING);
+                // Approving puts back Late or Present (from the LATE flag); a student the lecturer already confirmed stays confirmed, unflagged
+                if (r.getReviewedAt() == null) {
+                    r.addFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
+                    r.setStatus(AttendanceStatus.PENDING);
+                }
             } else if (r.hasFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR) && r.getStatus() == AttendanceStatus.PENDING && r.getReviewedAt() == null) {
                 // The first check's location was unclear; a live code and a reading that fits the room now settle it
                 confirmLocation(s, r);
@@ -1193,6 +1195,8 @@ public class AttendanceService {
             r.setMethod(AttendanceRecord.METHOD_MANUAL);
         }
         r.setStatus(st);
+        // Present (or Late) means the lecturer is satisfied they were in the room
+        if (st == AttendanceStatus.PRESENT || st == AttendanceStatus.LATE) r.removeFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
         r.setReviewedBy(CurrentUserService.displayName(actor));
         r.setReviewedAt(now());
         String n = trim(note, 300);
@@ -1212,6 +1216,7 @@ public class AttendanceService {
         for (AttendanceRecord r : records.forSession(s.getId())) {
             if (r.getStatus() != AttendanceStatus.PENDING) continue;
             r.setStatus(r.hasFlag(AttendanceRecord.FLAG_LATE) ? AttendanceStatus.LATE : AttendanceStatus.PRESENT);
+            r.removeFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
             r.setReviewedBy(by);
             r.setReviewedAt(now);
             changed.add(r);
@@ -1382,10 +1387,11 @@ public class AttendanceService {
         r.setFirstCheckAt(now);
         r.setReviewedBy(scannedBy);
         r.setReviewedAt(now);
-        // The scanner sees the student in person, so an unclear phone location doesn't stop the scan; it is flagged and said
+        // The scanner sees the student in person, so an unclear phone location doesn't stop the scan; the scanner is told
+        // now, and the record isn't flagged (a student marked present is no longer "location unclear")
         boolean unclear = placeLogs.findFirstBySession_IdAndStudent_IdOrderByIdDesc(s.getId(), student.getId())
                 .map(l -> !AttendanceGeo.Fit.INSIDE.name().equals(l.getFit())).orElse(false);
-        if (unclear) r.addFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
+        r.removeFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
         records.save(r);
         return new ScanResult(true, "RECORDED", name + " is present." + (unclear ? " Their phone's location was unclear: check the photo matches the person." : ""),
                 student.getId(), name, student.getUsername(), student.getProfilePic(), r.getStatus().name());

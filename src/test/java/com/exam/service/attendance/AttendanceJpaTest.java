@@ -305,6 +305,12 @@ class AttendanceJpaTest {
         assertThat(esiPlace.get("distance")).isEqualTo(90);
         attendance.approvePending(lecturer, id);
         assertThat(row(id, esi).get("status")).isEqualTo("PRESENT");
+        assertThat(flags(id, esi)).as("approved: no longer location unclear").doesNotContain(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
+
+        // Marked present by hand: the same
+        assertThat(checkIn(ama, id, code(id), 5, 150, AMA_PHONE).status()).isEqualTo("PENDING");
+        attendance.mark(lecturer, id, ama.getId(), "PRESENT", null);
+        assertThat(flags(id, ama)).doesNotContain(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
     }
 
     @Test
@@ -317,6 +323,7 @@ class AttendanceJpaTest {
         assertThat(row(id, ama).get("status")).isEqualTo("PENDING");
         attendance.approvePending(lecturer, id);
         assertThat(row(id, ama).get("status")).isEqualTo("LATE");
+        assertThat(flags(id, ama)).contains(AttendanceRecord.FLAG_LATE).doesNotContain(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
     }
 
     @Test
@@ -658,7 +665,7 @@ class AttendanceJpaTest {
         AttendanceService.ScanResult esiScan = attendance.scanByStaff(lecturer, id, liveCode(esiKey, 0));
         assertThat(esiScan.outcome()).isEqualTo("RECORDED");
         assertThat(esiScan.message()).contains("location was unclear");
-        assertThat(flags(id, esi)).contains(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
+        assertThat(flags(id, esi)).as("present: no longer location unclear").doesNotContain(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
 
         attendance.end(lecturer, id);
         Map<Long, AttendanceRecord> byStudent = new HashMap<>();

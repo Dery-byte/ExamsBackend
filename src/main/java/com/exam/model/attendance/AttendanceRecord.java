@@ -33,7 +33,8 @@ public class AttendanceRecord {
     public static final String FLAG_MISSED_SECOND_CHECK = "MISSED_SECOND_CHECK";
     /**
      * The phone's location couldn't confirm the student (too rough, or just outside), so the check is
-     * waiting for the lecturer. Cleared if a later precise reading confirms them while that check is open.
+     * waiting for the lecturer. Cleared as soon as the student is Present or Late: by a later precise
+     * reading while that check is open, the lecturer's approval or marking, or a staff scan.
      */
     public static final String FLAG_LOCATION_UNCLEAR = "LOCATION_UNCLEAR";
 
