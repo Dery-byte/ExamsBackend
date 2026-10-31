@@ -91,6 +91,7 @@ com\exam\service\reports\QuestionPapers.class
 com\exam\service\fees\FeeDues$Book.class
 com\exam\config\MNotifyV2Config.class
 com\exam\service\AttemptService.class
+com\exam\service\attendance\AttendanceGeo$Fit.class
 com\exam\model\academic\InstitutionLogo.class
 com\exam\controller\MarksEntryController.class
 com\exam\service\fees\ResultsHoldService$HoldRequest.class
@@ -108,6 +109,7 @@ com\exam\service\JwtService.class
 com\exam\repository\ReceiptSequenceRepository.class
 com\exam\repository\DepartmentRepository.class
 com\exam\DTO\GPTResponse.class
+com\exam\service\attendance\AttendanceGeo$Verdict.class
 com\exam\service\reports\ReportCatalog$1.class
 com\exam\service\examops\ProctoringService.class
 com\exam\repository\AttendancePolicyRepository.class
@@ -134,6 +136,7 @@ com\exam\model\exam\GeminiResponse.class
 com\exam\config\RateLimiter.class
 com\exam\service\QuestionImageService$PdfImage.class
 com\exam\model\fees\FeeSchedule.class
+com\exam\service\attendance\AttendanceService$RecentreRequest.class
 com\exam\service\features\FeatureService.class
 com\exam\service\QuizEvaluationServiceImpl.class
 com\exam\DTO\ResetPasswordWithTokenRequest.class
@@ -258,6 +261,7 @@ com\exam\config\OpenAIConfig.class
 com\exam\model\fees\CashUp$Status.class
 com\exam\model\exam\StudentSectionMark.class
 com\exam\DTO\ViolationTimerResponseDTO.class
+com\exam\model\attendance\AttendancePlaceLog.class
 com\exam\service\fees\YearEndService.class
 com\exam\service\ReportEmailService.class
 com\exam\service\fees\ReminderService.class
@@ -568,6 +572,7 @@ com\exam\SecurityApplication.class
 com\exam\service\ProgramService.class
 com\exam\repository\ResultsFeeHoldRepository.class
 com\exam\service\AttemptService$1.class
+com\exam\service\attendance\AttendanceService$LocateResult.class
 com\exam\repository\BillBatchRepository.class
 com\exam\repository\NumberOfTheoryToAnswerRepository.class
 com\exam\service\reports\Lookups.class
@@ -627,6 +632,7 @@ com\exam\model\attendance\ClassSchedule.class
 com\exam\service\attendance\AttendanceTally.class
 com\exam\service\llm\EvaluationPersistenceHelper.class
 com\exam\model\fees\FeeArrears.class
+com\exam\repository\AttendancePlaceLogRepository.class
 com\exam\model\academic\SystemMode.class
 com\exam\model\fees\FeeComponent.class
 com\exam\controller\GradeController.class
@@ -658,6 +664,7 @@ com\exam\controller\FeeController$VoidRequest.class
 com\exam\service\fees\CashBookService$CashUpRequest.class
 com\exam\service\attendance\AttendanceService$ScanResult.class
 com\exam\service\boarding\BoardingBulkService$Board$Occ.class
+com\exam\service\attendance\AttendanceService$LocateRequest.class
 com\exam\service\reports\ReportCatalog.class
 com\exam\service\fees\CashBookService$Open.class
 com\exam\repository\AnnouncementRepository.class

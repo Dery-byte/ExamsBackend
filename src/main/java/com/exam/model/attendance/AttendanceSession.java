@@ -107,6 +107,13 @@ public class AttendanceSession {
     private double longitude;
     private int radiusMeters;
     private int maxAccuracyMeters;
+    /** How precise the room centre is (the lecturer's reading, or the saved room's measurement); null = not recorded. */
+    private Integer centreAccuracyMeters;
+    /** Copied from the policy; null (classes from before) = true. */
+    private Boolean confirmUnclearLocation;
+
+    /** A reading that can't confirm the student but fits someone in the room waits for the lecturer (else it is refused). */
+    public boolean confirmsUnclearLocation() { return confirmUnclearLocation == null || confirmUnclearLocation; }
 
     // ── Timeline ─────────────────────────────────────────────────────────────
 

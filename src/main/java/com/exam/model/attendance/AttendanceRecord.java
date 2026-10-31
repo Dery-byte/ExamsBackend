@@ -31,6 +31,11 @@ public class AttendanceRecord {
     public static final String FLAG_LATE = "LATE";
     public static final String FLAG_NEW_PHONE = "NEW_PHONE";
     public static final String FLAG_MISSED_SECOND_CHECK = "MISSED_SECOND_CHECK";
+    /**
+     * The phone's location couldn't confirm the student (too rough, or just outside), so the check is
+     * waiting for the lecturer. Cleared if a later precise reading confirms them while that check is open.
+     */
+    public static final String FLAG_LOCATION_UNCLEAR = "LOCATION_UNCLEAR";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -89,5 +94,11 @@ public class AttendanceRecord {
     public void addFlag(String flag) {
         if (hasFlag(flag)) return;
         flags = flags == null || flags.isBlank() ? flag : flags + "," + flag;
+    }
+
+    public void removeFlag(String flag) {
+        if (!hasFlag(flag)) return;
+        String rest = java.util.Arrays.stream(flags.split(",")).filter(f -> !f.equals(flag)).collect(java.util.stream.Collectors.joining(","));
+        flags = rest.isEmpty() ? null : rest;
     }
 }

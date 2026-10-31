@@ -54,6 +54,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\sub
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAccessTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\WalletJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\admin\ConfigTransferServiceTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\attendance\AttendanceGeoTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\ClassPositionTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\monitoring\DeveloperAuthServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAutoOpenTest.java

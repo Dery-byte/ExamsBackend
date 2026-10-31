@@ -28,15 +28,18 @@ import java.util.stream.Collectors;
  * Class attendance: starting a meeting, students checking in, the lecturer's live controls, and
  * finalising the meeting (absentees, missed second checks).
  * <p>
- * A check-in must pass every check, or it is refused; a student who is really in the room and
- * still can't check in goes to the lecturer, who marks them by hand:
+ * A check-in must pass every check, or it is refused:
  * <ol>
  *   <li>the meeting is live and the student is on its class list;</li>
  *   <li>they haven't used up their wrong/expired code attempts;</li>
  *   <li>the code is the one on the screen now (or just replaced, within the typing allowance);</li>
  *   <li>they use their own linked phone, and that phone hasn't checked in anyone else;</li>
- *   <li>their location is precise enough and, accuracy included, within the room's distance.</li>
+ *   <li>their location fits the room ({@link AttendanceGeo#judge}). A reading that can't confirm them
+ *       but still fits someone in the room is kept as Pending for the lecturer (unless the rules say
+ *       refuse), and confirms itself if the phone later gets a precise reading while that check is open.</li>
  * </ol>
+ * The live code is what proves the student is in the room right now; phone location can't tell
+ * neighbouring rooms apart, so its job is "at this building, not at home".
  * Business refusals are returned (not thrown) so a counted wrong code is saved.
  */
 @Service
@@ -56,6 +59,7 @@ public class AttendanceService {
     @Autowired private FeatureService features;
     @Autowired private AttendanceMinimum minimum;
     @Autowired private AttendanceScannerRepository scanners;
+    @Autowired private AttendancePlaceLogRepository placeLogs;
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int DEFAULT_DURATION_MINUTES = 120;
@@ -168,6 +172,7 @@ public class AttendanceService {
         // ── Place ──
         double lat, lng;
         int radius;
+        Integer centreAccuracy;
         String placeName;
         if (classroomId != null) {
             Classroom room = classrooms.findById(classroomId).orElseThrow(() -> new IllegalArgumentException("Classroom not found."));
@@ -178,6 +183,7 @@ public class AttendanceService {
             lat = room.getLatitude();
             lng = room.getLongitude();
             radius = room.getRadiusMeters();
+            centreAccuracy = room.getMeasuredAccuracyMeters();
             placeName = room.getName() + (room.getBuilding() != null && !room.getBuilding().isBlank() ? ", " + room.getBuilding() : "");
         } else {
             if (!AttendanceGeo.validPoint(req.latitude(), req.longitude()) || req.accuracy() == null || req.accuracy() <= 0)
@@ -192,6 +198,7 @@ public class AttendanceService {
             lat = req.latitude();
             lng = req.longitude();
             radius = policy.getRadiusMeters();
+            centreAccuracy = acc;
             placeName = "Where the session was started";
         }
 
@@ -234,6 +241,8 @@ public class AttendanceService {
         s.setLongitude(lng);
         s.setRadiusMeters(radius);
         s.setMaxAccuracyMeters(policy.getMaxAccuracyMeters());
+        s.setCentreAccuracyMeters(centreAccuracy);
+        s.setConfirmUnclearLocation(policy.isConfirmUnclearLocation());
         s.setOpenedAt(now);
         s.setEndsAt(endsAt);
         s.setSecondCheckMinutes(policy.getSecondCheckMinutes());
@@ -444,6 +453,8 @@ public class AttendanceService {
             m.put("attemptsLeft", Math.max(0, s.getMaxFailedAttempts() - failures));
             m.put("locked", failures >= s.getMaxFailedAttempts());
             m.put("maxAccuracyMeters", s.getMaxAccuracyMeters());
+            // Checked in, waiting only on location: the page keeps reading it so a precise reading confirms it
+            m.put("locationUnclear", r != null && r.getStatus() == AttendanceStatus.PENDING && r.hasFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR) && r.getReviewedAt() == null);
             list.add(m);
         }
         out.put("sessions", list);
@@ -497,25 +508,63 @@ public class AttendanceService {
         devices.save(d);
     }
 
-    /** The location rule's outcome: a refusal, or the distance and accuracy (whole metres). */
-    private record PlaceCheck(CheckInResult refusal, int distance, int accuracy) {}
+    /**
+     * The location rule's outcome: a refusal, or the distance and accuracy (whole metres) and whether
+     * the reading only loosely fits the room ({@code unclear}: the check waits for the lecturer).
+     */
+    private record PlaceCheck(CheckInResult refusal, int distance, int accuracy, boolean unclear) {}
 
-    /** Precise enough, and inside the room's distance with the accuracy included. {@code who}: "You appear" / "This phone appears". */
-    private PlaceCheck checkPlace(AttendanceSession s, Double lat, Double lng, Double accuracy, String who) {
+    /** Judges a reading against the room ({@link AttendanceGeo#judge}) and logs it for the lecturer's view. */
+    private PlaceCheck checkPlace(AttendanceSession s, User student, Double lat, Double lng, Double accuracy, String source) {
         if (!AttendanceGeo.validPoint(lat, lng) || accuracy == null || accuracy <= 0 || !Double.isFinite(accuracy))
-            return new PlaceCheck(CheckInResult.refused("NO_LOCATION", "Your location couldn't be read. Turn on location (GPS), allow this site to use it, and try again."), 0, 0);
+            return new PlaceCheck(CheckInResult.refused("NO_LOCATION", "Your location couldn't be read. Turn on location (GPS), allow this site to use it, and try again."), 0, 0, false);
         int acc = (int) Math.ceil(accuracy);
-        if (acc > GUESSED_LOCATION_METERS)
-            return new PlaceCheck(CheckInResult.refused("NO_GPS", "This device can't find where it is: it is only guessing from the internet connection (about "
-                    + approx(acc) + " off). Use a phone with location (GPS) turned on."), 0, acc);
-        if (acc > s.getMaxAccuracyMeters())
-            return new PlaceCheck(CheckInResult.refused("IMPRECISE", "Your location is only accurate to ±" + acc + " m (it needs to be ±" + s.getMaxAccuracyMeters()
-                    + " m or better). Turn on precise location, wait a few seconds and try again. If you are in class and it keeps failing, see your lecturer."), 0, acc);
-        int distance = (int) Math.round(AttendanceGeo.distanceMeters(s.getLatitude(), s.getLongitude(), lat, lng));
-        if (distance + acc > s.getRadiusMeters())
-            return new PlaceCheck(CheckInResult.refused("TOO_FAR", who + " to be about " + distance + " m from the classroom (±" + acc + " m), outside the "
-                    + s.getRadiusMeters() + " m allowed. If you are in class, see your lecturer."), distance, acc);
-        return new PlaceCheck(null, distance, acc);
+        if (acc > GUESSED_LOCATION_METERS) {
+            logPlace(s, student, AttendancePlaceLog.FIT_NO_GPS, null, acc, source);
+            return new PlaceCheck(CheckInResult.refused("NO_GPS", approximateMessage(acc)), 0, acc, false);
+        }
+        AttendanceGeo.Verdict v = AttendanceGeo.judge(s.getLatitude(), s.getLongitude(), s.getCentreAccuracyMeters(),
+                s.getRadiusMeters(), s.getMaxAccuracyMeters(), lat, lng, acc);
+        logPlace(s, student, v.fit().name(), v.distance(), acc, source);
+        return switch (v.fit()) {
+            case INSIDE -> new PlaceCheck(null, v.distance(), acc, false);
+            case UNCLEAR -> s.confirmsUnclearLocation() ? new PlaceCheck(null, v.distance(), acc, true)
+                    : new PlaceCheck(acc > s.getMaxAccuracyMeters()
+                        ? CheckInResult.refused("IMPRECISE", "Your location is only accurate to ±" + acc + " m (it needs to be ±" + s.getMaxAccuracyMeters()
+                            + " m or better). Keep this page open a few seconds while it improves (Wi-Fi on helps indoors), then try again. If it keeps failing, see your lecturer.")
+                        : CheckInResult.refused("TOO_FAR", "Your phone places you about " + far(v.distance()) + " from the classroom (±" + acc
+                            + " m), just outside the area allowed. Keep this page open a few seconds for a better reading, then try again. If you are in class and it keeps failing, see your lecturer."),
+                        v.distance(), acc, false);
+            case OUTSIDE -> new PlaceCheck(CheckInResult.refused("TOO_FAR", outsideMessage(v)), v.distance(), acc, false);
+        };
+    }
+
+    static String approximateMessage(int acc) {
+        return "Your phone is only giving an approximate location (about " + approx(acc) + " off), so it can't show you're in class. "
+                + "Turn on precise location for your browser (and Wi-Fi), then try again. A laptop can't do this: use your phone.";
+    }
+
+    private static String outsideMessage(AttendanceGeo.Verdict v) {
+        return "You appear to be about " + far(v.distance()) + " from the classroom (±" + v.accuracy() + " m), so you can't check in from there. "
+                + "If you are in the room, keep this page open a few seconds while your phone finds you (Wi-Fi on helps indoors), then try again, or see your lecturer.";
+    }
+
+    /** "85 m" / "1.2 km". */
+    private static String far(int meters) {
+        return meters < 1000 ? meters + " m" : approx(meters);
+    }
+
+    /** Readings are only ever added, so a phone sending two at once never clashes. */
+    private void logPlace(AttendanceSession s, User student, String fit, Integer distance, Integer accuracy, String source) {
+        AttendancePlaceLog l = new AttendancePlaceLog();
+        l.setSession(s);
+        l.setStudent(student);
+        l.setFit(fit);
+        l.setDistanceMeters(distance);
+        l.setAccuracyMeters(accuracy);
+        l.setSource(source);
+        l.setCheckedAt(now());
+        placeLogs.save(l);
     }
 
     /** {@code source}: from a scanned class QR, whose screen it was on (L or H&lt;helper id&gt;); null when typed. */
@@ -584,9 +633,10 @@ public class AttendanceService {
         // ── Phone and location ──
         PhoneCheck phone = checkPhone(student, s, req.deviceId());
         if (phone.refusal() != null) return phone.refusal();
-        PlaceCheck place = checkPlace(s, req.latitude(), req.longitude(), req.accuracy(), "You appear");
+        PlaceCheck place = checkPlace(s, student, req.latitude(), req.longitude(), req.accuracy(), AttendancePlaceLog.SOURCE_CHECK_IN);
         if (place.refusal() != null) return place.refusal();
         int distance = place.distance(), acc = place.accuracy();
+        boolean unclear = place.unclear();
         String hash = phone.hash();
         boolean newPhone = phone.newPhone();
 
@@ -603,7 +653,8 @@ public class AttendanceService {
             boolean late = now.isAfter(s.getLateAfter());
             if (late) r.addFlag(AttendanceRecord.FLAG_LATE);
             if (newPhone) r.addFlag(AttendanceRecord.FLAG_NEW_PHONE);
-            r.setStatus(s.getCodeDisplay() == CodeDisplay.READ_ALOUD ? AttendanceStatus.PENDING : late ? AttendanceStatus.LATE : AttendanceStatus.PRESENT);
+            if (unclear) r.addFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
+            r.setStatus(s.getCodeDisplay() == CodeDisplay.READ_ALOUD || unclear ? AttendanceStatus.PENDING : late ? AttendanceStatus.LATE : AttendanceStatus.PRESENT);
             r.setFirstCheckAt(now);
             r.setFirstDistanceMeters(distance);
             r.setFirstAccuracyMeters(acc);
@@ -615,9 +666,24 @@ public class AttendanceService {
             r.setSecondQrSource(qrSource);
             r.setSecondDistanceMeters(distance);
             r.setSecondAccuracyMeters(acc);
+            if (unclear) {
+                r.addFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
+                // Approving puts back Late or Present (from the LATE flag); a student the lecturer already confirmed stays confirmed
+                if (r.getReviewedAt() == null) r.setStatus(AttendanceStatus.PENDING);
+            } else if (r.hasFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR) && r.getStatus() == AttendanceStatus.PENDING && r.getReviewedAt() == null) {
+                // The first check's location was unclear; a live code and a reading that fits the room now settle it
+                confirmLocation(s, r);
+            }
         }
         records.save(r);
 
+        if (unclear && r.getStatus() == AttendanceStatus.PENDING) {
+            String where = acc > s.getMaxAccuracyMeters() ? "your phone's location is only accurate to ±" + acc + " m"
+                    : "your phone places you about " + far(distance) + " from the room (±" + acc + " m)";
+            return new CheckInResult(true, r.getStatus().name(), (p.check() == 2 ? "Second check recorded" : "Checked in")
+                    + ", but " + where + ", so your lecturer will confirm it. Keep this page open: if your phone finds you precisely in the next few minutes, it confirms on its own.",
+                    "LOCATION_UNCLEAR", null);
+        }
         String message = switch (r.getStatus()) {
             case PENDING -> p.check() == 2 ? "Second check done. Your lecturer will confirm your attendance."
                     : "Checked in. Your lecturer will confirm your attendance.";
@@ -627,6 +693,98 @@ public class AttendanceService {
         if (p.check() == 1 && (s.getSecondCheckOpensAt() != null))
             message += " Keep this page handy: a second code will be shown during class.";
         return new CheckInResult(true, r.getStatus().name(), message, "OK", null);
+    }
+
+    /** A check that waited only on location is confirmed: Late or Present again (read-aloud classes still wait for the lecturer). */
+    private static void confirmLocation(AttendanceSession s, AttendanceRecord r) {
+        r.removeFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
+        if (s.getCodeDisplay() != CodeDisplay.READ_ALOUD)
+            r.setStatus(r.hasFlag(AttendanceRecord.FLAG_LATE) ? AttendanceStatus.LATE : AttendanceStatus.PRESENT);
+    }
+
+    public record LocateRequest(Long sessionId, Double latitude, Double longitude, Double accuracy, String deviceId) {}
+
+    /**
+     * fit: INSIDE, UNCLEAR, OUTSIDE, NO_GPS (approximate location only), NO_LOCATION, or why the class
+     * can't be checked into (OFF, NO_SESSION, ENDED, NOT_LISTED). {@code confirmed}: a check that was
+     * waiting only on location has just been confirmed.
+     */
+    public record LocateResult(String fit, Integer distance, Integer accuracy, String message, boolean confirmed) {
+        static LocateResult of(String fit, String message) { return new LocateResult(fit, null, null, message, false); }
+    }
+
+    /** A reading from the class page is logged when its fit changes, it is clearly more precise, or the last one is a while old. */
+    private static final int LOCATE_LOG_SECONDS = 120, LOCATE_LOG_BETTER_METERS = 5;
+
+    /**
+     * The student's phone reports where it is while the class card is open, before any code is
+     * typed or scanned, so the page can say whether the room is confirmed (and how to fix it if not).
+     * A check-in waiting only on location is confirmed by a reading that fits the room, from the same
+     * phone, while that check is still open.
+     */
+    @Transactional
+    public LocateResult locate(User student, LocateRequest req) {
+        if (student == null || student.getRole() != Role.NORMAL) throw new AccessDeniedException("Only students check in.");
+        if (!features.isOnFor(Feature.ATTENDANCE, student)) return LocateResult.of("OFF", "Class attendance is switched off.");
+        if (req == null || req.sessionId() == null) return LocateResult.of("NO_SESSION", "Choose the class you are in.");
+        AttendanceSession s = sessions.findById(req.sessionId()).orElse(null);
+        if (s == null || !s.isLive()) return LocateResult.of("ENDED", "This class has ended.");
+        if (!onRoster(student, s)) return LocateResult.of("NOT_LISTED", "You're not on the list for this class.");
+        Double lat = req.latitude(), lng = req.longitude(), accuracy = req.accuracy();
+        if (!AttendanceGeo.validPoint(lat, lng) || accuracy == null || accuracy <= 0 || !Double.isFinite(accuracy))
+            return LocateResult.of("NO_LOCATION", "Your location couldn't be read. Turn on location (GPS) and allow this site to use it.");
+        int acc = (int) Math.ceil(accuracy);
+        LocalDateTime now = now();
+        AttendancePlaceLog last = placeLogs.findFirstBySession_IdAndStudent_IdOrderByIdDesc(s.getId(), student.getId()).orElse(null);
+        if (acc > GUESSED_LOCATION_METERS) {
+            logLocate(s, student, last, AttendancePlaceLog.FIT_NO_GPS, null, acc, now);
+            return new LocateResult(AttendancePlaceLog.FIT_NO_GPS, null, acc, approximateMessage(acc), false);
+        }
+        AttendanceGeo.Verdict v = AttendanceGeo.judge(s.getLatitude(), s.getLongitude(), s.getCentreAccuracyMeters(),
+                s.getRadiusMeters(), s.getMaxAccuracyMeters(), lat, lng, acc);
+        logLocate(s, student, last, v.fit().name(), v.distance(), acc, now);
+        boolean confirmed = v.fit() == AttendanceGeo.Fit.INSIDE && confirmWaitingCheck(s, student, req.deviceId(), v, now);
+        String message = switch (v.fit()) {
+            case INSIDE -> !confirmed ? "Location confirmed: you're at the classroom (±" + acc + " m)."
+                    : s.getCodeDisplay() == CodeDisplay.READ_ALOUD ? "Your location is now confirmed."
+                    : "Your location is now confirmed, so your check-in no longer needs your lecturer.";
+            case UNCLEAR -> (acc > s.getMaxAccuracyMeters() ? "Your location is only accurate to ±" + acc + " m so far"
+                    : "Your phone places you about " + far(v.distance()) + " from the room (±" + acc + " m)")
+                    + (s.confirmsUnclearLocation() ? ". It usually improves in a few seconds; you can check in now and your lecturer will confirm it."
+                        : ". Wait a few seconds for it to improve before checking in.");
+            case OUTSIDE -> outsideMessage(v);
+        };
+        return new LocateResult(v.fit().name(), v.distance(), acc, message, confirmed);
+    }
+
+    private void logLocate(AttendanceSession s, User student, AttendancePlaceLog last, String fit, Integer distance, int acc, LocalDateTime now) {
+        boolean worth = last == null || !fit.equals(last.getFit()) || last.getAccuracyMeters() == null
+                || acc <= last.getAccuracyMeters() - LOCATE_LOG_BETTER_METERS
+                || last.getCheckedAt().isBefore(now.minusSeconds(LOCATE_LOG_SECONDS));
+        if (worth) logPlace(s, student, fit, distance, acc, AttendancePlaceLog.SOURCE_LOCATE);
+    }
+
+    /** A check waiting only on location (no lecturer decision yet), from the phone that made it, while that check is open. */
+    private boolean confirmWaitingCheck(AttendanceSession s, User student, String deviceId, AttendanceGeo.Verdict v, LocalDateTime now) {
+        AttendanceRecord r = records.findBySession_IdAndStudent_Id(s.getId(), student.getId()).orElse(null);
+        if (r == null || r.getStatus() != AttendanceStatus.PENDING || !r.hasFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR)
+                || r.getReviewedAt() != null || !AttendanceRecord.METHOD_CODE.equals(r.getMethod()) || r.getDeviceHash() == null) return false;
+        String id = deviceId == null ? "" : deviceId.trim();
+        if (!id.matches("[A-Za-z0-9_-]{16,128}") || !AttendanceCodes.hashDevice(id).equals(r.getDeviceHash())) return false;
+        int check = phase(s, now).check();
+        boolean secondDone = r.getSecondCheckAt() != null;
+        // The check that was unclear must still be open: check-in for the first, the second check for the second
+        if (check == 0 || (check == 2) != secondDone) return false;
+        if (secondDone) {
+            r.setSecondDistanceMeters(v.distance());
+            r.setSecondAccuracyMeters(v.accuracy());
+        } else {
+            r.setFirstDistanceMeters(v.distance());
+            r.setFirstAccuracyMeters(v.accuracy());
+        }
+        confirmLocation(s, r);
+        records.save(r);
+        return true;
     }
 
     /** The student's attendance this academic session, per course (or programme), with recent meetings. */
@@ -819,6 +977,9 @@ public class AttendanceService {
         // Which students have a phone linked (so staff know whose link to reset)
         Map<Long, Object[]> phones = new HashMap<>();
         if (!people.isEmpty()) devices.linksFor(people.keySet()).forEach(row -> phones.put((Long) row[0], row));
+        // Each student's newest location reading, so staff see who is trying and why it isn't working
+        Map<Long, AttendancePlaceLog> places = new HashMap<>();
+        placeLogs.latestForSession(s.getId()).forEach(l -> places.put(l.getStudent().getId(), l));
 
         Map<String, Long> counts = new LinkedHashMap<>();
         List<Map<String, Object>> rows = new ArrayList<>();
@@ -848,6 +1009,17 @@ public class AttendanceService {
             m.put("phoneLinked", phone != null);
             m.put("phoneLinkedAt", phone != null ? phone[1] : null);
             m.put("phoneLastUsedAt", phone != null ? phone[2] : null);
+            AttendancePlaceLog place = places.get(u.getId());
+            if (place != null) {
+                Map<String, Object> lp = new LinkedHashMap<>();
+                lp.put("fit", place.getFit());
+                lp.put("distance", place.getDistanceMeters());
+                lp.put("accuracy", place.getAccuracyMeters());
+                lp.put("at", place.getCheckedAt());
+                m.put("lastPlace", lp);
+            } else {
+                m.put("lastPlace", null);
+            }
             rows.add(m);
             String k = r != null ? r.getStatus().name() : "NOT_YET";
             counts.merge(k, 1L, Long::sum);
@@ -892,6 +1064,9 @@ public class AttendanceService {
         m.put("placeName", s.getPlaceName());
         m.put("radiusMeters", s.getRadiusMeters());
         m.put("maxAccuracyMeters", s.getMaxAccuracyMeters());
+        m.put("centreAccuracyMeters", s.getCentreAccuracyMeters());
+        m.put("classroomId", s.getClassroomId());
+        m.put("confirmUnclearLocation", s.confirmsUnclearLocation());
         m.put("maxFailedAttempts", s.getMaxFailedAttempts());
         m.put("headcount", s.getHeadcount());
         // The second check's planned time is never shown, so it can't be passed on
@@ -966,6 +1141,33 @@ public class AttendanceService {
         AttendanceAccess.requireManage(actor, s);
         if (headcount != null && (headcount < 0 || headcount > 5000)) throw new IllegalArgumentException("Enter a headcount between 0 and 5000.");
         s.setHeadcount(headcount);
+        sessions.save(s);
+        return detail(actor, id);
+    }
+
+    public record RecentreRequest(Double latitude, Double longitude, Double accuracy) {}
+
+    /**
+     * Moves the room centre to where the lecturer's phone is now, for this meeting only (a saved
+     * classroom keeps its own point). For when the reading at the start was poor or the class moved.
+     */
+    @Transactional
+    public Map<String, Object> recentre(User actor, Long id, RecentreRequest req) {
+        AttendanceSession s = liveForStaff(actor, id);
+        if (req == null || !AttendanceGeo.validPoint(req.latitude(), req.longitude()) || req.accuracy() == null || req.accuracy() <= 0 || !Double.isFinite(req.accuracy()))
+            throw new IllegalArgumentException("Your location couldn't be read. Allow location for this site and try again.");
+        int acc = (int) Math.ceil(req.accuracy());
+        if (acc > GUESSED_LOCATION_METERS)
+            throw new IllegalArgumentException("This device can't find where it is: it is only guessing from the internet connection (about "
+                    + approx(acc) + " off). Use a phone with location (GPS) on.");
+        if (acc > s.getMaxAccuracyMeters())
+            throw new IllegalArgumentException("Your location reading is only accurate to ±" + acc + " m; it needs to be ±"
+                    + s.getMaxAccuracyMeters() + " m or better. Stand still near the middle of the room (Wi-Fi on helps) and try again.");
+        s.setLatitude(req.latitude());
+        s.setLongitude(req.longitude());
+        s.setCentreAccuracyMeters(acc);
+        if (s.getClassroomId() != null && s.getPlaceName() != null && !s.getPlaceName().endsWith(" (re-centred)"))
+            s.setPlaceName(trim(s.getPlaceName() + " (re-centred)", 200));
         sessions.save(s);
         return detail(actor, id);
     }
@@ -1065,6 +1267,7 @@ public class AttendanceService {
         records.deleteBySession(s.getId());
         strikes.deleteBySession(s.getId());
         scanners.deleteBySession(s.getId());
+        placeLogs.deleteBySession(s.getId());
         sessions.delete(s);
         rosterSizes.remove(id);
     }
@@ -1100,10 +1303,13 @@ public class AttendanceService {
             return QrKeyResult.refused(CheckInResult.refused("CLOSED", "Check-in for this class is closed. If you are in class, see your lecturer."));
         PhoneCheck phone = checkPhone(student, s, req.deviceId());
         if (phone.refusal() != null) return QrKeyResult.refused(phone.refusal());
-        PlaceCheck place = checkPlace(s, req.latitude(), req.longitude(), req.accuracy(), "You appear");
+        PlaceCheck place = checkPlace(s, student, req.latitude(), req.longitude(), req.accuracy(), AttendancePlaceLog.SOURCE_QR_KEY);
         if (place.refusal() != null) return QrKeyResult.refused(place.refusal());
         linkPhone(phone, student, now);
-        return new QrKeyResult(true, "Show this code to your lecturer to be scanned.", "OK",
+        // An unclear location still gets the code: whoever scans it sees the student in person, with their photo and a warning
+        return new QrKeyResult(true, place.unclear()
+                    ? "Show this code to your lecturer to be scanned. Your phone's location was unclear, so they will check it's you."
+                    : "Show this code to your lecturer to be scanned.", place.unclear() ? "LOCATION_UNCLEAR" : "OK",
                 AttendanceQr.encodeKey(AttendanceQr.studentKey(s.getSecret(), student.getId())), s.getId(), student.getId(),
                 AttendanceQr.STEP_SECONDS, clock.millis(), CurrentUserService.displayName(student), student.getUsername());
     }
@@ -1176,8 +1382,13 @@ public class AttendanceService {
         r.setFirstCheckAt(now);
         r.setReviewedBy(scannedBy);
         r.setReviewedAt(now);
+        // The scanner sees the student in person, so an unclear phone location doesn't stop the scan; it is flagged and said
+        boolean unclear = placeLogs.findFirstBySession_IdAndStudent_IdOrderByIdDesc(s.getId(), student.getId())
+                .map(l -> !AttendanceGeo.Fit.INSIDE.name().equals(l.getFit())).orElse(false);
+        if (unclear) r.addFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
         records.save(r);
-        return new ScanResult(true, "RECORDED", name + " is present.", student.getId(), name, student.getUsername(), student.getProfilePic(), r.getStatus().name());
+        return new ScanResult(true, "RECORDED", name + " is present." + (unclear ? " Their phone's location was unclear: check the photo matches the person." : ""),
+                student.getId(), name, student.getUsername(), student.getProfilePic(), r.getStatus().name());
     }
 
     /** A scanner link for a helper (e.g. a teaching assistant). The link itself is returned only now. */

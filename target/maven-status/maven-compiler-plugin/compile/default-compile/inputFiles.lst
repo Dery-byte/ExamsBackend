@@ -127,6 +127,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\Open
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\GradeResponse.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\StudentAnswerRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\subscription\SubscriptionStatus.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\AttendancePlaceLogRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\subscription\SubscriptionSync.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\BoardingStaffRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\QuizTimer.java
@@ -208,6 +209,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Ans
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\StudentSectionMarkRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\boarding\HostelRoom.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\ErrorEventRepository.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\attendance\AttendancePlaceLog.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\QuestionSubmission.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\attendance\ClassScheduleService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\Registered_coursesRepository.java

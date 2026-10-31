@@ -246,17 +246,158 @@ class AttendanceJpaTest {
         assertThat(phoneLinked(id, ama)).isFalse();
     }
 
+    private AttendanceService.LocateResult locate(User s, Long sessionId, double metresNorth, double accuracy, String device) {
+        return attendance.locate(s, new AttendanceService.LocateRequest(sessionId, LAT + metresNorth * M, LNG, accuracy, device));
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> flags(Long sessionId, User student) {
+        return (List<String>) row(sessionId, student).get("flags");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> openFor(User student) {
+        return ((List<Map<String, Object>>) attendance.openForStudent(student).get("sessions")).get(0);
+    }
+
     @Test
-    void distancePlusAccuracyMustFitInsideTheRoom() {
-        Long id = openCourse("PROJECTOR", 120, false);   // default allowed distance 50 m, precision 30 m
-        assertThat(checkIn(ama, id, code(id), 5, 45, AMA_PHONE).reason()).isEqualTo("IMPRECISE");
+    void readingsThatFitTheRoomPassAndClearlyElsewhereIsRefused() {
+        Long id = openCourse("PROJECTOR", 120, false);   // default 50 m, ±50 m, the lecturer's reading ±8 m
         AttendanceService.CheckInResult laptop = checkIn(ama, id, code(id), 5, 20000, AMA_PHONE);
         assertThat(laptop.reason()).as("a computer guessing from its internet connection").isEqualTo("NO_GPS");
         assertThat(laptop.message()).contains("20 km").contains("phone");
-        assertThat(checkIn(ama, id, code(id), 40, 15, AMA_PHONE).reason()).as("40 m ± 15 m could be 55 m away").isEqualTo("TOO_FAR");
-        assertThat(checkIn(ama, id, code(id), 150, 5, AMA_PHONE).reason()).isEqualTo("TOO_FAR");
-        assertThat(checkIn(ama, id, code(id), 25, 20, AMA_PHONE).ok()).isTrue();
+        assertThat(checkIn(ama, id, code(id), 150, 5, AMA_PHONE).reason()).as("precisely 150 m away: another building").isEqualTo("TOO_FAR");
+        assertThat(checkIn(ama, id, code(id), 2000, 20, AMA_PHONE).message()).contains("km");
+        // Next to the lecturer with a typical indoor reading: the old "distance + accuracy" rule refused this
+        assertThat(checkIn(ama, id, code(id), 25, 30, AMA_PHONE).status()).isEqualTo("PRESENT");
+        assertThat(checkIn(kofi, id, code(id), 40, 45, KOFI_PHONE).status()).isEqualTo("PRESENT");
         assertThat(checkIn(outsider, id, code(id), 5, 10, "outsider-phone-00000004").reason()).isEqualTo("NOT_LISTED");
+        // Location refusals never use up code attempts
+        assertThat(row(id, ama).get("failures")).isEqualTo(0);
+    }
+
+    @Test
+    void anUnclearReadingWaitsForTheLecturerAndConfirmsItselfOnAPreciseOne() {
+        Long id = openCourse("PROJECTOR", 120, false);
+        AttendanceService.CheckInResult rough = checkIn(kofi, id, code(id), 5, 120, KOFI_PHONE);
+        assertThat(rough.ok()).as("in the room with a rough reading: never refused").isTrue();
+        assertThat(rough.status()).isEqualTo("PENDING");
+        assertThat(rough.reason()).isEqualTo("LOCATION_UNCLEAR");
+        assertThat(rough.message()).contains("±120 m").contains("confirms on its own");
+        assertThat(flags(id, kofi)).contains(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
+        assertThat(openFor(kofi).get("locationUnclear")).isEqualTo(true);
+
+        // A precise reading from another phone doesn't count; from Kofi's own phone it confirms him
+        assertThat(locate(kofi, id, 5, 10, "someone-elses-phone-01").confirmed()).isFalse();
+        AttendanceService.LocateResult fixed = locate(kofi, id, 5, 10, KOFI_PHONE);
+        assertThat(fixed.fit()).isEqualTo("INSIDE");
+        assertThat(fixed.confirmed()).isTrue();
+        assertThat(row(id, kofi).get("status")).isEqualTo("PRESENT");
+        assertThat(row(id, kofi).get("firstAccuracy")).isEqualTo(10);
+        assertThat(flags(id, kofi)).doesNotContain(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
+        assertThat(openFor(kofi).get("locationUnclear")).isEqualTo(false);
+
+        // Just outside the area with a typical reading: waits for the lecturer, who approves it
+        assertThat(checkIn(esi, id, code(id), 90, 30, ESI_PHONE).status()).isEqualTo("PENDING");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> esiPlace = (Map<String, Object>) row(id, esi).get("lastPlace");
+        assertThat(esiPlace.get("fit")).isEqualTo("UNCLEAR");
+        assertThat(esiPlace.get("distance")).isEqualTo(90);
+        attendance.approvePending(lecturer, id);
+        assertThat(row(id, esi).get("status")).isEqualTo("PRESENT");
+    }
+
+    @Test
+    void aLateUnclearCheckInStaysLateAndOnlyConfirmsWhileCheckInIsOpen() {
+        Long id = openCourse("PROJECTOR", 120, false);
+        clock.plusSeconds(11 * 60);
+        assertThat(checkIn(ama, id, code(id), 5, 200, AMA_PHONE).status()).isEqualTo("PENDING");
+        clock.plusSeconds(5 * 60);   // check-in has closed
+        assertThat(locate(ama, id, 5, 10, AMA_PHONE).confirmed()).isFalse();
+        assertThat(row(id, ama).get("status")).isEqualTo("PENDING");
+        attendance.approvePending(lecturer, id);
+        assertThat(row(id, ama).get("status")).isEqualTo("LATE");
+    }
+
+    @Test
+    void aPreciseSecondCheckSettlesAnUnclearFirstOneAndAnUnclearSecondOneWaits() {
+        Long id = openCourse("PROJECTOR", 60, true);
+        assertThat(checkIn(ama, id, code(id), 5, 150, AMA_PHONE).status()).isEqualTo("PENDING");
+        assertThat(checkIn(kofi, id, code(id), 5, 10, KOFI_PHONE).status()).isEqualTo("PRESENT");
+        clock.plusSeconds(16 * 60);
+        attendance.startSecondCheck(lecturer, id);
+        String second = (String) attendance.codeView(lecturer, id).get("code");
+        assertThat(checkIn(ama, id, second, 5, 10, AMA_PHONE).status()).isEqualTo("PRESENT");
+        assertThat(flags(id, ama)).doesNotContain(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
+        AttendanceService.CheckInResult kofi2 = checkIn(kofi, id, second, 5, 150, KOFI_PHONE);
+        assertThat(kofi2.reason()).isEqualTo("LOCATION_UNCLEAR");
+        assertThat(row(id, kofi).get("status")).isEqualTo("PENDING");
+        // ...and a precise reading during the second check confirms it
+        assertThat(locate(kofi, id, 5, 10, KOFI_PHONE).confirmed()).isTrue();
+        assertThat(row(id, kofi).get("status")).isEqualTo("PRESENT");
+    }
+
+    @Test
+    void aDepartmentCanRefuseUnclearReadingsInstead() {
+        policies.saveSystem(sa, new AttendancePolicyService.PolicyRequest(null, null, null, null, null, null, null, null, null, null, null, null, null, false));
+        Long id = openCourse("PROJECTOR", 120, false);
+        assertThat(attendance.detail(lecturer, id).get("confirmUnclearLocation")).isEqualTo(false);
+        assertThat(checkIn(ama, id, code(id), 5, 120, AMA_PHONE).reason()).isEqualTo("IMPRECISE");
+        assertThat(checkIn(ama, id, code(id), 90, 30, AMA_PHONE).reason()).isEqualTo("TOO_FAR");
+        assertThat(locate(ama, id, 90, 30, AMA_PHONE).message()).contains("Wait a few seconds");
+        assertThat(checkIn(ama, id, code(id), 5, 10, AMA_PHONE).status()).isEqualTo("PRESENT");
+    }
+
+    @Test
+    void thePhoneReportsItsLocationBeforeAnyCodeAndTheLecturerSeesWhoIsTrying() {
+        Long id = openCourse("PROJECTOR", 120, false);
+        assertThat(locate(ama, id, 5, 10, AMA_PHONE).fit()).isEqualTo("INSIDE");
+        assertThat(locate(ama, id, 90, 30, AMA_PHONE).fit()).isEqualTo("UNCLEAR");
+        AttendanceService.LocateResult home = locate(ama, id, 3000, 10, AMA_PHONE);
+        assertThat(home.fit()).isEqualTo("OUTSIDE");
+        assertThat(home.message()).contains("km");
+        assertThat(locate(ama, id, 5, 5000, AMA_PHONE).fit()).as("approximate location only").isEqualTo("NO_GPS");
+        assertThat(locate(outsider, id, 5, 10, "outsider-phone-00000004").fit()).isEqualTo("NOT_LISTED");
+        assertThat(attendance.locate(ama, new AttendanceService.LocateRequest(id, null, null, null, AMA_PHONE)).fit()).isEqualTo("NO_LOCATION");
+
+        // Ama hasn't checked in; her newest reading is on the lecturer's list
+        @SuppressWarnings("unchecked")
+        Map<String, Object> place = (Map<String, Object>) row(id, ama).get("lastPlace");
+        assertThat(row(id, ama).get("status")).isNull();
+        assertThat(place.get("fit")).isEqualTo("NO_GPS");
+        assertThat(place.get("accuracy")).isEqualTo(5000);
+        assertThat(row(id, esi).get("lastPlace")).isNull();
+    }
+
+    @Test
+    void reCentringMovesTheRoomForThisMeetingOnly() {
+        Long id = openCourse("PROJECTOR", 120, false);
+        assertThat(checkIn(ama, id, code(id), 200, 5, AMA_PHONE).reason()).isEqualTo("TOO_FAR");
+        assertThatThrownBy(() -> attendance.recentre(lecturer, id, new AttendanceService.RecentreRequest(LAT + 200 * M, LNG, 80.0)))
+                .hasMessageContaining("±80 m");
+        Map<String, Object> moved = attendance.recentre(lecturer, id, new AttendanceService.RecentreRequest(LAT + 200 * M, LNG, 6.0));
+        assertThat(moved.get("centreAccuracyMeters")).isEqualTo(6);
+        assertThat(checkIn(ama, id, code(id), 200, 5, AMA_PHONE).status()).isEqualTo("PRESENT");
+    }
+
+    @Autowired AttendancePolicyRepository policyRepo;
+
+    @Test
+    void rulesStillOnTheOldThirtyMetreDefaultMoveToFifty() {
+        com.exam.model.attendance.AttendancePolicy system = policies.system();
+        system.setMaxAccuracyMeters(30);
+        system.setLocationRulesVersion(1);
+        policyRepo.save(system);
+        com.exam.model.attendance.AttendancePolicy own = system.copyRules();
+        own.setDepartment(cmp);
+        own.setMaxAccuracyMeters(20);   // chosen on purpose: kept
+        own.setLocationRulesVersion(1);
+        policyRepo.save(own);
+
+        assertThat(policies.upgradeLocationRules()).isEqualTo(1);
+        assertThat(policies.system().getMaxAccuracyMeters()).isEqualTo(50);
+        assertThat(policies.effective(cmp).getMaxAccuracyMeters()).isEqualTo(20);
+        assertThat(policies.upgradeLocationRules()).as("only once").isZero();
     }
 
     @Test
@@ -510,10 +651,20 @@ class AttendanceJpaTest {
         assertThat(attendance.scanByStaff(lecturer, id, forged).outcome()).isEqualTo("REFUSED");
         assertThat(attendance.scanByStaff(lecturer, id, "hello").message()).contains("isn't a student's attendance code");
 
+        // A rough reading still gets the student their code (the scanner sees them in person), with a warning on the scan
+        AttendanceService.QrKeyResult esiKey = attendance.qrKey(esi, new AttendanceService.QrKeyRequest(id, LAT + 5 * M, LNG, 140.0, ESI_PHONE));
+        assertThat(esiKey.ok()).isTrue();
+        assertThat(esiKey.reason()).isEqualTo("LOCATION_UNCLEAR");
+        AttendanceService.ScanResult esiScan = attendance.scanByStaff(lecturer, id, liveCode(esiKey, 0));
+        assertThat(esiScan.outcome()).isEqualTo("RECORDED");
+        assertThat(esiScan.message()).contains("location was unclear");
+        assertThat(flags(id, esi)).contains(AttendanceRecord.FLAG_LOCATION_UNCLEAR);
+
         attendance.end(lecturer, id);
         Map<Long, AttendanceRecord> byStudent = new HashMap<>();
         records.forSession(id).forEach(r -> byStudent.put(r.getStudent().getId(), r));
         assertThat(byStudent.get(ama.getId()).getStatus().name()).isEqualTo("PRESENT");
+        assertThat(byStudent.get(ama.getId()).hasFlag(AttendanceRecord.FLAG_LOCATION_UNCLEAR)).isFalse();
         assertThat(byStudent.get(ama.getId()).getMethod()).isEqualTo(AttendanceRecord.METHOD_SCAN);
         assertThat(byStudent.get(ama.getId()).getReviewedBy()).isEqualTo("lect1 Test");
         assertThat(byStudent.get(kofi.getId()).getStatus().name()).as("showed only a screenshot").isEqualTo("ABSENT");

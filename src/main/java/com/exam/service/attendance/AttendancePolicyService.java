@@ -61,7 +61,43 @@ public class AttendancePolicyService {
     public record PolicyRequest(String mode, Integer codeSeconds, Integer readAloudCodeSeconds, Integer graceSeconds,
                                 Integer checkInMinutes, Integer lateAfterMinutes, Integer radiusMeters,
                                 Integer maxAccuracyMeters, Integer maxFailedAttempts, Boolean secondCheck,
-                                Integer secondCheckMinutes, Boolean minimumRequired, Integer minimumPercent) {}
+                                Integer secondCheckMinutes, Boolean minimumRequired, Integer minimumPercent,
+                                Boolean confirmUnclearLocation) {
+
+        /** Without the unclear-location choice (callers from before it existed): left as it is. */
+        public PolicyRequest(String mode, Integer codeSeconds, Integer readAloudCodeSeconds, Integer graceSeconds,
+                             Integer checkInMinutes, Integer lateAfterMinutes, Integer radiusMeters,
+                             Integer maxAccuracyMeters, Integer maxFailedAttempts, Boolean secondCheck,
+                             Integer secondCheckMinutes, Boolean minimumRequired, Integer minimumPercent) {
+            this(mode, codeSeconds, readAloudCodeSeconds, graceSeconds, checkInMinutes, lateAfterMinutes, radiusMeters,
+                    maxAccuracyMeters, maxFailedAttempts, secondCheck, secondCheckMinutes, minimumRequired, minimumPercent, null);
+        }
+    }
+
+    /** The precision default before the fairer location rule; rules still on it move to the new default. */
+    static final int OLD_DEFAULT_ACCURACY_METERS = 30;
+    static final int DEFAULT_ACCURACY_METERS = 50;
+
+    /**
+     * Once, at start-up: rules saved under the old location rule that still use the old ±30 m
+     * default move to ±50 m (a chosen value is kept); every row is then marked current.
+     */
+    @Transactional
+    public int upgradeLocationRules() {
+        int moved = 0;
+        List<AttendancePolicy> changed = new ArrayList<>();
+        for (AttendancePolicy p : policies.findAll()) {
+            if (p.getLocationRulesVersion() >= 2) continue;
+            if (p.getMaxAccuracyMeters() == OLD_DEFAULT_ACCURACY_METERS) {
+                p.setMaxAccuracyMeters(DEFAULT_ACCURACY_METERS);
+                moved++;
+            }
+            p.setLocationRulesVersion(2);
+            changed.add(p);
+        }
+        policies.saveAll(changed);
+        return moved;
+    }
 
     @Transactional
     public Map<String, Object> view(User actor) {
@@ -146,6 +182,7 @@ public class AttendancePolicyService {
         if (r.lateAfterMinutes() != null) p.setLateAfterMinutes(range(r.lateAfterMinutes(), 0, 60, "Late after", "minutes"));
         if (r.radiusMeters() != null) p.setRadiusMeters(range(r.radiusMeters(), 10, 300, "Allowed distance", "metres"));
         if (r.maxAccuracyMeters() != null) p.setMaxAccuracyMeters(range(r.maxAccuracyMeters(), 5, 150, "Location precision", "metres"));
+        if (r.confirmUnclearLocation() != null) p.setConfirmUnclearLocation(r.confirmUnclearLocation());
         if (r.maxFailedAttempts() != null) p.setMaxFailedAttempts(range(r.maxFailedAttempts(), 3, 10, "Wrong codes allowed", "attempts"));
         if (r.secondCheck() != null) p.setSecondCheck(r.secondCheck());
         if (r.secondCheckMinutes() != null) p.setSecondCheckMinutes(range(r.secondCheckMinutes(), 1, 10, "Second check window", "minutes"));
@@ -174,6 +211,7 @@ public class AttendancePolicyService {
         m.put("lateAfterMinutes", p.getLateAfterMinutes());
         m.put("radiusMeters", p.getRadiusMeters());
         m.put("maxAccuracyMeters", p.getMaxAccuracyMeters());
+        m.put("confirmUnclearLocation", p.isConfirmUnclearLocation());
         m.put("maxFailedAttempts", p.getMaxFailedAttempts());
         m.put("secondCheck", p.isSecondCheck());
         m.put("secondCheckMinutes", p.getSecondCheckMinutes());

@@ -12,6 +12,7 @@ com\exam\helper\IndexNumberRangeTest.class
 com\exam\service\subscription\SubscriptionKeysTest.class
 com\exam\service\QuizServiceAccessTest.class
 com\exam\service\AcademicRecordServiceTest.class
+com\exam\service\attendance\AttendanceGeoTest.class
 com\exam\service\AnswerMatcherTest.class
 com\exam\service\examops\QuestionBankTheoryTest.class
 com\exam\service\QuestionTypeChangeTest.class

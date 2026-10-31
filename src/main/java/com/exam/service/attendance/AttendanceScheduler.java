@@ -13,8 +13,12 @@ public class AttendanceScheduler {
     private static final Logger log = LoggerFactory.getLogger(AttendanceScheduler.class);
 
     @Autowired private AttendanceService attendance;
+    @Autowired private AttendancePolicyService policies;
 
-    /** Older programme meetings get their term, so report cards can count them. */
+    /**
+     * Older programme meetings get their term, so report cards can count them; rules still on the
+     * old ±30 m location default move to the new one.
+     */
     @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
     public void recordTermsOnOlderMeetings() {
         try {
@@ -22,6 +26,12 @@ public class AttendanceScheduler {
             if (n > 0) log.info("[Attendance] Recorded the term on {} older programme meeting(s)", n);
         } catch (Exception e) {
             log.warn("[Attendance] Could not record terms on older meetings: {}", e.getMessage());
+        }
+        try {
+            int n = policies.upgradeLocationRules();
+            if (n > 0) log.info("[Attendance] Moved {} attendance rule set(s) from ±30 m to ±50 m location precision", n);
+        } catch (Exception e) {
+            log.warn("[Attendance] Could not update the location rules: {}", e.getMessage());
         }
     }
 

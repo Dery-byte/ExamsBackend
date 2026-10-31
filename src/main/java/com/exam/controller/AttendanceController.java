@@ -52,6 +52,12 @@ public class AttendanceController {
         return withUser(u -> ResponseEntity.ok(attendance.qrKey(u, req)));
     }
 
+    /** The phone's location while a class card is open: whether it fits the room (and confirms a check-in waiting only on it). */
+    @PostMapping("/student/locate")
+    public ResponseEntity<?> locate(@RequestBody AttendanceService.LocateRequest req) {
+        return withUser(u -> ResponseEntity.ok(attendance.locate(u, req)));
+    }
+
     @GetMapping("/student/summary")
     public ResponseEntity<?> mySummary() {
         return withUser(u -> ResponseEntity.ok(attendance.studentSummary(u)));
@@ -108,6 +114,11 @@ public class AttendanceController {
     @PutMapping("/manage/sessions/{id}/headcount")
     public ResponseEntity<?> headcount(@PathVariable Long id, @RequestBody Map<String, Integer> body) {
         return withUser(u -> ResponseEntity.ok(attendance.setHeadcount(u, id, body == null ? null : body.get("headcount"))));
+    }
+
+    @PostMapping("/manage/sessions/{id}/recentre")
+    public ResponseEntity<?> recentre(@PathVariable Long id, @RequestBody AttendanceService.RecentreRequest req) {
+        return withUser(u -> ResponseEntity.ok(attendance.recentre(u, id, req)));
     }
 
     @PutMapping("/manage/sessions/{id}/students/{studentId}")

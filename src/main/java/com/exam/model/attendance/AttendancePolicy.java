@@ -44,8 +44,20 @@ public class AttendancePolicy {
 
     /** Default allowed distance when the lecturer's own location is used (saved classrooms have their own). */
     private int radiusMeters = 50;
-    /** Location readings less precise than this are refused. */
-    private int maxAccuracyMeters = 30;
+    /** Readings at least this precise can confirm a student on their own; rougher ones are "unclear". */
+    private int maxAccuracyMeters = 50;
+    /**
+     * When a reading can't confirm the student but still fits someone in the room (rough, or just
+     * outside): true = the check-in is kept and waits for the lecturer; false = it is refused.
+     */
+    @ColumnDefault("1")
+    private boolean confirmUnclearLocation = true;
+    /**
+     * 1 = saved before the fairer location rule (precision default 30 m); 2 = current. Older rows
+     * still on the old 30 m default are moved to 50 m once at start-up.
+     */
+    @ColumnDefault("1")
+    private int locationRulesVersion = 2;
     /** Wrong or expired codes allowed per session before the student is locked out of it. */
     private int maxFailedAttempts = 5;
 
@@ -77,6 +89,7 @@ public class AttendancePolicy {
         p.lateAfterMinutes = lateAfterMinutes;
         p.radiusMeters = radiusMeters;
         p.maxAccuracyMeters = maxAccuracyMeters;
+        p.confirmUnclearLocation = confirmUnclearLocation;
         p.maxFailedAttempts = maxFailedAttempts;
         p.secondCheck = secondCheck;
         p.secondCheckMinutes = secondCheckMinutes;

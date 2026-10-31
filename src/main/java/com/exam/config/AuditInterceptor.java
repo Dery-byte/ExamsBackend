@@ -196,6 +196,7 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
             r("POST",   ".*/api/attendance/manage/sessions/\\d+/second-check$",        "Started the attendance second check"),
             r("DELETE", ".*/api/attendance/manage/sessions/\\d+/second-check$",        "Cancelled the attendance second check"),
             r("PUT",    ".*/api/attendance/manage/sessions/\\d+/headcount$",           "Entered the class headcount"),
+            r("POST",   ".*/api/attendance/manage/sessions/\\d+/recentre$",            "Moved a class's attendance room centre"),
             r("POST",   ".*/api/attendance/manage/sessions/\\d+/helpers$",             "Gave a helper an attendance scanner link"),
             r("DELETE", ".*/api/attendance/manage/sessions/\\d+/helpers/\\d+$",        "Cancelled a helper's scanner link"),
             r("POST",   ".*/api/attendance/manage/classrooms$",                        "Saved a classroom"),
