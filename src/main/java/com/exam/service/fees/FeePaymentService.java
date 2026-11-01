@@ -12,6 +12,9 @@ import com.exam.service.academic.AcademicSessionService;
 import com.exam.service.academic.InstitutionService;
 import com.exam.service.comms.CurrentUserService;
 import com.fasterxml.jackson.databind.JsonNode;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,6 +77,7 @@ public class FeePaymentService {
     @Autowired private SystemSettingService settings;
     @Autowired private PaystackClient paystack;
     @Autowired private PlatformTransactionManager transactionManager;
+    @PersistenceContext private EntityManager entityManager;
     @Autowired private ResultsHoldService resultsHoldService;
     @Autowired private FeeDues feeDues;
     @Autowired private ReceiptService receipts;
@@ -383,6 +387,10 @@ public class FeePaymentService {
     private FeePayment settle(String reference, JsonNode data) {
         return new TransactionTemplate(transactionManager).execute(status -> {
             FeePayment p = paymentRepository.lockByReference(reference).orElse(null);
+            // The request may already hold this payment as read before the lock (confirmForStudent, open
+            // session in view), and the query hands back that copy: read it again, so a payment another
+            // request settled while we waited isn't settled twice (a second receipt number and code).
+            if (p != null) entityManager.refresh(p, LockModeType.PESSIMISTIC_WRITE);
             if (p == null || p.getStatus() == FeePayment.Status.SUCCESS || p.getStatus() == FeePayment.Status.VOIDED) return p;
 
             String gatewayStatus = data.path("status").asText("");

@@ -1,5 +1,6 @@
 com\exam\service\GradingPresetTest.class
 com\exam\service\boarding\BoardingJpaTest.class
+com\exam\service\comms\NotificationServiceTest.class
 com\exam\service\fees\FeeFlowJpaTest.class
 com\exam\service\QuizServiceAutoOpenTest.class
 com\exam\service\AttemptServiceTest.class

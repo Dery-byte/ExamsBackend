@@ -43,6 +43,7 @@ com\exam\service\reports\ReportPdfService$Head.class
 com\exam\service\monitoring\HealthService$Beat.class
 com\exam\repository\StockMovementRepository.class
 com\exam\service\fees\ReminderService$Target.class
+com\exam\service\comms\NotificationService$1.class
 com\exam\config\ApplicationConfig.class
 com\exam\model\exam\QuestionType.class
 com\exam\service\fees\FeePaymentService.class

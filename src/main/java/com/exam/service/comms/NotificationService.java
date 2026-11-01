@@ -20,6 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.*;
 
@@ -50,12 +52,32 @@ public class NotificationService {
 
     // ── Sending ───────────────────────────────────────────────────────────────
 
+    /**
+     * Inside a transaction the notifications are written once it commits (and not at all if it rolls
+     * back). Written straight away, the insert's foreign-key check would wait on any recipient row the
+     * caller has locked (ledger.lock, a withdrawal step …): our own lock, from another connection, so it
+     * hung for the full lock timeout while the caller held the student's account and payments.
+     */
     public void notify(Collection<User> recipients, String type, String title, String message, String link) {
         if (recipients == null || recipients.isEmpty()) return;
+        Map<Long, User> unique = new LinkedHashMap<>();
+        for (User u : recipients) if (u != null && u.getId() != null) unique.putIfAbsent(u.getId(), u);
+        if (unique.isEmpty()) return;
+        if (TransactionSynchronizationManager.isActualTransactionActive() && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    store(unique.values(), type, title, message, link);
+                }
+            });
+        } else {
+            store(unique.values(), type, title, message, link);
+        }
+    }
+
+    private void store(Collection<User> recipients, String type, String title, String message, String link) {
         try {
-            Map<Long, User> unique = new LinkedHashMap<>();
-            for (User u : recipients) if (u != null && u.getId() != null) unique.putIfAbsent(u.getId(), u);
-            if (!unique.isEmpty()) writer.write(unique.values(), type, title, message, link);
+            writer.write(recipients, type, title, message, link);
         } catch (Exception e) {
             log.warn("Could not store {} notifications: {}", type, e.getMessage());
         }
