@@ -401,6 +401,12 @@ public class ReportService {
 
         double maxMarks = Optional.ofNullable(quiz.getMaxMarks()).orElse(0.0);
 
+        // Question-pool quiz: only the questions drawn for this student (each has an answer row, even
+        // when left blank), so the marks per question match how the submission was marked
+        if (quiz.drawsQuestions() && !answerMap.isEmpty()) {
+            questions = questions.stream().filter(q -> answerMap.containsKey(q.getQuesId())).toList();
+        }
+
         int    totalQs         = questions.size();
         double markPerQuestion = totalQs > 0 ? maxMarks / totalQs : 0;
 

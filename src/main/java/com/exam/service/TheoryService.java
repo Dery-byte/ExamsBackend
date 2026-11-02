@@ -117,8 +117,8 @@ public class TheoryService {
                 .orElseThrow(() -> new ResourceNotFoundException("Theory question " + quesId + " no longer exists."));
     }
 
-    public Set<TheoryQuestions> getQuestionsForSpecificQuiz(Quiz quiz){
-        return this.theoryQuestionsRepository.findByQuiz(quiz);
+    public List<TheoryQuestions> getQuestionsForSpecificQuiz(Quiz quiz){
+        return this.theoryQuestionsRepository.findByQuizInOrder(quiz);
     }
 
 
@@ -144,7 +144,7 @@ public class TheoryService {
         Quiz quiz = new Quiz();
         quiz.setqId(qid);
 
-        return this.theoryQuestionsRepository.findByQuiz(quiz)
+        return this.theoryQuestionsRepository.findByQuizInOrder(quiz)
                 .stream()
                 .map(this::toResponseDTO)
                 .collect(Collectors.toList());

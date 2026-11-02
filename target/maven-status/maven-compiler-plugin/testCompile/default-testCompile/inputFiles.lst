@@ -14,6 +14,8 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\Theo
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\AccountsJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAutoCloseTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizTimerServiceClockTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\QuestionDrawTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\OptionOrderTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\academic\ClassPromotionJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\reports\ReportsJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\subscription\SubscriptionStatusTest.java
@@ -30,6 +32,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fee
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AttemptServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\SubscriptionEnforcementIntegrationTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AcademicRecordServiceTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\SectionALimitTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\subscription\SubscriptionKeysTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuestionImageServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\config\JacksonProxyJpaTest.java
@@ -54,6 +57,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\aca
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\subscription\TestKeys.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAccessTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\WalletJpaTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizEvaluationPoolTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\admin\ConfigTransferServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\attendance\AttendanceGeoTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\ClassPositionTest.java

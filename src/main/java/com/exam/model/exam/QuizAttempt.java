@@ -72,6 +72,14 @@ public class QuizAttempt {
     @Column(name = "void_reason", length = 500)
     private String voidReason;
 
+    /**
+     * Question-pool quizzes only: the objective question ids drawn for this attempt, in the order shown,
+     * comma separated. Fixed once drawn, so a reload or another device shows the same questions, and
+     * marking uses this list. Plain ids, not a FK, so deleting a question is never blocked by it.
+     */
+    @Column(name = "served_question_ids", columnDefinition = "TEXT")
+    private String servedQuestionIds;
+
     public Long getId() { return id; }
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }
@@ -101,4 +109,6 @@ public class QuizAttempt {
     public void setVoidedByName(String voidedByName) { this.voidedByName = voidedByName; }
     public String getVoidReason() { return voidReason; }
     public void setVoidReason(String voidReason) { this.voidReason = voidReason; }
+    public String getServedQuestionIds() { return servedQuestionIds; }
+    public void setServedQuestionIds(String servedQuestionIds) { this.servedQuestionIds = servedQuestionIds; }
 }

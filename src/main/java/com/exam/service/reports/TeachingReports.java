@@ -221,20 +221,28 @@ public class TeachingReports {
         for (ObjectiveAnswerRow a : queries.objectiveAnswers(q.getqId()))
             byStudent.computeIfAbsent(a.studentId(), k -> new HashMap<>()).put(a.questionId(), a.selected());
 
-        // Each student's credit (0–1) on each question, by the same rules as marking
+        // Each student's credit (0–1) on each question they were given, by the same rules as marking. On a
+        // question-pool quiz each student was given only their own draw (every drawn question has an answer
+        // row, even when left blank), so each question is judged on the students who were given it.
+        boolean pool = q.drawsQuestions();
         List<Long> students = new ArrayList<>(byStudent.keySet());
         Map<Long, Map<Long, Double>> credit = new HashMap<>();
         for (Long s : students) {
             Map<Long, Double> m = new HashMap<>();
-            for (Questions qu : questions) m.put(qu.getQuesId(), credit(qu, byStudent.get(s).get(qu.getQuesId())));
+            for (Questions qu : questions)
+                if (!pool || byStudent.get(s).containsKey(qu.getQuesId())) m.put(qu.getQuesId(), credit(qu, byStudent.get(s).get(qu.getQuesId())));
             credit.put(s, m);
         }
-        int n = students.size();
-        int group = n >= 10 ? Math.max(1, (int) Math.round(n * 0.27)) : 0;
+        int analysed = students.size();
+        int group = analysed >= 10 ? Math.max(1, (int) Math.round(analysed * 0.27)) : 0;
+        // Ranked by the share of their own questions they got right (the same as total credit without a pool)
+        Map<Long, Double> share = new HashMap<>();
+        students.forEach(s -> share.put(s, credit.get(s).isEmpty() ? 0
+                : credit.get(s).values().stream().mapToDouble(d -> d).sum() / credit.get(s).size()));
         List<Long> ranked = students.stream()
-                .sorted(Comparator.comparingDouble((Long s) -> credit.get(s).values().stream().mapToDouble(d -> d).sum()).reversed()).toList();
+                .sorted(Comparator.comparingDouble((Long s) -> share.get(s)).reversed()).toList();
         List<Long> upper = group == 0 ? List.of() : ranked.subList(0, group);
-        List<Long> lower = group == 0 ? List.of() : ranked.subList(n - group, n);
+        List<Long> lower = group == 0 ? List.of() : ranked.subList(analysed - group, analysed);
 
         Table tb = r.table("objective", "Objective questions")
                 .col("no", "No.", INT).text("question", "Question").text("type", "Type").col("answered", "Answered", INT)
@@ -249,21 +257,25 @@ public class TeachingReports {
                 .emptyText("No question looks wrong or unusually hard.");
 
         int needCheck = 0, no = 0;
-        List<Double> totals = new ArrayList<>();
-        students.forEach(s -> totals.add(credit.get(s).values().stream().mapToDouble(d -> d).sum()));
+        List<Double> totals = new ArrayList<>(share.values());
         for (Questions qu : questions) {
             no++;
             Long id = qu.getQuesId();
             QuestionType type = qu.getQuestionType() == null ? QuestionType.MCQ : qu.getQuestionType();
-            long answered = students.stream().filter(s -> isAnswered(byStudent.get(s).get(id))).count();
-            double p = n == 0 ? 0 : students.stream().mapToDouble(s -> credit.get(s).get(id)).average().orElse(0);
-            Double d = group == 0 ? null : round2(upper.stream().mapToDouble(s -> credit.get(s).get(id)).average().orElse(0)
-                    - lower.stream().mapToDouble(s -> credit.get(s).get(id)).average().orElse(0));
+            List<Long> takers = students.stream().filter(s -> credit.get(s).containsKey(id)).toList();
+            int n = takers.size();   // students given this question
+            long answered = takers.stream().filter(s -> isAnswered(byStudent.get(s).get(id))).count();
+            double p = n == 0 ? 0 : takers.stream().mapToDouble(s -> credit.get(s).get(id)).average().orElse(0);
+            List<Long> upperGiven = upper.stream().filter(s -> credit.get(s).containsKey(id)).toList();
+            List<Long> lowerGiven = lower.stream().filter(s -> credit.get(s).containsKey(id)).toList();
+            Double d = group == 0 || upperGiven.isEmpty() || lowerGiven.isEmpty() ? null
+                    : round2(upperGiven.stream().mapToDouble(s -> credit.get(s).get(id)).average().orElse(0)
+                    - lowerGiven.stream().mapToDouble(s -> credit.get(s).get(id)).average().orElse(0));
 
             List<String> options = new ArrayList<>(Arrays.asList(qu.getOption1(), qu.getOption2(), qu.getOption3(), qu.getOption4()));
             boolean choice = type == QuestionType.MCQ || type == QuestionType.TRUE_FALSE;
             Map<String, Long> chosen = new HashMap<>();
-            if (choice) for (Long s : students) {
+            if (choice) for (Long s : takers) {
                 String[] sel = byStudent.get(s).get(id);
                 if (sel != null) for (String o : sel) if (o != null && !o.isBlank()) chosen.merge(o.trim(), 1L, Long::sum);
             }
@@ -330,9 +342,9 @@ public class TeachingReports {
                 });
 
         r.stat("Objective questions", questions.size())
-         .stat(student + "s analysed", n)
+         .stat(student + "s analysed", students.size())
          .stat("Average objective score", questions.isEmpty() || totals.isEmpty() ? null
-                 : AcademicReports.fmtPct(round1(totals.stream().mapToDouble(x -> x).average().orElse(0) * 100 / questions.size())))
+                 : AcademicReports.fmtPct(round1(totals.stream().mapToDouble(x -> x).average().orElse(0) * 100)))
          .stat("Questions to check", needCheck, "Possible answer-key or wording problems", needCheck > 0 ? "bad" : null)
          .stat("Theory questions", byNo.size());
         r.note("Correct = average credit on the question (matching questions earn part credit per pair). Difficulty: 70%+ easy, 30–70% moderate, under 30% hard.");

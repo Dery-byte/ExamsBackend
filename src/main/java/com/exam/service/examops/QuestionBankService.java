@@ -291,6 +291,9 @@ public class QuestionBankService {
             chosen = pool.subList(0, count);
         }
 
+        com.exam.helper.SectionALimit.require(quiz, questionsRepository.countByQuiz_qId(quizId),
+                chosen.stream().filter(b -> !b.isTheory()).count());
+
         // Theory questions get the next free number (Q4 after Q1–Q3): the exam groups parts by that prefix
         int nextNo = theoryInQuiz.stream().mapToInt(t -> questionNumber(t.getQuesNo())).max().orElse(0) + 1;
         int objective = 0, theory = 0;
@@ -384,7 +387,7 @@ public class QuestionBankService {
     /**
      * An uploaded item's type: "THEORY" for questionType "THEORY" or a quiz theory item ("question" with
      * no "content"); otherwise its questionType in capitals, "MCQ" when missing. The upload dialog's
-     * type picker applies the same rule (QuestionBank.tsx, uploadItemType); keep the two in step.
+     * review reads .json files by the same rule (questionImport.ts, fromJsonItem); keep the two in step.
      */
     static String uploadType(Map<?, ?> m) {
         String type = blankToNull(text(m, "questionType"));
@@ -511,6 +514,10 @@ public class QuestionBankService {
         q.setOption3(b.getOption3()); q.setOption4(b.getOption4());
         q.setcorrect_answer(b.getCorrectAnswer());
         q.setTolerance(b.getTolerance());
+        // Kept so a question-pool quiz can balance each student's draw by them
+        q.setTopic(b.getTopic());
+        q.setDifficulty(b.getDifficulty() == null ? null : b.getDifficulty().name());
+        com.exam.helper.QuestionDraw.cleanTags(q);
         if (b.getQuestionType() == QuestionType.MATCHING) {
             List<Map<String, String>> pairs = pairsFromJson(b.getMatchingPairsJson());
             List<MatchingPair> mp = new ArrayList<>();

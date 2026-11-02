@@ -70,6 +70,9 @@ public class QuestionDTO {
     private Double tolerance;
     private List<MatchingPair> matchingPairs;   // populated only for MATCHING
 
+    private String topic;
+    private String difficulty;
+
     public QuestionDTO() {}
 
     public QuestionDTO(Long quesId, String content, String image,

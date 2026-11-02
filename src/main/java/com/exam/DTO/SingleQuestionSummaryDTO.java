@@ -49,6 +49,10 @@ public class SingleQuestionSummaryDTO {
     /** NUMERIC only. */
     private Double tolerance;
 
+    /** Optional tags a question-pool draw balances by. */
+    private String topic;
+    private String difficulty;
+
     // MATCHING pairs — ordered by pairOrder, empty list for non-MATCHING types
     private List<MatchingPairDTO> matchingPairs = new ArrayList<>();
 

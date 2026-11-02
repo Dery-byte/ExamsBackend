@@ -243,6 +243,177 @@ class AttemptServiceJpaTest {
                 .doesNotContain(inProgress.getqId(), untouched.getqId());
     }
 
+    // ── Question pool ────────────────────────────────────────────────────────
+
+    @Autowired QuestionsRepository questionRepo;
+    @Autowired QuizService         quizService;
+
+    private void fillPool(Quiz q, int count) {
+        for (int i = 0; i < count; i++) {
+            com.exam.model.exam.Questions x = new com.exam.model.exam.Questions();
+            x.setQuiz(q);
+            x.setContent("Question " + i);
+            x.setOption1("a");
+            x.setOption2("b");
+            x.setcorrect_answer(new String[]{"a"});
+            x.setDifficulty(i % 2 == 0 ? "EASY" : "HARD");
+            questionRepo.save(x);
+        }
+    }
+
+    private void makePool(Quiz q, int each) {
+        q.setQuestionPool(true);
+        q.setNumberOfQuestions(each);
+        quizzes.save(q);
+    }
+
+    private static java.security.Principal as(String username) {
+        return () -> username;
+    }
+
+    /** What the student's objective-questions endpoint draws (null = every question in the quiz). */
+    private List<Long> drawn(String username) {
+        return service.beginAndDrawIfStudent(as(username), quiz.getqId()).drawn();
+    }
+
+    @Test
+    void poolQuizDrawsOnceAndShowsTheSameQuestionsOnEveryLoad() {
+        fillPool(quiz, 20);
+        makePool(quiz, 6);
+
+        List<Long> first = drawn("ada");
+        assertThat(first).hasSize(6).doesNotHaveDuplicates();
+        assertThat(questionRepo.findAllById(first)).allMatch(x -> x.getQuiz().getqId().equals(quiz.getqId()));
+        // Balanced: the pool is half easy, half hard
+        assertThat(questionRepo.findAllById(first)).filteredOn(x -> "EASY".equals(x.getDifficulty())).hasSize(3);
+
+        // A reload, the theory endpoint (begin) or another device: same questions, same order
+        assertThat(drawn("ada")).isEqualTo(first);
+        service.begin(student, quiz);
+        assertThat(service.drawnForActiveAttempt(student, quiz)).isEqualTo(first);
+        assertThat(attempts.findByUser_IdAndQuiz_qIdOrderByAttemptNumberAsc(student.getId(), quiz.getqId())).hasSize(1);
+    }
+
+    @Test
+    void theOptionOrderSeedIsTheAttemptSoItHoldsOnReloadAndChangesOnARetake() {
+        fillPool(quiz, 4);   // no pool: every question, but still one seed per attempt
+        Long first = service.beginAndDrawIfStudent(as("ada"), quiz.getqId()).attemptId();
+        assertThat(first).isNotNull();
+        assertThat(service.beginAndDrawIfStudent(as("ada"), quiz.getqId()).attemptId()).isEqualTo(first);
+        service.recordObjective(student, quiz, new BigDecimal("2"));
+        assertThat(service.beginAndDrawIfStudent(as("ada"), quiz.getqId()).attemptId()).isNotEqualTo(first);
+    }
+
+    @Test
+    void eachNewAttemptGetsItsOwnDraw() {
+        fillPool(quiz, 40);
+        makePool(quiz, 10);
+
+        List<Long> first = drawn("ada");
+        service.recordObjective(student, quiz, new BigDecimal("4"));
+        assertThat(service.drawnForActiveAttempt(student, quiz)).isNull();             // nothing in progress now
+        assertThat(service.drawnForLatestAttempt(student.getId(), quiz.getqId())).isEqualTo(first);
+
+        List<Long> second = drawn("ada");
+        assertThat(second).hasSize(10);
+        List<QuizAttempt> rows = attempts.findByUser_IdAndQuiz_qIdOrderByAttemptNumberAsc(student.getId(), quiz.getqId());
+        assertThat(rows).extracting(QuizAttempt::getServedQuestionIds)
+                .containsExactly(com.exam.helper.QuestionDraw.join(first), com.exam.helper.QuestionDraw.join(second));
+    }
+
+    @Test
+    void startingTheAttemptFixesTheDrawBeforeAnyQuestionIsShown() {
+        fillPool(quiz, 12);
+        makePool(quiz, 5);
+        service.begin(student, quiz);
+        List<Long> drawn = service.drawnForActiveAttempt(student, quiz);
+        assertThat(drawn).hasSize(5);
+        assertThat(drawn("ada")).isEqualTo(drawn);
+    }
+
+    @Test
+    void staffAndPoolFreeQuizzesSaveNoDraw() {
+        fillPool(quiz, 8);
+        assertThat(drawn("ada")).isNull();   // no pool: every question
+        assertThat(attempts.findByUser_IdAndQuiz_qIdOrderByAttemptNumberAsc(student.getId(), quiz.getqId()))
+                .extracting(QuizAttempt::getServedQuestionIds).containsExactly((String) null);
+
+        makePool(quiz, 3);
+        assertThat(service.beginAndDrawIfStudent(as("root"), quiz.getqId())).isNull();  // staff preview
+        assertThat(service.beginAndDrawIfStudent(null, quiz.getqId())).isNull();
+        assertThat(attempts.findByUser_IdAndQuiz_qIdOrderByAttemptNumberAsc(admin.getId(), quiz.getqId())).isEmpty();
+    }
+
+    @Test
+    void anEmptyPoolDrawsNothingUntilQuestionsAreAdded() {
+        makePool(quiz, 5);
+        assertThat(drawn("ada")).isEmpty();
+        assertThat(service.drawnForActiveAttempt(student, quiz)).isNull();
+
+        fillPool(quiz, 3);   // fewer than a full draw: the student gets what there is
+        assertThat(drawn("ada")).hasSize(3);
+        assertThat(service.drawnForActiveAttempt(student, quiz)).hasSize(3);
+    }
+
+    private com.exam.DTO.QuizUpdateRequest edit(boolean live, Boolean pool, Integer each) {
+        com.exam.DTO.QuizUpdateRequest r = new com.exam.DTO.QuizUpdateRequest();
+        r.setqId(quiz.getqId());
+        r.setActive(live);
+        r.setQuestionPool(pool);
+        r.setNumberOfQuestions(each);
+        return r;
+    }
+
+    /**
+     * The saved state before an edit. A refused edit rolls back in the app, but this test shares one
+     * persistence context, so each check sets the starting state it describes.
+     */
+    private void savedAs(boolean pool, boolean live, Integer each) {
+        quiz.setQuestionPool(pool);
+        quiz.setActive(live);
+        quiz.setNumberOfQuestions(each);
+        quizzes.save(quiz);
+    }
+
+    @Test
+    void savingAQuizEnforcesThePoolRules() {
+        // A pool needs the number each student gets
+        savedAs(false, false, null);
+        assertThatThrownBy(() -> quizService.updateQuiz(edit(false, true, null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Number of Questions");
+
+        // Live with too few questions: refused; as a draft: fine
+        fillPool(quiz, 3);
+        savedAs(false, false, null);
+        assertThatThrownBy(() -> quizService.updateQuiz(edit(true, true, 5)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("has only 3");
+        savedAs(false, false, null);
+        assertThat(quizService.updateQuiz(edit(false, true, 5)).isQuestionPool()).isTrue();
+
+        // Going live once the pool holds a full draw; null leaves the pool setting as it is
+        fillPool(quiz, 9);   // 12 in the pool
+        assertThat(quizService.updateQuiz(edit(true, null, null)).isActive()).isTrue();
+        assertThat(quizzes.findById(quiz.getqId()).orElseThrow().isQuestionPool()).isTrue();
+
+        // Raising the draw past the pool while live: refused
+        assertThatThrownBy(() -> quizService.updateQuiz(edit(true, null, 13)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Add 1 more");
+
+        // Not switched while a student is sitting it
+        savedAs(true, true, 5);
+        service.begin(student, quiz);
+        assertThatThrownBy(() -> quizService.updateQuiz(edit(true, false, 5)))
+                .isInstanceOfSatisfying(ResponseStatusException.class, e -> assertThat(e.getStatusCode().value()).isEqualTo(409));
+        savedAs(true, true, 5);
+        service.recordObjective(student, quiz, new BigDecimal("3"));
+
+        // Off again only when the quiz fits without the pool
+        assertThatThrownBy(() -> quizService.updateQuiz(edit(true, false, 5)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Delete 7");
+        savedAs(true, true, 5);
+        assertThat(quizService.updateQuiz(edit(true, false, 12)).isQuestionPool()).isFalse();
+    }
+
     private Quiz sibling(String title) {
         Quiz q = new Quiz();
         q.setTitle(title);

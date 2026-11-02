@@ -163,7 +163,8 @@ public class QuestionPapers {
 
         List<Questions> questions = objectiveOn ? questionsRepository.findByQuiz_qId(q.getqId()).stream()
                 .sorted(Comparator.comparing(Questions::getQuesId)).toList() : List.of();
-        List<TheoryQuestions> theoryQs = theoryOn ? theoryQuestionsRepository.findByQuiz_qId(q.getqId()) : List.of();
+        List<TheoryQuestions> theoryQs = theoryOn ? theoryQuestionsRepository.findByQuiz_qId(q.getqId()).stream()
+                .sorted(Comparator.comparing(TheoryQuestions::getTqId)).toList() : List.of();
         List<NumberOfTheoryToAnswer> rules = theoryRulesRepository.findByQuiz_qId(q.getqId());
         int toAnswer = rules.isEmpty() || rules.get(0).getTotalQuestToAnswer() == null ? 0 : rules.get(0).getTotalQuestToAnswer();
         int theoryMinutes = rules.isEmpty() || rules.get(0).getTimeAllowed() == null ? 0 : rules.get(0).getTimeAllowed();
@@ -217,7 +218,11 @@ public class QuestionPapers {
         if (c != null && c.getLevel() != null) details.add(new Detail(t.get("level"), ReportSupport.normLevel(c.getLevel())));
         if (c != null && c.getSemester() != null) details.add(new Detail(t.get("semester"), support.semesterName(c.getSemester())));
         if (c != null && !l.courseProgramNames(c).isEmpty()) details.add(new Detail(t.get("programs"), l.courseProgramNames(c)));
-        if (hasA) details.add(new Detail("Section A", objective.size() + " objective question" + (objective.size() == 1 ? "" : "s") + ", " + fmt(maxObjective) + " marks"));
+        // A question-pool quiz prints its whole pool; each candidate is given Number of Questions of them
+        Integer drawn = q.drawsQuestions() && q.getNumberOfQuestions() != null && q.getNumberOfQuestions() > 0
+                && q.getNumberOfQuestions() < objective.size() ? q.getNumberOfQuestions() : null;
+        if (hasA) details.add(new Detail("Section A", (drawn != null ? drawn + " of a pool of " : "") + objective.size()
+                + " objective question" + (objective.size() == 1 ? "" : "s") + ", " + fmt(maxObjective) + " marks"));
         if (hasB) details.add(new Detail("Section B", (answerAll ? "Answer all " + groupCount : "Answer " + toAnswer + " of " + groupCount)
                 + " theory question" + (groupCount == 1 ? "" : "s") + (theoryMarks != null ? ", " + theoryMarks + " marks" : "")));
         String examiner = ReportSupport.name(Lookups.lecturerOf(q));
@@ -225,7 +230,9 @@ public class QuestionPapers {
 
         // Instructions (cover page and report page)
         List<String> instructions = new ArrayList<>();
-        if (hasA) instructions.add(hasB ? "Answer all questions in Section A." : "Answer all questions.");
+        if (hasA && drawn != null) instructions.add("Section A is a question pool: each candidate is given " + drawn
+                + " of these " + objective.size() + " questions and answers all " + drawn + " of them.");
+        else if (hasA) instructions.add(hasB ? "Answer all questions in Section A." : "Answer all questions.");
         if (hasB) {
             String which = answerAll ? "Answer all questions in Section B."
                     : "Answer any " + words(toAnswer) + " (" + toAnswer + ") question" + (toAnswer == 1 ? "" : "s") + " in Section B.";

@@ -288,6 +288,7 @@ package com.exam.service;
 import com.exam.DTO.QuizDTO;
 import com.exam.DTO.QuizUpdateRequest;
 import com.exam.helper.IndexNumberRange;
+import com.exam.helper.SectionALimit;
 import com.exam.model.QuizStatus;
 import com.exam.model.Role;
 import com.exam.model.User;
@@ -337,6 +338,7 @@ public class QuizService {
         applyIndexRange(quiz, quiz.getIndexRangeStart(), quiz.getIndexRangeEnd());
         quiz.setMaxAttempts(validMaxAttempts(quiz.getMaxAttempts()));
         normalizeAutoClose(quiz);
+        checkQuestionPool(quiz, false, false, null);
         stampPublishedAt(quiz, false);
         return quizRepository.save(quiz);
     }
@@ -355,6 +357,7 @@ public class QuizService {
         applyIndexRange(quiz, quiz.getIndexRangeStart(), quiz.getIndexRangeEnd());
         quiz.setMaxAttempts(validMaxAttempts(quiz.getMaxAttempts()));
         normalizeAutoClose(quiz);
+        checkQuestionPool(quiz, false, false, null);
         stampPublishedAt(quiz, false);
         return quizRepository.save(quiz);
     }
@@ -376,6 +379,7 @@ public class QuizService {
         applyIndexRange(quiz, quiz.getIndexRangeStart(), quiz.getIndexRangeEnd());
         quiz.setMaxAttempts(validMaxAttempts(quiz.getMaxAttempts()));
         normalizeAutoClose(quiz);
+        checkQuestionPool(quiz, false, false, null);
         stampPublishedAt(quiz, false);
         return quizRepository.save(quiz);
     }
@@ -461,6 +465,9 @@ public class QuizService {
         Quiz quiz = quizRepository.findById(req.getqId())
                 .orElseThrow(() -> new EntityNotFoundException("Quiz not found with id: " + req.getqId()));
 
+        boolean wasPool = quiz.isQuestionPool();
+        Integer oldDrawSize = quiz.getNumberOfQuestions();
+
         // ── Core fields ───────────────────────────────────────────────────────
         if (req.getTitle()               != null) quiz.setTitle(req.getTitle());
         if (req.getDescription()         != null) quiz.setDescription(req.getDescription());
@@ -472,6 +479,7 @@ public class QuizService {
         if (req.getQuizType()            != null) quiz.setQuizType(req.getQuizType());
         if (req.getStartTime()           != null) quiz.setStartTime(req.getStartTime());
         if (req.getQuizDate()            != null) quiz.setQuizDate(req.getQuizDate());
+        if (req.getQuestionPool()        != null) quiz.setQuestionPool(req.getQuestionPool());
 
         // ── Proctoring fields ─────────────────────────────────────────────────
         if (req.getViolationAction()            != null) quiz.setViolationAction(req.getViolationAction());
@@ -497,6 +505,7 @@ public class QuizService {
         quiz.setAutoClose(req.isAutoClose());
         quiz.setAutoCloseFraction(req.getAutoCloseFraction());
         normalizeAutoClose(quiz);
+        checkQuestionPool(quiz, wasPool, wasActive, oldDrawSize);
         stampPublishedAt(quiz, wasActive);
 
         // ── Category ──────────────────────────────────────────────────────────
@@ -624,6 +633,31 @@ public class QuizService {
         if (error != null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, error);
         quiz.setIndexRangeStart(IndexNumberRange.normalize(start));
         quiz.setIndexRangeEnd(IndexNumberRange.normalize(end));
+    }
+
+    /**
+     * Question-pool rules, checked whenever a quiz is saved (wasPool / wasActive / oldDrawSize describe it
+     * before this save; a new quiz passes false / false / null):
+     *  - a pool needs Number of Questions, the number each student gets;
+     *  - it may not be switched on or off while students are sitting the quiz, as their questions would change;
+     *  - switching it off needs the quiz to hold no more than Number of Questions;
+     *  - a live pool quiz must hold at least one full draw, checked when it goes live or its pool settings change.
+     */
+    private void checkQuestionPool(Quiz quiz, boolean wasPool, boolean wasActive, Integer oldDrawSize) {
+        boolean switched = quiz.isQuestionPool() != wasPool;
+        Long id = quiz.getqId();
+        long inQuiz = id == null ? 0 : questionsRepository.countByQuiz_qId(id);
+        if (switched && id != null && quizAttemptRepository.existsByQuiz_qIdAndStatus(id, AttemptStatus.IN_PROGRESS)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Students are taking this quiz right now. Change the question pool setting once they have submitted.");
+        }
+        if (!quiz.isQuestionPool()) {
+            if (switched) SectionALimit.requireFitsWithoutPool(quiz, inQuiz);
+            return;
+        }
+        SectionALimit.requireDrawSize(quiz);
+        boolean drawSizeChanged = !java.util.Objects.equals(oldDrawSize, quiz.getNumberOfQuestions());
+        if (quiz.isActive() && (!wasActive || switched || drawSizeChanged)) SectionALimit.requirePoolReady(quiz, inQuiz);
     }
 
     /** A lecturer can turn auto-close on without picking a fraction; default that to HALF rather than reject it. */

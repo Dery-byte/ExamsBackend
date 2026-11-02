@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
@@ -15,6 +16,16 @@ import java.util.Set;
 @Repository
 public interface TheoryQuestionsRepository extends JpaRepository<TheoryQuestions, Long> {
     Set<TheoryQuestions> findByQuiz(Quiz quiz);
+
+    /**
+     * A quiz's theory questions in the order they were added, so a question's parts (Q1a, Q1ai, Q1b)
+     * appear in the order they were typed or uploaded; sorting the labels can't do that (Roman numerals).
+     */
+    default List<TheoryQuestions> findByQuizInOrder(Quiz quiz) {
+        return findByQuiz(quiz).stream()
+                .sorted(Comparator.comparing(TheoryQuestions::getTqId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+    }
 
 
     @Modifying

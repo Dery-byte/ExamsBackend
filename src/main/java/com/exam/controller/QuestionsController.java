@@ -607,13 +607,23 @@ public class QuestionsController {
     // READ — Questions
     // =========================================================================
 
-    /** Student: shuffled questions as DTOs (no correct answers exposed) */
+    /**
+     * Student: shuffled questions as DTOs (no correct answers exposed), with the answer options in this
+     * student's own order, fixed for the attempt. On a question-pool quiz, the questions drawn for the
+     * student's attempt, the same set and order on every load; staff previewing one get a fresh unsaved draw.
+     */
     @GetMapping("/question/quiz/all/{qid}")
     public ResponseEntity<List<QuestionResponseDTO>> getQuestionsForStudent(
             @PathVariable Long qid, Principal principal) {
         quizService.assertStudentMayAccess(qid, principal);
-        attemptService.beginIfStudent(principal, qid);   // 409 if the student has no attempts left
-        return ResponseEntity.ok(questionsService.getShuffledQuestionsForStudent(qid));
+        // 409 if the student has no attempts left
+        com.exam.service.AttemptService.StudentQuestions mine = attemptService.beginAndDrawIfStudent(principal, qid);
+        List<Long> drawn = mine == null ? null : mine.drawn();
+        if (mine == null) {
+            Quiz quiz = quizService.getQuiz(qid);
+            if (quiz.drawsQuestions()) drawn = questionsService.previewDraw(quiz);
+        }
+        return ResponseEntity.ok(questionsService.getQuestionsForStudent(qid, drawn, mine == null ? null : mine.attemptId()));
     }
 
 
@@ -690,6 +700,12 @@ public class QuestionsController {
     @PostMapping("/question/add")
     public ResponseEntity<Questions> addQuestion(@RequestBody Questions question) {
         ownership.requireQuiz(question.getQuiz() != null ? question.getQuiz().getqId() : null);
+        Long quizId = question.getQuiz() != null ? question.getQuiz().getqId() : null;
+        if (quizId == null) throw new IllegalArgumentException("Choose the quiz this question belongs to.");
+        Quiz quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new EntityNotFoundException("Quiz with ID " + quizId + " not found"));
+        com.exam.helper.SectionALimit.require(quiz, questionsRepository.countByQuiz_qId(quizId), 1);
+        com.exam.helper.QuestionDraw.cleanTags(question);
         if (question.getQuestionType() == null) {
             question.setQuestionType(QuestionType.MCQ);
         }
@@ -751,14 +767,14 @@ public class QuestionsController {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Quiz with ID " + quizId + " not found"));
 
-        int allowed = quiz.getNumberOfQuestions();
-        if (questions.size() > allowed) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                    "Quiz allows " + allowed + " questions but you provided " + questions.size());
-        }
+        // Counts the questions already in the quiz, not just this file
+        com.exam.helper.SectionALimit.require(quiz, questionsRepository.countByQuiz_qId(quizId), questions.size());
 
-        // Link every question to the quiz
-        questions.forEach(q -> q.setQuiz(quiz));
+        // Link every question to the quiz; tidy its topic / difficulty (400 before anything is saved)
+        questions.forEach(q -> {
+            q.setQuiz(quiz);
+            com.exam.helper.QuestionDraw.cleanTags(q);
+        });
 
         // BulkQuestionUploadService handles type validation + matchingPairs FK linking
         List<Questions> saved = bulkQuestionUploadService.saveAllQuestions(questions);
@@ -783,6 +799,9 @@ public class QuestionsController {
 
     @DeleteMapping("/question/{quesId}")
     public ResponseEntity<Void> deleteQuestion(@PathVariable Long quesId) {
+        // A live question-pool quiz may not drop below one full draw
+        questionsRepository.findById(quesId).map(Questions::getQuiz).filter(Objects::nonNull).ifPresent(quiz ->
+                com.exam.helper.SectionALimit.requireRoomToDelete(quiz, questionsRepository.countByQuiz_qId(quiz.getqId())));
         questionsService.deleteQuestion(quesId);
         return ResponseEntity.noContent().build();
     }
@@ -957,6 +976,20 @@ public class QuestionsController {
 
         if (user == null || quiz == null) {
             return ResponseEntity.badRequest().body("User or quiz not found");
+        }
+
+        // Question-pool quiz: mark exactly the questions drawn for this attempt, whatever was sent
+        if (quiz.drawsQuestions()) {
+            List<Long> drawn = attemptService.drawnForActiveAttempt(user, quiz);
+            if (drawn == null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body("Open the quiz before submitting it.");
+            }
+            Map<Long, String[]> sent = new HashMap<>();
+            if (questions != null) for (QuestionEvalRequest r : questions)
+                if (r != null && r.getQuesId() != null) sent.putIfAbsent(r.getQuesId(), r.getGivenAnswer());
+            questions = questionsService.findInOrder(drawn).stream()
+                    .map(q -> new QuestionEvalRequest(q.getQuesId(), sent.getOrDefault(q.getQuesId(), new String[0])))
+                    .toList();
         }
 
         double maxMarks        = quiz.getMaxMarks();

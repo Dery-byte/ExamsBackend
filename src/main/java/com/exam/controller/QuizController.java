@@ -93,6 +93,7 @@ public class QuizController {
     @Autowired private com.exam.repository.QuizUnlockRepository quizUnlockRepository;
     @Autowired private com.exam.repository.UserRepository userRepositoryForUnlock;
     @Autowired private com.exam.config.RateLimiter rateLimiter;
+    @Autowired @Lazy private com.exam.service.AttemptService attemptService;
 
     /**
      * Student enters the quiz password. Checked on the server (students never receive the
@@ -136,8 +137,17 @@ public class QuizController {
         Quiz quiz = this.quizService.getQuiz(qid);
         Set<Questions> questions = quiz.getQuestions();
         List<Questions> list = new ArrayList<>(questions);
-        if(list.size()>quiz.getNumberOfQuestions()){
-            list = list.subList(0, quiz.getNumberOfQuestions()+1);        }
+        // Question-pool quiz: a student only ever sees the questions drawn for their latest attempt
+        com.exam.model.User caller = principal == null ? null : userRepositoryForUnlock.findByUsername(principal.getName()).orElse(null);
+        if (quiz.drawsQuestions() && (caller == null || caller.getRole() == com.exam.model.Role.NORMAL)) {
+            List<Long> drawn = caller == null ? null : attemptService.drawnForLatestAttempt(caller.getId(), qid);
+            Set<Long> mine = drawn == null ? Set.of() : new HashSet<>(drawn);
+            list.removeIf(q -> !mine.contains(q.getQuesId()));
+        }
+        Integer cap = quiz.getNumberOfQuestions();
+        if (!quiz.drawsQuestions() && cap != null && cap > 0 && list.size() > cap) {
+            list = new ArrayList<>(list.subList(0, cap));
+        }
         list.forEach((q)->{
 //            q.setAnswer(new String[0]);
             q.setcorrect_answer(new String[0]);

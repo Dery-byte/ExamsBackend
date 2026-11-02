@@ -28,6 +28,9 @@ public class QuestionResponseAdminDTO {
 
     private Double tolerance;
 
+    private String topic;
+    private String difficulty;
+
     /**
      * For MATCHING questions: ordered list of pairs (prompt + answer).
      * NOTE: answers are included here because the frontend needs them to

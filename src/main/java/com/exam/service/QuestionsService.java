@@ -354,6 +354,12 @@ public class QuestionsService {
         // The type may change on edit, so check the answer fields against the new type before touching anything
         // (an old image file is deleted below, which a rollback would not undo).
         validateUpdate(dto);
+        // Topic and difficulty: null leaves them as they are (an older edit form that doesn't send them).
+        // Checked here, before the image is touched, like the answer fields.
+        Questions tags = new Questions();
+        tags.setTopic(dto.getTopic() != null ? dto.getTopic() : question.getTopic());
+        tags.setDifficulty(dto.getDifficulty() != null ? dto.getDifficulty() : question.getDifficulty());
+        com.exam.helper.QuestionDraw.cleanTags(tags);
 
         question.setContent(dto.getContent());
         String newImage = (dto.getImage() == null || dto.getImage().isBlank()) ? null : dto.getImage();
@@ -364,6 +370,8 @@ public class QuestionsService {
         question.setQuestionType(dto.getQuestionType() != null
                 ? dto.getQuestionType()
                 : QuestionType.MCQ);                          // default to MCQ
+        question.setTopic(tags.getTopic());
+        question.setDifficulty(tags.getDifficulty());
 
         if (question.getQuestionType() == QuestionType.MATCHING) {
             // Replace the pairs with the edited list (orphanRemoval deletes the dropped ones)
@@ -482,6 +490,8 @@ public class QuestionsService {
         dto.setContent(question.getContent());
         dto.setImage(question.getImage());
         dto.setQuestionType(question.getQuestionType());
+        dto.setTopic(question.getTopic());
+        dto.setDifficulty(question.getDifficulty());
 
         if (question.getQuestionType() == QuestionType.MATCHING) {
             dto.setMatchingPairs(question.getMatchingPairs());
@@ -577,6 +587,8 @@ public class QuestionsService {
         dto.setImage(question.getImage());
         dto.setQuestionType(question.getQuestionType());
         dto.setTolerance(question.getTolerance());
+        dto.setTopic(question.getTopic());
+        dto.setDifficulty(question.getDifficulty());
 
         String[] given = question.getGivenAnswer();
         dto.setGivenAnswer(given != null ? Arrays.asList(given) : new ArrayList<>());
@@ -650,6 +662,8 @@ public class QuestionsService {
         dto.setImage(question.getImage());
         dto.setQuestionType(question.getQuestionType());
         dto.setTolerance(question.getTolerance());
+        dto.setTopic(question.getTopic());
+        dto.setDifficulty(question.getDifficulty());
 
         String[] correct = question.getcorrect_answer();
         dto.setCorrectAnswer(correct != null ? Arrays.asList(correct) : null);
@@ -688,6 +702,50 @@ public class QuestionsService {
     public Set<Questions> getQuestionsOfQuiz(Quiz quiz) {
         return this.questionsRepository.findByQuiz(quiz);
     }
+
+    /**
+     * The objective questions a student sees, without answers. drawn = the attempt's drawn ids (question-pool
+     * quiz), shown in that order; null = every question in the quiz, shuffled, as before. Answer options are put
+     * in this student's order (helper.OptionOrder) from optionSeed, the attempt's id; null (staff preview) = a
+     * fresh order each load.
+     */
+    public List<QuestionResponseDTO> getQuestionsForStudent(Long qid, List<Long> drawn, Long optionSeed) {
+        List<QuestionResponseDTO> result;
+        if (drawn == null) {
+            result = getShuffledQuestionsForStudent(qid);
+        } else {
+            List<Questions> list = findInOrder(drawn);
+            result = new ArrayList<>();
+            for (int i = 0; i < list.size(); i++) {
+                result.add(toResponseDTO(list.get(i), i + 1));
+            }
+        }
+        long seed = optionSeed != null ? optionSeed : PREVIEW_RANDOM.nextLong();
+        result.forEach(dto -> com.exam.helper.OptionOrder.apply(dto, seed));
+        return result;
+    }
+
+    /** The questions with these ids, in the same order; ids of deleted questions are left out. */
+    public List<Questions> findInOrder(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return new ArrayList<>();
+        Set<Long> unique = new LinkedHashSet<>(ids);
+        Map<Long, Questions> byId = new HashMap<>();
+        for (Questions q : questionsRepository.findAllById(unique)) byId.put(q.getQuesId(), q);
+        List<Questions> out = new ArrayList<>();
+        for (Long id : unique) {
+            Questions q = byId.get(id);
+            if (q != null) out.add(q);
+        }
+        return out;
+    }
+
+    /** Staff previewing a question-pool quiz: a fresh draw, as a student would get, that is not saved anywhere. */
+    public List<Long> previewDraw(Quiz quiz) {
+        return com.exam.helper.QuestionDraw.draw(questionsRepository.findByQuiz_qId(quiz.getqId()),
+                com.exam.helper.QuestionDraw.size(quiz), PREVIEW_RANDOM);
+    }
+
+    private static final java.security.SecureRandom PREVIEW_RANDOM = new java.security.SecureRandom();
 
     public List<QuestionResponseDTO> getShuffledQuestionsForStudent(Long qid) {
         Quiz quiz = new Quiz();

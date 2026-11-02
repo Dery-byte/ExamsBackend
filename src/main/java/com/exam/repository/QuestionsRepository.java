@@ -17,6 +17,8 @@ public interface QuestionsRepository extends JpaRepository <Questions, Long> {
 
     List<Questions> findByQuiz_qId(Long quizId);
 
+    long countByQuiz_qId(Long quizId);
+
     List<Questions> findByQuiz_qIdAndQuiz_Category_User_Username(
             Long quizId,
             String username

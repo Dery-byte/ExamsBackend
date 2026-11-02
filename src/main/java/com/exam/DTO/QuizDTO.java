@@ -54,6 +54,9 @@ public class QuizDTO {
     /** Auto-publish and auto-open the quiz once quizDate + startTime is reached. */
     private boolean autoOpen;
 
+    /** Each student gets a balanced random draw of numberOfQuestions from the quiz's objective questions. */
+    private boolean questionPool;
+
     /** When the quiz's current live period began (null while it's a draft). */
     private java.time.LocalDateTime publishedAt;
 
@@ -98,6 +101,7 @@ public class QuizDTO {
         this.indexRangeStart = quiz.getIndexRangeStart();
         this.indexRangeEnd = quiz.getIndexRangeEnd();
         this.autoOpen = quiz.isAutoOpen();
+        this.questionPool = quiz.isQuestionPool();
         this.publishedAt = quiz.getPublishedAt();
         this.autoClose = quiz.isAutoClose();
         this.autoCloseFraction = quiz.getAutoCloseFraction();
@@ -356,6 +360,14 @@ public class QuizDTO {
 
     public void setAutoOpen(boolean autoOpen) {
         this.autoOpen = autoOpen;
+    }
+
+    public boolean isQuestionPool() {
+        return questionPool;
+    }
+
+    public void setQuestionPool(boolean questionPool) {
+        this.questionPool = questionPool;
     }
 
     public java.time.LocalDateTime getPublishedAt() {

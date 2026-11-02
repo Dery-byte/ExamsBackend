@@ -130,9 +130,14 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import com.exam.helper.QuestionDraw;
 
 @Service
 public class QuizEvaluationServiceImpl implements QuizEvaluationService {
@@ -161,10 +166,6 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
     @Override
     @org.springframework.transaction.annotation.Transactional
     public QuizEvaluationResult evaluateQuiz(List<Questions> questions, String username, Long quizId) {
-        if (questions == null || questions.isEmpty()) {
-            throw new IllegalArgumentException("No questions provided");
-        }
-
         User user = (User) userDetailsService.loadUserByUsername(username);
         Quiz quiz = quizService.getQuiz(quizId);
 
@@ -172,8 +173,19 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
             throw new IllegalArgumentException("User or quiz not found");
         }
 
+        // Question-pool quiz: mark exactly the questions drawn for this attempt, whatever the browser sent
+        int totalQs;
+        if (quiz.drawsQuestions()) {
+            questions = alignToDraw(questions, user, quiz);
+            totalQs   = Math.max(1, questions.size());
+        } else {
+            if (questions == null || questions.isEmpty()) {
+                throw new IllegalArgumentException("No questions provided");
+            }
+            totalQs = questions.size();
+        }
+
         double maxMarks   = quiz.getMaxMarks();
-        int    totalQs    = questions.size();
 
         double marksGot        = 0.0;
         int    correctAnswers  = 0;   // fully-correct question count (MCQ/TF)
@@ -264,6 +276,51 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * The questions to mark on a question-pool quiz, each carrying the student's answer (none = blank):
+     * the attempt's drawn set, so each is worth maxMarks / (questions drawn). Anything sent that was not
+     * drawn is ignored, and a drawn question deleted since is left out. If no draw was recorded (an attempt
+     * that never opened the questions page), only the sent questions that belong to this quiz count, at most
+     * Number of Questions of them, and they are still marked out of Number of Questions.
+     */
+    private List<Questions> alignToDraw(List<Questions> sent, User user, Quiz quiz) {
+        Map<Long, String[]> given = new HashMap<>();
+        if (sent != null) for (Questions q : sent)
+            if (q != null && q.getQuesId() != null) given.putIfAbsent(q.getQuesId(), q.getGivenAnswer());
+
+        List<Long> drawn = attemptService.drawnForActiveAttempt(user, quiz);
+        List<Questions> toMark;
+        if (drawn != null) {
+            toMark = questionsService.findInOrder(drawn);
+        } else {
+            int n = QuestionDraw.size(quiz);
+            toMark = questionsService.findInOrder(new ArrayList<>(given.keySet())).stream()
+                    .filter(q -> q.getQuiz() != null && quiz.getqId().equals(q.getQuiz().getqId()))
+                    .limit(n)
+                    .toList();
+            // Pad to Number of Questions with unanswered stand-ins so the marks per question stay maxMarks / n
+            List<Questions> padded = new ArrayList<>(markable(toMark, given));
+            return padded.size() >= n || n == Integer.MAX_VALUE ? padded : withBlanks(padded, n);
+        }
+        return markable(toMark, given);
+    }
+
+    private static List<Questions> markable(List<Questions> persisted, Map<Long, String[]> given) {
+        List<Questions> out = new ArrayList<>();
+        for (Questions p : persisted) {
+            Questions q = new Questions(given.getOrDefault(p.getQuesId(), new String[0]));
+            q.setQuesId(p.getQuesId());
+            out.add(q);
+        }
+        return out;
+    }
+
+    /** Adds null stand-ins, which the marking loop skips, so they only count towards the number marked out of. */
+    private static List<Questions> withBlanks(List<Questions> list, int n) {
+        while (list.size() < n) list.add(null);
+        return list;
+    }
 
     private boolean isAttempted(List<String> answers) {
         if (answers == null) return false;

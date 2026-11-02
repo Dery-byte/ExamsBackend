@@ -66,6 +66,9 @@ public class QuizUpdateRequest {
     /** Auto-publish and auto-open the quiz once quizDate + startTime is reached. */
     private boolean autoOpen;
 
+    /** Give each student a balanced random draw of numberOfQuestions from a larger pool. Null means no change. */
+    private Boolean questionPool;
+
     /** Auto-close the quiz once autoCloseFraction of its duration has elapsed since it was published. */
     private boolean autoClose;
     private com.exam.model.exam.AutoCloseFraction autoCloseFraction;
@@ -334,6 +337,14 @@ public class QuizUpdateRequest {
 
     public void setAutoOpen(boolean autoOpen) {
         this.autoOpen = autoOpen;
+    }
+
+    public Boolean getQuestionPool() {
+        return questionPool;
+    }
+
+    public void setQuestionPool(Boolean questionPool) {
+        this.questionPool = questionPool;
     }
 
     public boolean isAutoClose() {

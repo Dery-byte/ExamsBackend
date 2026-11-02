@@ -223,6 +223,14 @@ public class Questions {
     // ── NUMERIC only: how far the student's number may be from the correct one ───
     private Double tolerance;
 
+    // ── Optional tags: a question-pool quiz balances each student's draw by them (helper.QuestionDraw) ──
+    @Column(length = 120)
+    private String topic;
+
+    /** EASY, MEDIUM, HARD or null; cleaned and checked by QuestionDraw.cleanTags before saving. */
+    @Column(length = 10)
+    private String difficulty;
+
     // ── Relationship ───────────────────────────────────────────────────────────
     @ManyToOne(cascade = CascadeType.MERGE)
     private Quiz quiz;
@@ -316,4 +324,10 @@ public class Questions {
     public Double getTolerance() { return tolerance; }
     public void setTolerance(Double tolerance) { this.tolerance = tolerance; }
     public void setQuiz(Quiz quiz) { this.quiz = quiz; }
+
+    public String getTopic() { return topic; }
+    public void setTopic(String topic) { this.topic = topic; }
+
+    public String getDifficulty() { return difficulty; }
+    public void setDifficulty(String difficulty) { this.difficulty = difficulty; }
 }

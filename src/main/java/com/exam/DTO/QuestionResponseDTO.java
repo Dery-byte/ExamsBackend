@@ -119,6 +119,13 @@ public class QuestionResponseDTO {
     private QuestionType questionType;
 
     /**
+     * This student's attempt's seed for the order of the matching answer list, which the browser shuffles
+     * (the pairs themselves stay in pairOrder: matching answers are marked by pair position).
+     * Multiple choice options already arrive in this student's order.
+     */
+    private Integer optionSeed;
+
+    /**
      * For MATCHING questions: ordered list of pairs (prompt + answer).
      * NOTE: answers are included here because the frontend needs them to
      * populate the answer pool. The correct mapping is verified server-side

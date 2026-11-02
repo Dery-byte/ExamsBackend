@@ -17,6 +17,9 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
 
     boolean existsByUser_IdAndQuiz_qIdAndStatus(Long userId, Long quizId, AttemptStatus status);
 
+    /** Whether anyone is sitting this quiz right now. */
+    boolean existsByQuiz_qIdAndStatus(Long quizId, AttemptStatus status);
+
     /** Whether the student is sitting any exam (subscription limits never interrupt one). */
     boolean existsByUser_IdAndStatus(Long userId, AttemptStatus status);
 

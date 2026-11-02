@@ -622,6 +622,7 @@ com\exam\service\academic\GradingService$1.class
 com\exam\DTO\QuizProgressRequest.class
 com\exam\model\exam\AttemptStatus.class
 com\exam\model\exam\Quiz.class
+com\exam\helper\SectionALimit.class
 com\exam\service\attendance\AttendanceService$OpenRequest.class
 com\exam\service\academic\InstitutionService.class
 com\exam\service\reports\ReportQueries$ResultRow.class
@@ -689,6 +690,7 @@ com\exam\service\attendance\ClassScheduleService.class
 com\exam\service\subscription\SubscriptionService.class
 com\exam\service\fees\FeeDues.class
 com\exam\model\fees\FeeConcession$Mode.class
+com\exam\helper\QuestionDraw.class
 com\exam\model\fees\FeePaymentItem.class
 com\exam\service\attendance\AttendanceQr$Check.class
 com\exam\service\TheoryProgressService.class
@@ -709,6 +711,7 @@ com\exam\model\academic\TermReportRemark.class
 com\exam\service\fees\StockService.class
 com\exam\service\reports\ReportResult$Stat.class
 com\exam\helper\CustomResponse.class
+com\exam\helper\OptionOrder.class
 com\exam\service\reports\ReportQueries$AttemptRow.class
 com\exam\service\reports\TeachingReports$1.class
 com\exam\service\llm\ClaudeEvaluationStrategy$ClaudeResponse.class
@@ -719,6 +722,7 @@ com\exam\repository\FeeRefundRepository.class
 com\exam\service\academic\ClassPromotionService$PromotionRefused.class
 com\exam\model\fees\StockMovement$Kind.class
 com\exam\DTO\RegisterHodRequest$RegisterHodRequestBuilder.class
+com\exam\service\AttemptService$StudentQuestions.class
 com\exam\controller\SuperAdminReportsController.class
 com\exam\service\reports\ReportQueries$EventRow.class
 com\exam\controller\RegisteredCoursesController.class

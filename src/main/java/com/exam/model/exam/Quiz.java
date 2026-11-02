@@ -54,6 +54,14 @@ public class Quiz {
     private boolean autoOpen = false;
 
     /**
+     * Question pool: the quiz may hold more objective questions than {@link #numberOfQuestions}, and each
+     * attempt is given a balanced random draw of exactly that many (see {@code helper.QuestionDraw}).
+     * When false (default), students get every objective question, as before.
+     */
+    @Column(name = "question_pool", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0")
+    private boolean questionPool = false;
+
+    /**
      * When this quiz most recently became active (published) — set the moment it goes live,
      * whether that's a manual "go live" or an auto-open. Cleared back to null when unpublished
      * (set to draft), so it always reflects the *current* live period, not the first time ever.
@@ -555,6 +563,20 @@ public class Quiz {
 
     public void setAutoOpen(boolean autoOpen) {
         this.autoOpen = autoOpen;
+    }
+
+    public boolean isQuestionPool() {
+        return questionPool;
+    }
+
+    public void setQuestionPool(boolean questionPool) {
+        this.questionPool = questionPool;
+    }
+
+    /** True when each attempt gets its own draw: the pool is on and the quiz has an objective section. */
+    @JsonIgnore
+    public boolean drawsQuestions() {
+        return questionPool && quizType != QuizType.THEORY;
     }
 
     public LocalDateTime getPublishedAt() {

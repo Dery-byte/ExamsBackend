@@ -61,4 +61,8 @@ public class UpdateQuestionDTO {
 
     /** NUMERIC only. */
     private Double tolerance;
+
+    /** Optional tags a question-pool draw balances by. Null leaves the saved value; blank clears it. */
+    private String topic;
+    private String difficulty;
 }

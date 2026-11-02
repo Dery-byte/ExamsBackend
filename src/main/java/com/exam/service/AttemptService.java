@@ -2,6 +2,7 @@ package com.exam.service;
 
 import com.exam.DTO.AttemptDTO;
 import com.exam.DTO.AttemptStatusDTO;
+import com.exam.helper.QuestionDraw;
 import com.exam.model.QuizStatus;
 import com.exam.model.QuizType;
 import com.exam.model.Role;
@@ -53,12 +54,16 @@ public class AttemptService {
     @Autowired private UserQuizProgressRepository   quizProgress;
     @Autowired private TheoryProgressRepository     theoryProgress;
     @Autowired private QuizService                  quizService;
+    @Autowired private QuestionsRepository          questions;
     @Autowired private com.exam.repository.QuizUnlockRepository unlocks;
     @Autowired private com.exam.service.admin.MaintenanceService maintenance;
     /** Optional so slim test contexts needn't build it; always present in the running app. */
     @Autowired(required = false) private com.exam.service.subscription.SubscriptionService subscription;
     /** Optional for the same reason: the minimum class attendance for starting a quiz. */
     @Autowired(required = false) private com.exam.service.attendance.AttendanceMinimum attendanceMinimum;
+
+    /** For question-pool draws: thread-safe and not predictable from outside. */
+    private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
 
     /** How long a correct quiz password stays valid for starting an attempt. */
     private static final int UNLOCK_VALID_HOURS = 6;
@@ -100,14 +105,46 @@ public class AttemptService {
     public AttemptStatusDTO begin(User student, Quiz quiz) {
         User s = lock(student);
         List<QuizAttempt> all = load(s.getId(), quiz.getqId());
-        materializeLegacy(s, quiz, all);
-        // Under maintenance, students already in an exam carry on; nobody starts a new attempt
-        if (active(all).isEmpty()) {
-            maintenance.assertNewAttemptsAllowed();
-            if (subscription != null) subscription.assertNewAttemptsAllowed();
-        }
-        startOrResume(s, quiz, all);
+        beginLocked(s, quiz, all);
         return toStatus(quiz, all, 0, isReviewed(s.getId(), quiz.getqId()));
+    }
+
+    /**
+     * A student's attempt as the objective-questions endpoint needs it: its id (the seed for the student's
+     * answer option order) and, for a question-pool quiz, the question ids drawn for it (null = every question).
+     */
+    public record StudentQuestions(Long attemptId, List<Long> drawn) {}
+
+    /**
+     * For the student objective-questions endpoint: begins or resumes the attempt like beginIfStudent and,
+     * for a question-pool quiz, draws its questions the first time (then they are fixed).
+     * Null for staff callers, who get a preview.
+     */
+    @Transactional
+    public StudentQuestions beginAndDrawIfStudent(java.security.Principal principal, Long quizId) {
+        if (principal == null) return null;
+        User caller = users.findByUsername(principal.getName()).orElse(null);
+        if (caller == null || caller.getRole() != Role.NORMAL) return null;
+        Quiz quiz = quizzes.findById(quizId).orElseThrow(() -> notFound("Quiz not found"));
+        User s = lock(caller);
+        QuizAttempt a = beginLocked(s, quiz, load(s.getId(), quiz.getqId()));
+        return new StudentQuestions(a.getId(), quiz.drawsQuestions() ? drawnFor(a, quiz) : null);
+    }
+
+    /** The question ids drawn for the student's attempt in progress, or null when there is none or nothing was drawn. */
+    @Transactional(readOnly = true)
+    public List<Long> drawnForActiveAttempt(User student, Quiz quiz) {
+        return active(load(student.getId(), quiz.getqId()))
+                .map(a -> QuestionDraw.parse(a.getServedQuestionIds()))
+                .orElse(null);
+    }
+
+    /** The question ids drawn for the student's latest counted attempt, or null when nothing was drawn. */
+    @Transactional(readOnly = true)
+    public List<Long> drawnForLatestAttempt(Long studentId, Long quizId) {
+        return latestCounted(load(studentId, quizId))
+                .map(a -> QuestionDraw.parse(a.getServedQuestionIds()))
+                .orElse(null);
     }
 
     /** For the student question endpoints: begin/resume when the caller is a student; staff previews are untouched. */
@@ -278,6 +315,35 @@ public class AttemptService {
             a.setSubmittedAt(LocalDateTime.now());
         }
         attempts.save(a);
+    }
+
+    /** begin() once the student is locked: starts or resumes the attempt, and fixes its question draw. */
+    private QuizAttempt beginLocked(User s, Quiz quiz, List<QuizAttempt> all) {
+        materializeLegacy(s, quiz, all);
+        // Under maintenance, students already in an exam carry on; nobody starts a new attempt
+        if (active(all).isEmpty()) {
+            maintenance.assertNewAttemptsAllowed();
+            if (subscription != null) subscription.assertNewAttemptsAllowed();
+        }
+        QuizAttempt a = startOrResume(s, quiz, all);
+        // Drawn at the start, so the set is fixed before any question is shown, whichever endpoint came first
+        if (quiz.drawsQuestions() && !a.isObjectiveSubmitted()) drawnFor(a, quiz);
+        return a;
+    }
+
+    /**
+     * The attempt's question ids for a question-pool quiz, drawn and saved the first time. The caller holds
+     * the student lock, so two tabs opening at once cannot draw two different sets. An empty pool draws
+     * nothing and saves nothing, so a later load draws once questions have been added.
+     */
+    private List<Long> drawnFor(QuizAttempt a, Quiz quiz) {
+        List<Long> ids = QuestionDraw.parse(a.getServedQuestionIds());
+        if (ids != null) return ids;
+        ids = QuestionDraw.draw(questions.findByQuiz_qId(quiz.getqId()), QuestionDraw.size(quiz), RANDOM);
+        if (ids.isEmpty()) return ids;
+        a.setServedQuestionIds(QuestionDraw.join(ids));
+        attempts.save(a);
+        return ids;
     }
 
     /** Returns the attempt in progress, or starts a new one if the student still has attempts left. */

@@ -23,7 +23,9 @@ com\exam\service\AcademicPdfRenderTest.class
 com\exam\AttendancePhotoIntegrationTest.class
 com\exam\service\QuizTimerServiceClockTest.class
 com\exam\helper\TheoryGroupsTest.class
+com\exam\service\QuizEvaluationPoolTest.class
 com\exam\service\PdfImageRenderTest.class
+com\exam\helper\QuestionDrawTest.class
 com\exam\service\academic\ClassPromotionJpaTest.class
 com\exam\service\QuestionImageServiceTest.class
 com\exam\RemarkFlowIntegrationTest.class
@@ -31,6 +33,7 @@ com\exam\service\subscription\SubscriptionSyncTest.class
 com\exam\SecurityRulesIntegrationTest.class
 com\exam\service\reports\ReportsJpaTest$Templates.class
 com\exam\service\subscription\SubscriptionStatusTest.class
+com\exam\helper\SectionALimitTest.class
 com\exam\service\MatchingPairsLoadJpaTest.class
 com\exam\service\attendance\AttendanceJpaTest.class
 com\exam\service\fees\FinanceJpaTest.class
@@ -48,6 +51,7 @@ com\exam\service\fees\ResultsHoldJpaTest.class
 com\exam\service\CategoryOpenToEveryoneTest.class
 com\exam\service\reports\AttendanceReportsJpaTest.class
 com\exam\service\QuizServiceAutoCloseTest.class
+com\exam\helper\OptionOrderTest.class
 com\exam\service\academic\DocumentVerificationCodeTest.class
 com\exam\service\AttemptServiceJpaTest.class
 com\exam\service\TheoryGradingQueueTest.class
