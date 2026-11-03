@@ -35,4 +35,11 @@ public class Token {
     private LocalDateTime createdAt;
     private LocalDateTime expiresAt;
     private LocalDateTime validatedAt;
+
+    /** Revoked, expired or removed: stop trusting the sign-in filter's recent "valid" answer for it. */
+    @PostUpdate
+    @PostRemove
+    void forgetCachedValidity() {
+        com.exam.config.TokenValidityCache.forget(token);
+    }
 }

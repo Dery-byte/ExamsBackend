@@ -123,7 +123,8 @@ public class AttemptService {
     @Transactional
     public StudentQuestions beginAndDrawIfStudent(java.security.Principal principal, Long quizId) {
         if (principal == null) return null;
-        User caller = users.findByUsername(principal.getName()).orElse(null);
+        User caller = com.exam.service.comms.CurrentUserService.loadedFor(principal)
+                .or(() -> users.findByUsername(principal.getName())).orElse(null);
         if (caller == null || caller.getRole() != Role.NORMAL) return null;
         Quiz quiz = quizzes.findById(quizId).orElseThrow(() -> notFound("Quiz not found"));
         User s = lock(caller);
@@ -151,7 +152,8 @@ public class AttemptService {
     @Transactional
     public void beginIfStudent(java.security.Principal principal, Long quizId) {
         if (principal == null) return;
-        User caller = users.findByUsername(principal.getName()).orElse(null);
+        User caller = com.exam.service.comms.CurrentUserService.loadedFor(principal)
+                .or(() -> users.findByUsername(principal.getName())).orElse(null);
         if (caller == null || caller.getRole() != Role.NORMAL) return;
         Quiz quiz = quizzes.findById(quizId).orElseThrow(() -> notFound("Quiz not found"));
         begin(caller, quiz);

@@ -592,6 +592,7 @@ public class QuestionsController {
     @Autowired           private QuizEvaluationService quizEvaluationService;
     @Autowired           private StudentAnswerRepository studentAnswerRepository;
     @Autowired           private QuestionsRepository  questionsRepository;
+    @Autowired           private com.exam.service.ExamSessionService examSessionService;
 
     private final BulkQuestionUploadService bulkQuestionUploadService;
     private final UserDetailsService        userDetailsService;
@@ -617,13 +618,7 @@ public class QuestionsController {
             @PathVariable Long qid, Principal principal) {
         quizService.assertStudentMayAccess(qid, principal);
         // 409 if the student has no attempts left
-        com.exam.service.AttemptService.StudentQuestions mine = attemptService.beginAndDrawIfStudent(principal, qid);
-        List<Long> drawn = mine == null ? null : mine.drawn();
-        if (mine == null) {
-            Quiz quiz = quizService.getQuiz(qid);
-            if (quiz.drawsQuestions()) drawn = questionsService.previewDraw(quiz);
-        }
-        return ResponseEntity.ok(questionsService.getQuestionsForStudent(qid, drawn, mine == null ? null : mine.attemptId()));
+        return ResponseEntity.ok(examSessionService.objectiveQuestions(qid, principal));
     }
 
 
@@ -978,19 +973,25 @@ public class QuestionsController {
             return ResponseEntity.badRequest().body("User or quiz not found");
         }
 
-        // Question-pool quiz: mark exactly the questions drawn for this attempt, whatever was sent
+        // Marked against the quiz's own questions (a question-pool quiz: the attempt's draw), each with the
+        // answer sent for it, so leaving questions out, repeating one or adding another quiz's changes nothing.
+        // Loading them here also puts them in the persistence context, so questionsService.get below costs no query.
+        Map<Long, String[]> sent = new HashMap<>();
+        if (questions != null) for (QuestionEvalRequest r : questions)
+            if (r != null && r.getQuesId() != null) sent.putIfAbsent(r.getQuesId(), r.getGivenAnswer());
+        List<Questions> toMark;
         if (quiz.drawsQuestions()) {
             List<Long> drawn = attemptService.drawnForActiveAttempt(user, quiz);
             if (drawn == null) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body("Open the quiz before submitting it.");
             }
-            Map<Long, String[]> sent = new HashMap<>();
-            if (questions != null) for (QuestionEvalRequest r : questions)
-                if (r != null && r.getQuesId() != null) sent.putIfAbsent(r.getQuesId(), r.getGivenAnswer());
-            questions = questionsService.findInOrder(drawn).stream()
-                    .map(q -> new QuestionEvalRequest(q.getQuesId(), sent.getOrDefault(q.getQuesId(), new String[0])))
-                    .toList();
+            toMark = questionsService.findInOrder(drawn);
+        } else {
+            toMark = questionsRepository.findByQuiz_qId(quiz.getqId());
         }
+        questions = toMark.stream()
+                .map(q -> new QuestionEvalRequest(q.getQuesId(), sent.getOrDefault(q.getQuesId(), new String[0])))
+                .toList();
 
         double maxMarks        = quiz.getMaxMarks();
         int    totalQs         = questions.size();

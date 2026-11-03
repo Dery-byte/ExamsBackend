@@ -30,6 +30,7 @@ public class QuizAttemptController {
     @Autowired private UserRepository  userRepository;
     @Autowired private QuizRepository  quizRepository;
     @Autowired private com.exam.service.TheoryGradingQueue theoryGradingQueue;
+    @Autowired private com.exam.service.ExamSessionService examSessionService;
 
     // ── Student ──────────────────────────────────────────────────────────────
 
@@ -43,6 +44,15 @@ public class QuizAttemptController {
     @PostMapping("/{quizId}/begin")
     public AttemptStatusDTO begin(@PathVariable Long quizId, Principal principal) {
         return attemptService.begin(student(principal), quiz(quizId));
+    }
+
+    /**
+     * Everything the exam page needs once the attempt has begun, in one request: quiz, questions, theory
+     * settings, clock, saved answers and violation state (see ExamSessionService).
+     */
+    @GetMapping("/{quizId}/session")
+    public Map<String, Object> session(@PathVariable Long quizId, Principal principal) {
+        return examSessionService.open(quizId, principal);
     }
 
     /** Marks the attempt in progress as finished. */
@@ -91,8 +101,9 @@ public class QuizAttemptController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sign in required"));
     }
 
+    /** The student the sign-in filter already loaded; begin/finish lock and re-read the row themselves. */
     private User student(Principal principal) {
-        User u = caller(principal);
+        User u = com.exam.service.comms.CurrentUserService.loadedFor(principal).orElseGet(() -> caller(principal));
         if (u.getRole() != com.exam.model.Role.NORMAL) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only students take quizzes");
         }

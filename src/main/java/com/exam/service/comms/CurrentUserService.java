@@ -16,6 +16,16 @@ public class CurrentUserService {
     @Autowired
     private UserRepository userRepository;
 
+    /**
+     * The user the sign-in filter already loaded for this request, so exam endpoints (a save every few
+     * seconds per student) don't look the student up again. Empty for any other kind of principal.
+     * Loaded before the request's persistence context: use its id and eager fields, not lazy collections.
+     */
+    public static Optional<User> loadedFor(java.security.Principal principal) {
+        if (principal instanceof Authentication a && a.getPrincipal() instanceof User u && u.getId() != null) return Optional.of(u);
+        return Optional.empty();
+    }
+
     public Optional<User> current() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) return Optional.empty();

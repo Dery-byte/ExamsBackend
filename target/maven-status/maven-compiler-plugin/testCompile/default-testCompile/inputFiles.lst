@@ -13,6 +13,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\exa
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\AssessmentsModuleIntegrationTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\TheoryCriteriaVisibilityTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\AccountsJpaTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\ExamSessionIntegrationTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAutoCloseTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizTimerServiceClockTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\QuestionDrawTest.java

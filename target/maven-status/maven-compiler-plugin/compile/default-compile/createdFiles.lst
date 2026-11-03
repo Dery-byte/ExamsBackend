@@ -254,6 +254,7 @@ com\exam\controller\FeatureController$UserAction.class
 com\exam\service\Impl\QuizEvaluationService.class
 com\exam\service\comms\AnnouncementService.class
 com\exam\service\reports\TeachingReports.class
+com\exam\config\MySqlBatchInserts.class
 com\exam\model\comms\Notification.class
 com\exam\service\fees\FeePaymentService$Allocation.class
 com\exam\controller\FinanceStaffController.class
@@ -509,6 +510,7 @@ com\exam\service\reports\ReportQueries$RegistrationRow.class
 com\exam\model\fees\FeePayment$Status.class
 com\exam\controller\ProfilePhotoController.class
 com\exam\service\Impl\EmailService.class
+com\exam\config\TokenValidityCache.class
 com\exam\service\subscription\SubscriptionMonitor.class
 com\exam\service\attendance\AttendanceService$1.class
 com\exam\model\fees\WalletWithdrawal$Payout.class
@@ -661,6 +663,7 @@ com\exam\model\exam\StudentCourseMark.class
 com\exam\repository\TheoryProgressRepository.class
 com\exam\controller\DataToolsController$UserAction.class
 com\exam\repository\SystemSettingRepository.class
+com\exam\service\ExamSessionService.class
 com\exam\model\attendance\AttendanceStrike.class
 com\exam\model\exam\Program.class
 com\exam\service\academic\AcademicRecordService$Attempt.class

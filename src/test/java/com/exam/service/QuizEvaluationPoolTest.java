@@ -38,6 +38,7 @@ class QuizEvaluationPoolTest {
     @Mock ReportRepository        reportRepository;
     @Mock StudentAnswerRepository studentAnswerRepository;
     @Mock AttemptService          attemptService;
+    @Mock com.exam.repository.QuestionsRepository questionsRepository;
 
     @InjectMocks QuizEvaluationServiceImpl service;
 
@@ -71,6 +72,17 @@ class QuizEvaluationPoolTest {
             return ids.stream().map(db::get).filter(Objects::nonNull).toList();
         });
         when(reportRepository.findByUserAndQuiz(any(User.class), any(Quiz.class))).thenReturn(Optional.empty());
+        when(questionsRepository.findByQuiz_qId(10L)).thenAnswer(i -> db.values().stream()
+                .filter(q -> q.getQuiz() == quiz).sorted(Comparator.comparing(Questions::getQuesId)).toList());
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<StudentAnswer> savedAnswerRows() {
+        ArgumentCaptor<Iterable<StudentAnswer>> saved = ArgumentCaptor.forClass(Iterable.class);
+        verify(studentAnswerRepository).saveAll(saved.capture());
+        List<StudentAnswer> rows = new ArrayList<>();
+        saved.getValue().forEach(rows::add);
+        return rows;
     }
 
     private static Questions question(long id, Quiz quiz) {
@@ -108,9 +120,8 @@ class QuizEvaluationPoolTest {
         verify(attemptService).recordObjective(eq(student), eq(quiz), argThat(m -> m.compareTo(new BigDecimal("2.5")) == 0));
 
         // An answer row for every drawn question (blank ones too), and none for anything else
-        ArgumentCaptor<StudentAnswer> saved = ArgumentCaptor.forClass(StudentAnswer.class);
-        verify(studentAnswerRepository, times(4)).save(saved.capture());
-        assertThat(saved.getAllValues()).extracting(a -> a.getQuestion().getQuesId()).containsExactly(3L, 1L, 7L, 5L);
+        assertThat(savedAnswerRows()).extracting(a -> a.getQuestion().getQuesId()).containsExactly(3L, 1L, 7L, 5L);
+        verify(questionsService, never()).get(anyLong());   // loaded together, not one query per question
     }
 
     @Test
@@ -143,11 +154,39 @@ class QuizEvaluationPoolTest {
         assertThat(r.getMarksGot()).isEqualTo(5.0);   // 2 right, marked out of 4
     }
 
+    // ── Quizzes without a pool: every one of the quiz's questions counts ──────────────
+
+    private void noPool() {
+        quiz.setQuestionPool(false);
+        db.keySet().removeIf(id -> id > 4 && id != 50);   // the quiz has questions 1–4
+    }
+
     @Test
     void aQuizWithoutAPoolIsMarkedAsBefore() {
-        quiz.setQuestionPool(false);
-        QuizEvaluationResult r = service.evaluateQuiz(List.of(answer(1, "right"), answer(2, "wrong")), "ada", 10L);
-        assertThat(r.getMarksGot()).isEqualTo(5.0);
+        noPool();
+        QuizEvaluationResult r = service.evaluateQuiz(List.of(
+                answer(1, "right"), answer(2, "wrong"), answer(3, "right"), answer(4, null)), "ada", 10L);
+        assertThat(r.getMarksGot()).isEqualTo(5.0);   // 2 right of 4
+        assertThat(r.getCorrectAnswers()).isEqualTo(2);
+        assertThat(r.getAttempted()).isEqualTo(3);
+        assertThat(savedAnswerRows()).extracting(a -> a.getQuestion().getQuesId()).containsExactly(1L, 2L, 3L, 4L);
         verify(attemptService, never()).drawnForActiveAttempt(any(), any());
+    }
+
+    @Test
+    void withoutAPoolSendingOnlyTheRightAnswersStillCountsTheRestAsBlank() {
+        noPool();
+        QuizEvaluationResult r = service.evaluateQuiz(List.of(answer(1, "right")), "ada", 10L);
+        assertThat(r.getMarksGot()).isEqualTo(2.5);   // not 10: marked out of the quiz's 4 questions
+        assertThat(savedAnswerRows()).hasSize(4);
+    }
+
+    @Test
+    void withoutAPoolRepeatsAndOtherQuizzesQuestionsAreIgnored() {
+        noPool();
+        QuizEvaluationResult r = service.evaluateQuiz(List.of(
+                answer(1, "right"), answer(1, "right"), answer(50, "right"), answer(2, "right")), "ada", 10L);
+        assertThat(r.getMarksGot()).isEqualTo(5.0);   // questions 1 and 2 right, out of 4
+        assertThat(savedAnswerRows()).extracting(a -> a.getQuestion().getQuesId()).containsExactly(1L, 2L, 3L, 4L);
     }
 }

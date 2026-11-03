@@ -821,7 +821,9 @@ public class QuizService {
 
     private User studentOrNull(Principal principal) {
         if (principal == null) return null;
-        return userRepository.findByUsername(principal.getName())
+        // The access check reads only eager fields, so the user the sign-in filter loaded will do
+        return com.exam.service.comms.CurrentUserService.loadedFor(principal)
+                .or(() -> userRepository.findByUsername(principal.getName()))
                 .filter(u -> u.getRole() == Role.NORMAL)
                 .orElse(null);
     }

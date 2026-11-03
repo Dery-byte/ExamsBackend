@@ -9,8 +9,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,12 +32,56 @@ public class QuizProgressService {
         UserQuizAnswer answer = repository
                 .findByUserIdAndQuestionId(userId, request.getQuestionId())
                 .orElse(new UserQuizAnswer());
+        apply(userId, answer, request);
+        repository.save(answer);
 
+        return new QuizProgressResponse(answer.getQuestionId(), answer.getSelectedOptions(),answer.getMatchingAnswers());
+    }
+
+    /** Most answer changes one request may carry; the exam page sends far fewer. */
+    static final int MAX_BATCH = 500;
+
+    /**
+     * Several answer changes from the exam page's save queue in one request, applied in the order they
+     * were made (so ticking then unticking an option ends unticked). One query loads the rows involved.
+     * A change that can't be applied (no question id, a bad pair number) is skipped, never the batch.
+     */
+    public int updateAnswers(Long userId, List<QuizProgressRequest> changes) {
+        if (changes == null || changes.isEmpty()) return 0;
+        if (changes.size() > MAX_BATCH) throw new IllegalArgumentException("Too many answers in one save (at most " + MAX_BATCH + ").");
+        Set<Long> questionIds = changes.stream()
+                .filter(c -> c != null && c.getQuestionId() != null)
+                .map(QuizProgressRequest::getQuestionId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (questionIds.isEmpty()) return 0;
+
+        Map<Long, UserQuizAnswer> rows = new LinkedHashMap<>();
+        for (UserQuizAnswer a : repository.findByUserIdAndQuestionIdIn(userId, questionIds)) rows.putIfAbsent(a.getQuestionId(), a);
+        int applied = 0;
+        for (QuizProgressRequest change : changes) {
+            if (change == null || change.getQuestionId() == null) continue;
+            apply(userId, rows.computeIfAbsent(change.getQuestionId(), id -> new UserQuizAnswer()), change);
+            applied++;
+        }
+        repository.saveAll(rows.values());
+        return applied;
+    }
+
+    private static void apply(Long userId, UserQuizAnswer answer, QuizProgressRequest request) {
         answer.setUserId(userId);
         answer.setQuestionId(request.getQuestionId());
 
         if (answer.getQuizId() == null && request.getQuizId() != null) {
             answer.setQuizId(request.getQuizId());
+        }
+
+        // Matching: the answer chosen for one pair, kept by position ("a|b|c"), which is how the exam
+        // page restores it after a reload
+        if (request.getPairIndex() != null) {
+            String pairs = withPair(answer.getMatchingAnswers(), request.getPairIndex(),
+                    request.isChecked() && request.getOption() != null ? request.getOption() : "");
+            if (pairs != null) answer.setMatchingAnswers(pairs);
+            return;
         }
 
         List<String> options = answer.getSelectedOptions();
@@ -51,9 +99,21 @@ public class QuizProgressService {
         } else {
             options.remove(request.getOption());
         }
-        repository.save(answer);
+    }
 
-        return new QuizProgressResponse(answer.getQuestionId(), answer.getSelectedOptions(),answer.getMatchingAnswers());
+    /** Most pairs a matching question can have here (well above what any question uses). */
+    static final int MAX_PAIRS = 100;
+    private static final int MATCHING_COLUMN_LENGTH = 4000;
+
+    /** The saved pair answers with one pair set; null when the pair number or the result is out of range. */
+    static String withPair(String saved, int pairIndex, String value) {
+        if (pairIndex < 0 || pairIndex >= MAX_PAIRS) return null;
+        List<String> pairs = new ArrayList<>(saved == null || saved.isEmpty()
+                ? List.of() : Arrays.asList(saved.split(java.util.regex.Pattern.quote("|"), -1)));
+        while (pairs.size() <= pairIndex) pairs.add("");
+        pairs.set(pairIndex, value);
+        String joined = String.join("|", pairs);
+        return joined.length() > MATCHING_COLUMN_LENGTH ? null : joined;
     }
 
 

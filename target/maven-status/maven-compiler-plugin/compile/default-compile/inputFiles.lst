@@ -247,6 +247,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\QuizEvaluationResult.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\features\DepartmentFeatureSetting.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\comms\AnalyticsService.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\MySqlBatchInserts.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\FinanceReportsController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\FeeArrearsRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\attendance\AttendanceSession.java
@@ -326,6 +327,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\SmsController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\ViolationTimerResponseDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\GradeRequest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\TokenValidityCache.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\StudentAnswer.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\SingleQuestionSummaryDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\reports\ReportQueries.java
@@ -376,6 +378,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\Cust
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\ResultsFeeHoldRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\QuestionImage.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\DepartmentDTO.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\ExamSessionService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\subscription\SubscriptionState.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\StringListConverter.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\fees\PriceItem.java

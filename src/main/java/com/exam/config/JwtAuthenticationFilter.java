@@ -263,11 +263,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
 
-            boolean isTokenValid = tokenRepository.findByToken(jwt)
+            // The database is asked at most every TokenValidityCache.TTL_MS per token (not on every exam save)
+            boolean cached = TokenValidityCache.isKnownValid(jwt);
+            boolean isTokenValid = cached || tokenRepository.findByToken(jwt)
                     .map(token -> !token.isExpired() && !token.isRevoked())
                     .orElse(false);
 
             if (jwtService.isTokenValid(jwt, userDetails) && isTokenValid) {
+                if (!cached) TokenValidityCache.remember(jwt);
 
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(

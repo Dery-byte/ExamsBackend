@@ -9,7 +9,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "user_quiz_progress")
+@Table(name = "user_quiz_progress", indexes = {
+        // Every answer click looks up (student, question); opening and finishing an exam use (student, quiz)
+        @Index(name = "idx_progress_user_question", columnList = "user_id, question_id"),
+        @Index(name = "idx_progress_user_quiz", columnList = "user_id, quiz_id")
+})
 @Setter
 @Getter
 public class UserQuizAnswer {

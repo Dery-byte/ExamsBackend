@@ -2,6 +2,7 @@ package com.exam.controller;
 
 import com.exam.DTO.*;
 import com.exam.model.User;
+import com.exam.service.comms.CurrentUserService;
 import com.exam.service.QuizProgressService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +11,8 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/auth/quiz-progress")
@@ -29,15 +32,24 @@ public class QuizProgressController {
     public ResponseEntity<QuizProgressResponse> updateAnswer(
             Principal principal,
             @RequestBody QuizProgressRequest request) {
-        User user = (User) this.userDetailsService.loadUserByUsername(principal.getName());
+        User user = signedIn(principal);
         QuizProgressResponse response = service.updateAnswer(user.getId(), request);
 
         return ResponseEntity.ok(response);
     }
 
+    /** Several answer changes in one request (the exam page's save queue), applied in order. */
+    @PostMapping("/update-batch")
+    public ResponseEntity<Map<String, Integer>> updateAnswers(
+            Principal principal,
+            @RequestBody List<QuizProgressRequest> changes) {
+        User user = signedIn(principal);
+        return ResponseEntity.ok(Map.of("saved", service.updateAnswers(user.getId(), changes)));
+    }
+
     @GetMapping("/all")
     public ResponseEntity<UserQuizProgressResponse> getAllAnswers(Principal principal) {
-        User user = (User) this.userDetailsService.loadUserByUsername(principal.getName());
+        User user = signedIn(principal);
         UserQuizProgressResponse response = service.getAllAnswers(user.getId());
         return ResponseEntity.ok(response);
     }
@@ -46,7 +58,7 @@ public class QuizProgressController {
     public ResponseEntity<UserQuizProgressResponse> getAnswersByQuiz(
             Principal principal,
             @PathVariable Long quizId) {
-        User user = (User) this.userDetailsService.loadUserByUsername(principal.getName());
+        User user = signedIn(principal);
         UserQuizProgressResponse response = service.getAnswersByQuiz(user.getId(), quizId);
         return ResponseEntity.ok(response);
     }
@@ -55,7 +67,7 @@ public class QuizProgressController {
     public ResponseEntity<Void> clearQuizAnswers(
             Principal principal,
             @PathVariable Long quizId) {
-        User user = (User) this.userDetailsService.loadUserByUsername(principal.getName());
+        User user = signedIn(principal);
         service.clearAnswers(user.getId(), quizId);
         return ResponseEntity.noContent().build();
     }
@@ -92,4 +104,9 @@ public class QuizProgressController {
 
 
 
+    /** The signed-in user the sign-in filter already loaded (no second lookup per exam save). */
+    private User signedIn(Principal principal) {
+        return CurrentUserService.loadedFor(principal)
+                .orElseGet(() -> (User) userDetailsService.loadUserByUsername(principal.getName()));
+    }
 }

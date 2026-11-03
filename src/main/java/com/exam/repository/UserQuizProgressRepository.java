@@ -17,7 +17,13 @@ public interface UserQuizProgressRepository extends JpaRepository<UserQuizAnswer
 
     List<UserQuizAnswer> findByUserId(Long userId);
 
+    /** With the chosen options in the same query (not one more query per answered question). */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "selectedOptions")
     List<UserQuizAnswer> findByUserIdAndQuizId(Long userId, Long quizId);
+
+    /** The rows of these questions, for a batch of answer changes. */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "selectedOptions")
+    List<UserQuizAnswer> findByUserIdAndQuestionIdIn(Long userId, java.util.Collection<Long> questionIds);
 
     void deleteByUserIdAndQuestionId(Long userId, Long questionId);
 

@@ -163,6 +163,14 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
     @Autowired
     private AttemptService attemptService;
 
+    @Autowired
+    private com.exam.repository.QuestionsRepository questionsRepository;
+
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
+    private static final int ANSWER_ROW_BATCH = 50;
+
     @Override
     @org.springframework.transaction.annotation.Transactional
     public QuizEvaluationResult evaluateQuiz(List<Questions> questions, String username, Long quizId) {
@@ -173,7 +181,9 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
             throw new IllegalArgumentException("User or quiz not found");
         }
 
-        // Question-pool quiz: mark exactly the questions drawn for this attempt, whatever the browser sent
+        // Marked against the quiz's own questions (a question-pool quiz: the attempt's draw), each with the
+        // answer the browser sent for it. The browser's list never decides what counts: leaving questions
+        // out, repeating one or adding another quiz's can't change the marks.
         int totalQs;
         if (quiz.drawsQuestions()) {
             questions = alignToDraw(questions, user, quiz);
@@ -182,8 +192,20 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
             if (questions == null || questions.isEmpty()) {
                 throw new IllegalArgumentException("No questions provided");
             }
+            questions = markable(questionsRepository.findByQuiz_qId(quiz.getqId()), sentAnswers(questions));
+            if (questions.isEmpty()) {
+                throw new IllegalArgumentException("This quiz has no objective questions");
+            }
             totalQs = questions.size();
         }
+
+        // Every question to mark, with its matching pairs, in one query rather than one per question
+        Map<Long, Questions> persistedById = new HashMap<>();
+        for (Questions p : questionsService.findInOrder(questions.stream()
+                .filter(java.util.Objects::nonNull).map(Questions::getQuesId).toList())) {
+            persistedById.put(p.getQuesId(), p);
+        }
+        List<StudentAnswer> answerRows = new ArrayList<>();
 
         double maxMarks   = quiz.getMaxMarks();
 
@@ -202,8 +224,8 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
         for (Questions q : questions) {
             if (q == null) continue;
 
-            // Always resolve from DB to get matchingPairs + correct_answer
-            Questions persisted = questionsService.get(q.getQuesId());
+            // Always marked from the stored question (matchingPairs + correct_answer)
+            Questions persisted = persistedById.get(q.getQuesId());
             if (persisted == null) continue;
 
             List<String> givenList = q.getGivenAnswer() != null
@@ -258,8 +280,12 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
             studentAnswer.setUser(user);
             studentAnswer.setQuestion(persisted);
             studentAnswer.setSelectedOptions(q.getGivenAnswer());
-            studentAnswerRepository.save(studentAnswer);
+            answerRows.add(studentAnswer);
         }
+        // The answer rows go to the database as one batch (on MySQL one multi-row INSERT, see
+        // MySqlBatchInserts). Batching is switched on for this request's session only, nowhere else.
+        if (entityManager != null) entityManager.unwrap(org.hibernate.Session.class).setJdbcBatchSize(ANSWER_ROW_BATCH);
+        studentAnswerRepository.saveAll(answerRows);
 
         // ── Save / update report ──────────────────────────────────────────────
         // Rejects (and rolls this whole submission back) if no attempt is available or it was already submitted.
@@ -285,9 +311,7 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
      * Number of Questions of them, and they are still marked out of Number of Questions.
      */
     private List<Questions> alignToDraw(List<Questions> sent, User user, Quiz quiz) {
-        Map<Long, String[]> given = new HashMap<>();
-        if (sent != null) for (Questions q : sent)
-            if (q != null && q.getQuesId() != null) given.putIfAbsent(q.getQuesId(), q.getGivenAnswer());
+        Map<Long, String[]> given = sentAnswers(sent);
 
         List<Long> drawn = attemptService.drawnForActiveAttempt(user, quiz);
         List<Questions> toMark;
@@ -304,6 +328,14 @@ public class QuizEvaluationServiceImpl implements QuizEvaluationService {
             return padded.size() >= n || n == Integer.MAX_VALUE ? padded : withBlanks(padded, n);
         }
         return markable(toMark, given);
+    }
+
+    /** The answer sent for each question id (the first one, if a question was sent twice). */
+    private static Map<Long, String[]> sentAnswers(List<Questions> sent) {
+        Map<Long, String[]> given = new HashMap<>();
+        if (sent != null) for (Questions q : sent)
+            if (q != null && q.getQuesId() != null) given.putIfAbsent(q.getQuesId(), q.getGivenAnswer());
+        return given;
     }
 
     private static List<Questions> markable(List<Questions> persisted, Map<Long, String[]> given) {

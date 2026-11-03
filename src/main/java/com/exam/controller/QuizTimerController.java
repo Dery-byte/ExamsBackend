@@ -134,6 +134,7 @@ import com.exam.DTO.QuizTimerResponseDTO;
 import com.exam.DTO.ViolationTimerResponseDTO;
 import com.exam.DTO.VoilationTimerRequestDTO;
 import com.exam.model.User;
+import com.exam.service.comms.CurrentUserService;
 import com.exam.service.QuizTimerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -176,7 +177,7 @@ public class QuizTimerController {
     public ResponseEntity<QuizTimerResponseDTO> getQuizTimer(
             @PathVariable Long quizId,
             Principal principal) {
-        User user = (User) userDetailsService.loadUserByUsername(principal.getName());
+        User user = signedIn(principal);
         QuizTimerResponseDTO timer = quizTimerService.getQuizTimer(user.getId(), quizId);
         return ResponseEntity.ok(timer); // never 404 — status field handles "not_found"
     }
@@ -194,7 +195,7 @@ public class QuizTimerController {
             @PathVariable Long quizId,
             @RequestBody QuizTimerRequestDTO request,
             Principal principal) {
-        User user = (User) userDetailsService.loadUserByUsername(principal.getName());
+        User user = signedIn(principal);
         QuizTimerResponseDTO timer = quizTimerService.saveQuizTimer(user.getId(), quizId, request);
         return ResponseEntity.ok(timer);
     }
@@ -207,7 +208,7 @@ public class QuizTimerController {
     public ResponseEntity<Void> deleteQuizTimer(
             @PathVariable Long quizId,
             Principal principal) {
-        User user = (User) userDetailsService.loadUserByUsername(principal.getName());
+        User user = signedIn(principal);
         quizTimerService.deleteQuizTimer(user.getId(), quizId);
         return ResponseEntity.noContent().build();
     }
@@ -220,7 +221,7 @@ public class QuizTimerController {
     public ResponseEntity<ViolationTimerResponseDTO> getViolationDelayTime(
             @PathVariable Long quizId,
             Principal principal) {
-        User user = (User) userDetailsService.loadUserByUsername(principal.getName());
+        User user = signedIn(principal);
         return ResponseEntity.ok(
                 quizTimerService.getViolationDelayTime(quizId, user.getId()));
     }
@@ -230,7 +231,7 @@ public class QuizTimerController {
             @PathVariable Long quizId,
             @RequestBody VoilationTimerRequestDTO request,
             Principal principal) {
-        User user = (User) userDetailsService.loadUserByUsername(principal.getName());
+        User user = signedIn(principal);
         return ResponseEntity.ok(
                 quizTimerService.saveViolationDelayTime(quizId, user.getId(), request));
     }
@@ -284,7 +285,7 @@ public class QuizTimerController {
     public ResponseEntity<ViolationTimerResponseDTO> getViolationCount(
             @PathVariable Long quizId,
             Principal principal) {
-        User user = (User) userDetailsService.loadUserByUsername(principal.getName());
+        User user = signedIn(principal);
         return ResponseEntity.ok(
                 quizTimerService.getViolationCount(quizId, user.getId()));
     }
@@ -295,10 +296,15 @@ public class QuizTimerController {
             @PathVariable Long quizId,
             @RequestBody VoilationTimerRequestDTO request,
             Principal principal) {
-        User user = (User) userDetailsService.loadUserByUsername(principal.getName());
+        User user = signedIn(principal);
         return ResponseEntity.ok(
                 quizTimerService.saveViolationCount(quizId, user.getId(), request));
     }
 
 
+    /** The signed-in user the sign-in filter already loaded (no second lookup per exam save). */
+    private User signedIn(Principal principal) {
+        return CurrentUserService.loadedFor(principal)
+                .orElseGet(() -> (User) userDetailsService.loadUserByUsername(principal.getName()));
+    }
 }
