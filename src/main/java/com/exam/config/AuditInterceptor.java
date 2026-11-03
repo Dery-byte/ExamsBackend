@@ -110,6 +110,7 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
             r("POST",   ".*/(lecturer|user)?/?addQuiz$",            "Created quiz"),
             r("PUT",    ".*/v1/auth/update$",                       "Updated quiz"),
             r("DELETE", ".*/delete/quiz/\\d+$",                     "Deleted quiz"),
+            r("POST",   ".*/super-admin/quizzes/\\d+/delete-with-results$", "Deleted quiz with student results"),
             r("PUT",    ".*/quiz/status/\\d+$",                     "Changed quiz status"),
             r("PUT",    ".*/quiz/\\d+/email-report$",               "Changed quiz result-email option"),
             r("PUT",    ".*/save-review$",                          "Reviewed student script"),

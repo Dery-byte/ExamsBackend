@@ -45,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.datasource.password=",
         "spring.jpa.show-sql=false",
 })
-@Import({AttemptService.class, QuizService.class, com.exam.service.admin.MaintenanceService.class,
+@Import({AttemptService.class, QuizService.class, QuizDeletionService.class, com.exam.service.admin.MaintenanceService.class,
         com.exam.service.SystemSettingService.class})
 class AttemptServiceJpaTest {
 

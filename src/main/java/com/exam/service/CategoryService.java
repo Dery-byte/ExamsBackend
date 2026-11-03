@@ -65,6 +65,9 @@ UserRepository userRepository;
 ProgramRepository programRepository;
 
 @Autowired
+QuizDeletionService quizDeletionService;
+
+@Autowired
 com.exam.service.academic.AcademicSessionService academicSessionService;
 
 @Autowired
@@ -268,9 +271,13 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
             }
         }
 
+        java.util.Set<Long> withResults = quizDeletionService.courseIdsWithResults(
+                allCategories.stream().map(Category::getCid).toList());
+
         return allCategories.stream()
                 .map(c -> {
                     com.exam.DTO.CategoryDTO dto = new com.exam.DTO.CategoryDTO(c);
+                    dto.setHasResults(withResults.contains(c.getCid()));
                     if (c.getPrograms() != null) {
                         dto.setProgramIds(c.getPrograms().stream().map(p -> p.getId()).collect(Collectors.toList()));
                         dto.setProgramNames(c.getPrograms().stream().map(p -> p.getName()).collect(Collectors.toList()));
@@ -297,19 +304,17 @@ com.exam.repository.QuizAttemptRepository quizAttemptRepository;
 
 
 
+    /** Deletes a course and its quizzes; refused while any of its quizzes has student results. */
+    @org.springframework.transaction.annotation.Transactional
     public void deleteCategory(Long categoryId){
 
         List<Quiz> quizzes = quizRepository.findByCategory_cid(categoryId);
+        quizDeletionService.requireCourseDeletable(categoryId, quizzes);
 
         for (Quiz quiz : quizzes) {
-            quizAttemptRepository.deleteByQuizId(quiz.getqId());
-            reportRepository.deleteByQuizId(quiz.getqId());
-            theoryQuestionsRepository.deleteByQuizId(quiz.getqId());
-            numberOfTheoryToAnswerRepository.deleteByQuiz_Id(quiz.getqId());
-            questionsRepository.deleteByQuiz_Id(quiz.getqId());
+            quizDeletionService.purge(quiz.getqId());
         }
 
-        this.quizRepository.deleteByCategory_cid(categoryId);
 //        this.numberOfTheoryToAnswerRepository.deleteByQuiz_Id(categoryId);
         this.registeredCoursesRepository.deleteByCategory_cid(categoryId);
         this.categoryRepository.deleteById(categoryId);

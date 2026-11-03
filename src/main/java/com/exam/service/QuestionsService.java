@@ -339,6 +339,9 @@ public class QuestionsService {
     @Lazy
     private ReportRepository reportRepository;
 
+    @Autowired
+    private QuizDeletionService quizDeletionService;
+
     // ── Add ───────────────────────────────────────────────────────────────────
 
     public Questions addQuestions(Questions questions) {
@@ -802,8 +805,10 @@ public class QuestionsService {
     // ── Delete ────────────────────────────────────────────────────────────────
 
     public void deleteQuestion(Long quesId) {
-        questionsRepository.findById(quesId)
-                .ifPresent(existing -> questionImageService.deleteByPath(existing.getImage()));
+        questionsRepository.findById(quesId).ifPresent(existing -> {
+            quizDeletionService.requireQuestionDeletable(existing.getQuiz());
+            questionImageService.deleteByPath(existing.getImage());
+        });
         Questions questions = new Questions();
         questions.setQuesId(quesId);
         this.questionsRepository.delete(questions);

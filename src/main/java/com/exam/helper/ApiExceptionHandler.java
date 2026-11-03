@@ -34,6 +34,21 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.body());
     }
 
+    /**
+     * A delete blocked by the database because other records still point at the row (MySQL error
+     * 1451). Controllers that expect duplicate-value errors catch those themselves; anything else is
+     * passed on unchanged.
+     */
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handle(org.springframework.dao.DataIntegrityViolationException ex) {
+        String cause = ex.getMostSpecificCause().getMessage();
+        if (cause != null && cause.contains("Cannot delete or update a parent row")) {
+            return body(HttpStatus.CONFLICT,
+                    "This can't be deleted because other records, such as student results, still use it.");
+        }
+        throw ex;
+    }
+
     @ExceptionHandler({ResourceNotFoundException.class, jakarta.persistence.EntityNotFoundException.class})
     public ResponseEntity<Map<String, Object>> notFound(RuntimeException ex) {
         return body(HttpStatus.NOT_FOUND, ex.getMessage());

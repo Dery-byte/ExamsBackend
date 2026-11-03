@@ -23,6 +23,9 @@ public class CategoryDTO {
     private java.util.List<Long> programIds;
     private java.util.List<String> programNames;
 
+    /** Some quiz in this course has student results, so the course can't be deleted. */
+    private boolean hasResults;
+
     // Nested user info so the frontend lecturer pill still works
     private UserInfo user;
 

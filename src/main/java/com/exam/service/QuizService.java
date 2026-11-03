@@ -322,6 +322,7 @@ public class QuizService {
     @Autowired private ProgramRepository                  programRepository;
     @Autowired private QuizAttemptRepository              quizAttemptRepository;
     @Autowired private Registered_coursesRepository       registeredCoursesRepository;
+    @Autowired private QuizDeletionService                quizDeletionService;
 
     // ── Create ────────────────────────────────────────────────────────────────
 
@@ -537,28 +538,14 @@ public class QuizService {
 
     // ── Delete ────────────────────────────────────────────────────────────────
 
+    /** Deletes a quiz with its questions; refused once students have results (Super Admin: see SuperAdminQuizController). */
     @Transactional
     public void deleteQuiz(Long quizId) {
-        Quiz quiz = quizRepository.findById(quizId)
-                .orElseThrow(() -> new EntityNotFoundException("Quiz not found with id: " + quizId));
-
-        // 1. Delete theory answers → theory questions → theory count
-        List<TheoryQuestions> theoryQuestions = theoryQuestionsRepository.findByQuiz_qId(quizId);
-        for (TheoryQuestions tq : theoryQuestions) {
-            answerRepository.deleteByTheoryQuestionId(tq.getTqId());
+        if (!quizRepository.existsById(quizId)) {
+            throw new EntityNotFoundException("Quiz not found with id: " + quizId);
         }
-        theoryQuestionsRepository.deleteByQuiz_qId(quizId);
-        numberOfTheoryToAnswerRepository.deleteByQuiz_Id(quizId);
-
-        // 2. Delete OBJ questions (matchingPairs are cascade-deleted via orphanRemoval)
-        questionsRepository.deleteByQuiz_Id(quizId);
-
-        // 3. Delete attempts, then reports
-        quizAttemptRepository.deleteByQuizId(quizId);
-        reportRepository.deleteByQuiz(quiz);
-
-        // 4. Finally delete the quiz itself
-        quizRepository.delete(quiz);
+        quizDeletionService.requireQuizDeletable(quizId);
+        quizDeletionService.purge(quizId);
     }
 
     /** Attempts allowed per student: 1..MAX_ATTEMPTS_LIMIT; null (not supplied) means 1. */

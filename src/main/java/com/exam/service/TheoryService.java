@@ -29,6 +29,8 @@ public class TheoryService {
     @Autowired
     @Lazy
     private ReportRepository reportRepository;
+    @Autowired
+    private QuizDeletionService quizDeletionService;
 
 
     public TheoryQuestions addQuestions(TheoryQuestions theoryQuestions){
@@ -178,8 +180,10 @@ public class TheoryService {
 
 
     public void deleteQuestion(Long TqId){
-        theoryQuestionsRepository.findById(TqId)
-                .ifPresent(existing -> questionImageService.deleteByPath(existing.getImage()));
+        theoryQuestionsRepository.findById(TqId).ifPresent(existing -> {
+            quizDeletionService.requireQuestionDeletable(existing.getQuiz());
+            questionImageService.deleteByPath(existing.getImage());
+        });
         TheoryQuestions theoryQuestions = new TheoryQuestions();
         theoryQuestions.setTqId(TqId);
         this.theoryQuestionsRepository.delete(theoryQuestions);

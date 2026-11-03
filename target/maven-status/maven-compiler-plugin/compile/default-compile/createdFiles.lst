@@ -369,6 +369,7 @@ com\exam\controller\QuizController.class
 com\exam\DTO\UpdateQuizStatusRequest.class
 com\exam\service\academic\ThemeService.class
 com\exam\service\admin\BulkEnrollService.class
+com\exam\service\QuizDeletionService.class
 com\exam\service\attendance\AttendanceService$PhoneCheck.class
 com\exam\DTO\SingleQuestionSummaryDTO.class
 com\exam\service\QuestionScoringService$ScoreResult.class
@@ -432,6 +433,7 @@ com\exam\repository\AuditLogRepository.class
 com\exam\service\subscription\SubscriptionSync$SyncException.class
 com\exam\service\attendance\AttendanceCodes$Match.class
 com\exam\service\reports\ReportQueries$RemarkRow.class
+com\exam\controller\SuperAdminQuizController.class
 com\exam\service\fees\StockService$StockedRequest.class
 com\exam\service\monitoring\HealthService.class
 com\exam\model\academic\GradingPreset.class

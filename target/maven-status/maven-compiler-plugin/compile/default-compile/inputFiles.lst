@@ -189,6 +189,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\Categor
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\MarksEntryService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\fees\FeeSchedule.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\TheoryProgressRepository.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\SuperAdminQuizController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\ProgramDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\features\FeatureService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\admin\ImportService.java
@@ -297,6 +298,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Jwt
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\monitoring\ErrorMonitorService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\json\StaffOnlySerializer.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\FeeController.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuizDeletionService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\ReportController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\BillBatchRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\subscription\SubscriptionKey.java

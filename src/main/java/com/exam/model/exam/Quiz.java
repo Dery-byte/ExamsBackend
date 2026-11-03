@@ -238,6 +238,11 @@ public class Quiz {
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String accessNotice;
 
+    /** Set on staff quiz lists: students have results, so only the Super Admin may delete it. Never stored. */
+    @Transient
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private Boolean hasResults;
+
      @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
      @JsonIgnore
      private Set<Questions> questions = new HashSet<>();
@@ -424,6 +429,14 @@ public class Quiz {
 
     public void setAccessNotice(String accessNotice) {
         this.accessNotice = accessNotice;
+    }
+
+    public Boolean getHasResults() {
+        return hasResults;
+    }
+
+    public void setHasResults(Boolean hasResults) {
+        this.hasResults = hasResults;
     }
 
     public Set<Questions> getQuestions() {

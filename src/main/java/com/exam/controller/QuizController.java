@@ -44,9 +44,26 @@ public class QuizController {
     public QuizController(UserDetailsService userDetailsService) {
         this.userDetailsService = userDetailsService;
     }
+    @Autowired
+    private com.exam.service.QuizDeletionService quizDeletionService;
+
     @GetMapping("/getQuizzes")
     public ResponseEntity<?> quizzes(){
-        return ResponseEntity.ok(this.quizService.getQuizzes());
+        return ResponseEntity.ok(markResults(this.quizService.getQuizzes()));
+    }
+
+    /** Flags the quizzes students have results on, so the UI can lock their delete buttons. */
+    private <C extends Collection<Quiz>> C markResults(C quizzes) {
+        Set<Long> withResults = quizDeletionService.quizIdsWithResults(quizzes.stream().map(Quiz::getqId).toList());
+        quizzes.forEach(q -> q.setHasResults(withResults.contains(q.getqId())));
+        return quizzes;
+    }
+
+    /** Staff: whether students have results on this quiz, so its questions (and the quiz) can't be deleted. */
+    @GetMapping("/quiz/{qid}/results-summary")
+    public Map<String, Object> resultsSummary(@PathVariable("qid") Long qid) {
+        long students = quizDeletionService.studentsWithResults(qid);
+        return Map.of("hasResults", students > 0, "students", students);
     }
 
 
@@ -222,7 +239,7 @@ public class QuizController {
     // ✅ Fetch quizzes for logged-in user
     @GetMapping("/user/getQuiz")
     public List<Quiz> getQuizzesForLoggedInUser(Principal principal) {
-        return quizService.getQuizzesForLoggedInUser(principal);
+        return markResults(quizService.getQuizzesForLoggedInUser(principal));
     }
 
     /** Lecturer / Admin: turn automatic emailing of PDF result slips on or off for one quiz. */

@@ -5,6 +5,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\Imp
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\GradingPresetTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\comms\NotificationServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\FeeFlowJpaTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizDeletionJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\TheoryGradingQueueTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\monitoring\ErrorPathGroupingTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\subscription\SubscriptionSyncTest.java

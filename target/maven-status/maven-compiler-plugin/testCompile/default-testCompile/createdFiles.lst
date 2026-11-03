@@ -17,6 +17,7 @@ com\exam\service\attendance\AttendanceGeoTest.class
 com\exam\service\AnswerMatcherTest.class
 com\exam\service\examops\QuestionBankTheoryTest.class
 com\exam\service\QuestionTypeChangeTest.class
+com\exam\service\QuizDeletionJpaTest.class
 com\exam\service\subscription\TestKeys.class
 com\exam\service\fees\AccountsJpaTest.class
 com\exam\service\AcademicPdfRenderTest.class

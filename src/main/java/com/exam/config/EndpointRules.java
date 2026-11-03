@@ -123,7 +123,8 @@ public final class EndpointRules {
                     "/random-records", "/theoryquestion/*", "/theoryquestions/**", "/user/getQuiz", "/quiz/category/**",
                     "/category/taken/**", "/getReport", "/getReport/*", "/getReports/**", "/my-students-reports",
                     "/my/quiz-titles/reports", "/quiz-results/quiz/**", "/quiz-results/report/**", "/quiz/result/*/student/*", "/categoriesForUser",
-                    "/category/my-courses-with-quizzes", "/category/lecturer/**", "/quizGPT/health")).hasAnyAuthority(STAFF)
+                    "/category/my-courses-with-quizzes", "/category/lecturer/**", "/quizGPT/health",
+                    "/quiz/*/results-summary")).hasAnyAuthority(STAFF)
             .requestMatchers(p("/quiz-attempts/quiz/**", "/llm/**")).hasAnyAuthority(STAFF)
             .requestMatchers("/api/question-bank/**", "/api/remarks/manage", "/api/remarks/*/respond").hasAnyAuthority(STAFF)
             .requestMatchers(HttpMethod.GET, "/api/proctoring/quiz/**").hasAnyAuthority(STAFF)
