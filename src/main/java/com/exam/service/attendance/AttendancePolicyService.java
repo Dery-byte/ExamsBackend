@@ -37,9 +37,14 @@ public class AttendancePolicyService {
         if (settings.getSetting(key) == null) settings.updateSetting(key, "false");
     }
 
-    @Transactional
+    /**
+     * The system default. Until the Super Admin first saves it there is no row, and the built-in defaults
+     * are returned unsaved: this is called from read-only transactions (a student's quiz status), where
+     * an insert fails with "Connection is read-only". saveSystem() stores the row on the first save.
+     */
+    @Transactional(readOnly = true)
     public AttendancePolicy system() {
-        return policies.findFirstByDepartmentIsNullOrderByIdAsc().orElseGet(() -> policies.save(new AttendancePolicy()));
+        return policies.findFirstByDepartmentIsNullOrderByIdAsc().orElseGet(AttendancePolicy::new);
     }
 
     /** The rules in force for a department (null = the default). */

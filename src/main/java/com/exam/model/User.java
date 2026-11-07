@@ -81,9 +81,11 @@ public class User implements UserDetails {
       inverseJoinColumns = @JoinColumn(name = "department_id")
   )
   @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+  @Builder.Default
   private Set<Department> secondaryDepartments = new HashSet<>();
 
   @Transient
+  @Builder.Default
   private List<Long> secondaryDepartmentIds = new ArrayList<>();
 
   @ManyToOne(fetch = FetchType.EAGER)
@@ -116,19 +118,23 @@ public class User implements UserDetails {
 
   @OneToMany(mappedBy = "user",cascade = CascadeType.ALL, orphanRemoval = true)
   @JsonIgnore
+  @Builder.Default
   private Set<Report> reports = new LinkedHashSet<>();
   @JsonIgnore
   @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+  @Builder.Default
   private List<Token> tokens = new ArrayList<>(); // ✅ Initialize to avoid null
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
+    @Builder.Default
     private Set<Quiz> quizzes = new HashSet<>();
 
 
     // 🔹 CATEGORIES MAPPED TO USER
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
+    @Builder.Default
     private Set<Category> categories = new HashSet<>();
 
   public boolean requiresPasswordChange() {

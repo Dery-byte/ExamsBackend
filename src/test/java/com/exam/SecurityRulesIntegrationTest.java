@@ -111,6 +111,20 @@ class SecurityRulesIntegrationTest {
         }
     }
 
+    /** The developer's "create a Super Admin" (one request: save, token, then re-save with must-change-password). */
+    @Test
+    void developerCreatesSuperAdmin() throws Exception {
+        var res = mvc.perform(post("/api/v1/developer/setup/super-admin").with(as(developer))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"firstname\":\"New\",\"lastname\":\"Admin\",\"email\":\"newsa@example.com\","
+                        + "\"username\":\"newsa\",\"password\":\"Temp@12345\"}"))
+                .andReturn().getResponse();
+        assertThat(res.getStatus()).as(res.getContentAsString()).isEqualTo(200);
+        User created = users.findByUsername("newsa").orElseThrow();
+        assertThat(created.getRole()).isEqualTo(Role.SUPER_ADMIN);
+        assertThat(created.requiresPasswordChange()).isTrue();
+    }
+
     @Test
     void studentsAreKeptOutOfStaffAndAdminAreas() throws Exception {
         assertThat(status(get("/api/v1/auth/users").with(as(student)))).isEqualTo(403);
