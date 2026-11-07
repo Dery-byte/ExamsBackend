@@ -39,6 +39,9 @@ public class SchemaUpgrades implements ApplicationRunner {
             return;
         }
         widenToText("system_settings", "setting_value");
+        // AI feedback over 255 characters made the whole theory marking roll back
+        widenToText("answers", "feedback");
+        widenToText("answers", "lecturer_comment");
         replaceUniqueKey("fee_schedule", "uk_fee_schedule_program_level_session",
                 "uk_fee_schedule_class_period", "program_id, level, session_id, period_key");
         // A payment may now be for a bill, or for everything owed, instead of one fee

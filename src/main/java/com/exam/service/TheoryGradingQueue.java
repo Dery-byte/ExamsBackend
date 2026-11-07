@@ -8,6 +8,7 @@ import com.exam.model.exam.TheoryGradingJob.Status;
 import com.exam.repository.QuizRepository;
 import com.exam.repository.TheoryGradingJobRepository;
 import com.exam.repository.UserRepository;
+import com.exam.service.llm.EvaluationPersistenceHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -173,6 +174,32 @@ public class TheoryGradingQueue {
     @EventListener(ApplicationReadyEvent.class)
     public void requeueAfterRestart() {
         requeueStuck();
+        try {
+            requeueLostAnswers();
+        } catch (Exception e) {
+            log.error("Could not check for theory submissions whose answers were not saved: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Repairs submissions hit by the old AI-failure bug: the job finished as done but saved no answers,
+     * so the review page showed the student as having answered nothing. Each such job (latest attempt,
+     * result not yet reviewed) is marked again from its stored payload. Safe to run on every start: once
+     * the answers are saved the job no longer matches.
+     */
+    public int requeueLostAnswers() {
+        int n = 0;
+        for (TheoryGradingJob job : jobs.findDoneWithoutAnswers()) {
+            if (!quizzes.existsById(job.getQuizId())) continue;
+            if (!attemptService.mayRemarkTheory(job.getAttemptId(), job.getUserId(), job.getQuizId())) continue;
+            job.setRemark(true);
+            job.setTries(0);
+            job.setNextAttemptAt(LocalDateTime.now());
+            finish(job, Status.PENDING, "Marking again: the earlier marking saved none of the student's answers.");
+            n++;
+        }
+        if (n > 0) log.warn("Re-queued {} theory submission(s) whose answers were not saved, to be marked again", n);
+        return n;
     }
 
     @Scheduled(fixedDelay = 5 * 60 * 1000, initialDelay = 5 * 60 * 1000)
@@ -189,7 +216,12 @@ public class TheoryGradingQueue {
             User student = users.findById(job.getUserId()).orElseThrow(() -> new IllegalStateException("Student not found"));
             Quiz quiz = quizzes.findById(job.getQuizId()).orElseThrow(() -> new IllegalStateException("Quiz not found"));
             GeminiRequest request = objectMapper.readValue(job.getPayload(), GeminiRequest.class);
-            AttemptService.recordingTheoryFor(job.getAttemptId(), () -> evaluation.grade(request, student, quiz));
+            // While tries remain, an AI failure is retried later; on the last try the answers are saved
+            // unmarked (0, with a note) so the lecturer can mark them by hand. They are never dropped.
+            boolean triesLeft = job.getTries() + 1 < MAX_TRIES;
+            boolean remark = Boolean.TRUE.equals(job.getRemark());
+            AttemptService.recordingTheoryFor(job.getAttemptId(), remark, () ->
+                    EvaluationPersistenceHelper.retryingIfAiFails(triesLeft, () -> evaluation.grade(request, student, quiz)));
             finish(job, Status.DONE, null);
         } catch (ResponseStatusException e) {
             // Refused for good (e.g. this attempt's theory was already marked): retrying cannot help

@@ -33,6 +33,37 @@ public class EvaluationPersistenceHelper {
     @Autowired private UserRepository             userRepository;
     @Autowired private com.exam.service.AttemptService attemptService;
 
+    /** Shown to the lecturer on an answer the AI could not mark; kept short so it fits any feedback column. */
+    static final String NOT_MARKED_NOTE = "Not marked: the AI marker could not mark this answer, so it scored 0. Please mark it by hand.";
+
+    /**
+     * Set by the background marking queue while it still has tries left: an AI failure then throws
+     * {@link AiMarkingUnavailableException} (nothing is saved) so the whole submission is tried again later.
+     * Unset (the last try, or any other caller): the answers are saved anyway, unmarked, for hand marking.
+     */
+    private static final ThreadLocal<Boolean> RETRY_IF_AI_FAILS = new ThreadLocal<>();
+
+    /** Runs marking so that an AI failure is retried later instead of being saved unmarked (when {@code retry}). */
+    public static <T> T retryingIfAiFails(boolean retry, java.util.function.Supplier<T> marking) {
+        RETRY_IF_AI_FAILS.set(retry);
+        try {
+            return marking.get();
+        } finally {
+            RETRY_IF_AI_FAILS.remove();
+        }
+    }
+
+    /** The AI provider could not mark one or more answers; the submission should be tried again later. */
+    public static class AiMarkingUnavailableException extends RuntimeException {
+        public AiMarkingUnavailableException(String message) { super(message); }
+    }
+
+    /** True when the provider could not mark this answer (the strategies report failures this way). */
+    private static boolean aiFailed(QuestionEvaluationResult r) {
+        String f = r.getFeedback();
+        return f == null || f.startsWith("Evaluation failed") || f.startsWith("Authentication failed");
+    }
+
     /**
      * Persists scores / answers to the database and assembles the full API response.
      *
@@ -47,17 +78,30 @@ public class EvaluationPersistenceHelper {
                                                 User user,
                                                 String evaluationMethod) {
 
+        // ── 0. AI failures: try again later, before anything is written ──────
+        List<QuestionEvaluationResult> failed = results.stream().filter(EvaluationPersistenceHelper::aiFailed).toList();
+        if (!failed.isEmpty() && Boolean.TRUE.equals(RETRY_IF_AI_FAILS.get())) {
+            String reason = failed.get(0).getFeedback();
+            throw new AiMarkingUnavailableException("The AI marker could not mark " + failed.size() + " of "
+                    + results.size() + " answer(s): " + (reason == null ? "no reason given" : reason));
+        }
+
         // ── 1. Tally scores ───────────────────────────────────────────────────
+        // An answer the AI could not mark still counts towards the maximum: it is saved below with
+        // 0 marks for the lecturer to mark by hand (it used to be dropped, losing the student's answer).
         double totalScore    = 0;
         double totalMaxMarks = 0;
         int    successful    = 0;
         for (QuestionEvaluationResult r : results) {
-            if (!r.getFeedback().startsWith("Evaluation failed")
-                    && !r.getFeedback().startsWith("Authentication failed")) {
-                totalScore    += r.getScore();
-                totalMaxMarks += r.getMaxMarks();
+            totalMaxMarks += r.getMaxMarks();
+            if (!aiFailed(r)) {
+                totalScore += r.getScore();
                 successful++;
             }
+        }
+        if (!failed.isEmpty()) {
+            log.error("AI marking failed for {} of {} theory answer(s) of user {} — saved unmarked for hand marking. First error: {}",
+                    failed.size(), results.size(), user.getUsername(), failed.get(0).getFeedback());
         }
 
         // ── 2. Resolve quiz & user from DB ────────────────────────────────────
@@ -93,23 +137,20 @@ public class EvaluationPersistenceHelper {
         List<QuestionEvaluationResult> included = new ArrayList<>();
 
         for (QuestionEvaluationResult r : results) {
-            if (r.getFeedback().startsWith("Evaluation failed")
-                    || r.getFeedback().startsWith("Authentication failed")) {
-                included.add(r);
-                continue;
-            }
+            boolean unmarked = aiFailed(r);
             try {
                 Long tqid = Long.valueOf(r.getTqid());
                 TheoryQuestions tq = theoryQuestionsRepository.findById(tqid)
                         .orElseThrow(() -> new RuntimeException("Theory question not found: " + tqid));
 
+                // Every answer is kept, marked or not, so the lecturer always sees what the student wrote
                 Answer answer = new Answer();
                 answer.setQuesNo(r.getQuestionNumber());
-                answer.setStudentAnswer(r.getStudentAnswer());
-                answer.setScore(r.getScore());
+                answer.setStudentAnswer(r.getStudentAnswer() == null ? "" : r.getStudentAnswer());
+                answer.setScore(unmarked ? 0 : r.getScore());
                 answer.setMaxMarks(r.getMaxMarks());
-                answer.setFeedback(r.getFeedback());
-                answer.setKeyMissed(r.getKeyMissed());
+                answer.setFeedback(unmarked ? NOT_MARKED_NOTE : r.getFeedback());
+                answer.setKeyMissed(unmarked ? Collections.emptyList() : r.getKeyMissed());
                 answer.setUser(managedUser);
                 answer.setQuiz(quiz);
                 answer.setTheoryQuestion(tq);

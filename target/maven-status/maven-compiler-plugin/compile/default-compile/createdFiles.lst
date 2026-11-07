@@ -234,6 +234,7 @@ com\exam\model\academic\DocumentVerification$Type.class
 com\exam\service\fees\WalletService$StaffSpendRequest.class
 com\exam\repository\StudentBillRepository.class
 com\exam\service\reports\ReportQueries$ObjectiveAnswerRow.class
+com\exam\service\llm\EvaluationPersistenceHelper$AiMarkingUnavailableException.class
 com\exam\controller\DeveloperController.class
 com\exam\service\academic\GradingService$PresetInfo.class
 com\exam\service\fees\WalletService$WithdrawalRequest.class

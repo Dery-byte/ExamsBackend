@@ -47,8 +47,11 @@ private String studentAnswer;
 
     private double maxMarks;
 
+    // TEXT: AI feedback and lecturer comments often run past 255 characters (SchemaUpgrades widens old tables)
+    @Column(columnDefinition = "TEXT")
     private String feedback;
 
+    @Column(columnDefinition = "TEXT")
     private String lecturerComment;
 
     /**

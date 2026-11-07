@@ -346,6 +346,33 @@ class AttemptServiceTest {
     }
 
     @Test
+    void theoryWhoseAnswersWereLostCanBeMarkedAgainButOnlyWhenFlagged() {
+        quiz.setQuizType(QuizType.THEORY);
+        service.begin(student, quiz);
+        service.finish(student, quiz);
+        Long id = 77L;   // the mocked repository assigns no ids
+        org.springframework.test.util.ReflectionTestUtils.setField(store.get(0), "id", id);
+
+        AttemptService.recordingTheoryFor(id, () -> { service.recordTheory(student, quiz, BigDecimal.ZERO); return null; });
+        // An ordinary second marking is still refused
+        assertConflict(() -> AttemptService.recordingTheoryFor(id, () -> { service.recordTheory(student, quiz, BigDecimal.ONE); return null; }));
+
+        // A re-mark (the first run saved no answers) replaces the marks
+        assertThat(service.mayRemarkTheory(id, 1L, 10L)).isTrue();
+        AttemptService.recordingTheoryFor(id, true, () -> { service.recordTheory(student, quiz, new BigDecimal("12")); return null; });
+        assertThat(store.get(0).getMarksB()).isEqualByComparingTo("12");
+
+        // Never once staff have reviewed the result, and never for another attempt
+        assertThat(service.mayRemarkTheory(999L, 1L, 10L)).isFalse();
+        Report report = new Report();
+        report.setUser(student);
+        report.setQuiz(quiz);
+        report.setIsReviewed(true);
+        reportStore.add(report);
+        assertThat(service.mayRemarkTheory(id, 1L, 10L)).isFalse();
+    }
+
+    @Test
     void retakeIsRefusedOnceTheResultHasBeenReviewed() {
         service.begin(student, quiz);
         service.recordObjective(student, quiz, new BigDecimal("4"));

@@ -25,6 +25,18 @@ public interface TheoryGradingJobRepository extends JpaRepository<TheoryGradingJ
 
     List<TheoryGradingJob> findByQuizIdAndStatusInOrderByIdAsc(Long quizId, Collection<Status> statuses);
 
+    /**
+     * Jobs marked done whose student has no theory answers saved for that quiz: an AI failure used to
+     * finish a job without saving the answers. Their answers are still in the payload.
+     */
+    @Query("SELECT j FROM TheoryGradingJob j WHERE j.status = :done AND NOT EXISTS "
+            + "(SELECT a.answerId FROM Answer a WHERE a.user.id = j.userId AND a.quiz.qId = j.quizId) ORDER BY j.id")
+    List<TheoryGradingJob> findDoneWithoutAnswers(@Param("done") Status done);
+
+    default List<TheoryGradingJob> findDoneWithoutAnswers() {
+        return findDoneWithoutAnswers(Status.DONE);
+    }
+
     /** Takes a pending job for this worker. Returns 1 only for the one caller that got it (safe across server instances). */
     @Modifying
     @Transactional

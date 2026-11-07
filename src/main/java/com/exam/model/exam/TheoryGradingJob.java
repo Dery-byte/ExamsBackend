@@ -49,6 +49,13 @@ public class TheoryGradingJob {
     @Column(name = "tries", nullable = false)
     private int tries;
 
+    /**
+     * True for a job put back in the queue because its earlier run saved no answers (an AI failure
+     * used to drop them): its attempt's theory marks may then be replaced. Null on ordinary jobs.
+     */
+    @Column(name = "remark")
+    private Boolean remark;
+
     @Column(name = "last_error", length = 1000)
     private String lastError;
 

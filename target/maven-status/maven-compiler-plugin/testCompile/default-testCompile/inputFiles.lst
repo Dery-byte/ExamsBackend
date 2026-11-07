@@ -64,4 +64,5 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\adm
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\attendance\AttendanceGeoTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\ClassPositionTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\monitoring\DeveloperAuthServiceTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\llm\EvaluationPersistenceHelperTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAutoOpenTest.java

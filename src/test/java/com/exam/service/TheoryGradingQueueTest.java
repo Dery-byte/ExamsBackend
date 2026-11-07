@@ -147,6 +147,31 @@ class TheoryGradingQueueTest {
         assertThat(job.getTries()).isEqualTo(1);
     }
 
+    @Test
+    void submissionsWhoseAnswersWereNotSavedAreMarkedAgain() throws Exception {
+        TheoryGradingJob lost = storedJob();
+        lost.setStatus(Status.DONE);
+        lost.setTries(2);
+        TheoryGradingJob reviewed = new TheoryGradingJob();
+        reviewed.setId(10L);
+        reviewed.setUserId(8L);
+        reviewed.setQuizId(1L);
+        reviewed.setAttemptId(43L);
+        reviewed.setStatus(Status.DONE);
+        when(jobs.findDoneWithoutAnswers()).thenReturn(java.util.List.of(lost, reviewed));
+        when(quizzes.existsById(1L)).thenReturn(true);
+        when(attemptService.mayRemarkTheory(42L, 7L, 1L)).thenReturn(true);
+        when(attemptService.mayRemarkTheory(43L, 8L, 1L)).thenReturn(false);   // reviewed or replaced: left alone
+
+        assertThat(queue.requeueLostAnswers()).isEqualTo(1);
+
+        assertThat(lost.getStatus()).isEqualTo(Status.PENDING);
+        assertThat(lost.getRemark()).isTrue();
+        assertThat(lost.getTries()).isZero();
+        assertThat(reviewed.getStatus()).isEqualTo(Status.DONE);
+        assertThat(reviewed.getRemark()).isNull();
+    }
+
     private User staff(Role role) {
         User u = new User();
         u.setId(99L);

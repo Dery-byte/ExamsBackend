@@ -73,15 +73,37 @@ public class AttemptService {
      * has finished it (marking happens after submission).
      */
     private static final ThreadLocal<Long> GRADING_ATTEMPT = new ThreadLocal<>();
+    /** Set while re-marking a submission whose first marking saved no answers: its theory marks may be replaced. */
+    private static final ThreadLocal<Boolean> REMARKING = new ThreadLocal<>();
 
     /** Runs background theory marking so its marks are recorded on the given attempt. */
     public static <T> T recordingTheoryFor(Long attemptId, java.util.function.Supplier<T> marking) {
+        return recordingTheoryFor(attemptId, false, marking);
+    }
+
+    /** As above; {@code remark} lets the marks replace theory marks already recorded on that attempt. */
+    public static <T> T recordingTheoryFor(Long attemptId, boolean remark, java.util.function.Supplier<T> marking) {
         GRADING_ATTEMPT.set(attemptId);
+        REMARKING.set(remark);
         try {
             return marking.get();
         } finally {
             GRADING_ATTEMPT.remove();
+            REMARKING.remove();
         }
+    }
+
+    /**
+     * Whether a theory submission for this attempt may be marked again because its first marking saved
+     * no answers: the attempt still exists, is not voided, is the student's latest counted attempt, and
+     * staff have not yet marked the result as reviewed (a re-mark must never replace reviewed marks).
+     */
+    @Transactional(readOnly = true)
+    public boolean mayRemarkTheory(Long attemptId, Long studentId, Long quizId) {
+        if (isReviewed(studentId, quizId)) return false;
+        return latestCounted(load(studentId, quizId))
+                .filter(a -> a.getId().equals(attemptId))
+                .isPresent();
     }
 
     // ── Student: status / begin / finish ─────────────────────────────────────
@@ -308,7 +330,8 @@ public class AttemptService {
             a.setMarksA(scale(marks));
             a.setObjectiveSubmitted(true);
         } else {
-            if (a.isTheorySubmitted()) throw conflict("The theory section of this attempt was already submitted.");
+            boolean remark = gradingAttempt != null && Boolean.TRUE.equals(REMARKING.get());
+            if (a.isTheorySubmitted() && !remark) throw conflict("The theory section of this attempt was already submitted.");
             a.setMarksB(scale(marks));
             a.setTheorySubmitted(true);
         }
