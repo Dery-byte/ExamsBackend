@@ -495,6 +495,7 @@ public class QuizService {
         if (req.getEnableFullscreenLock()       != null) quiz.setEnableFullscreenLock(req.getEnableFullscreenLock());
         if (req.getEnableScreenshotBlocking()   != null) quiz.setEnableScreenshotBlocking(req.getEnableScreenshotBlocking());
         if (req.getEnableDevToolsBlocking()     != null) quiz.setEnableDevToolsBlocking(req.getEnableDevToolsBlocking());
+        if (req.getAllowPaste()                 != null) quiz.setAllowPaste(req.getAllowPaste());
 
         // ── LLM Provider ──────────────────────────────────────────────────────
         if (req.getLlmProvider()                != null) quiz.setLlmProvider(req.getLlmProvider());

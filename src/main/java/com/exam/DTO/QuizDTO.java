@@ -41,6 +41,7 @@ public class QuizDTO {
     private Boolean enableFullscreenLock;
     private Boolean enableScreenshotBlocking;
     private Boolean enableDevToolsBlocking;
+    private boolean allowPaste;
 
     /** LLM provider selected for subjective evaluation of this quiz. */
     private LlmProvider llmProvider = LlmProvider.GPT;
@@ -96,6 +97,7 @@ public class QuizDTO {
         this.enableFullscreenLock = quiz.getEnableFullscreenLock();
         this.enableScreenshotBlocking = quiz.getEnableScreenshotBlocking();
         this.enableDevToolsBlocking = quiz.getEnableDevToolsBlocking();
+        this.allowPaste = quiz.isAllowPaste();
         this.llmProvider = quiz.getLlmProvider();
         this.maxAttempts = quiz.getMaxAttempts() == null ? 1 : quiz.getMaxAttempts();
         this.indexRangeStart = quiz.getIndexRangeStart();
@@ -312,6 +314,14 @@ public class QuizDTO {
 
     public void setEnableScreenshotBlocking(Boolean enableScreenshotBlocking) {
         this.enableScreenshotBlocking = enableScreenshotBlocking;
+    }
+
+    public boolean isAllowPaste() {
+        return allowPaste;
+    }
+
+    public void setAllowPaste(boolean allowPaste) {
+        this.allowPaste = allowPaste;
     }
 
     public Boolean getEnableDevToolsBlocking() {

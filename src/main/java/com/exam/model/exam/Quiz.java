@@ -129,6 +129,14 @@ public class Quiz {
     @Column(name = "enable_dev_tools_blocking")
     private Boolean enableDevToolsBlocking = true;
 
+    /**
+     * When false (default), students cannot paste into answer boxes and keyboard suggestions
+     * (word or clipboard suggestions on phones) cannot fill them; when true, both are allowed.
+     * Copying the question text stays blocked either way.
+     */
+    @Column(name = "allow_paste", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0")
+    private boolean allowPaste = false;
+
 // =====================================================
 
 
@@ -534,6 +542,14 @@ public class Quiz {
 
     public void setEnableDevToolsBlocking(Boolean enableDevToolsBlocking) {
         this.enableDevToolsBlocking = enableDevToolsBlocking;
+    }
+
+    public boolean isAllowPaste() {
+        return allowPaste;
+    }
+
+    public void setAllowPaste(boolean allowPaste) {
+        this.allowPaste = allowPaste;
     }
 
     public Boolean getProctoringEnabled() {

@@ -49,6 +49,8 @@ public class QuizUpdateRequest {
     private Boolean enableScreenshotBlocking = true;
 
     private Boolean enableDevToolsBlocking = true;
+    /** Null leaves the quiz's current setting unchanged. */
+    private Boolean allowPaste;
 
     /** LLM provider to use for subjective evaluation. Null means no change. */
     private LlmProvider llmProvider;
@@ -281,6 +283,14 @@ public class QuizUpdateRequest {
 
     public void setEnableScreenshotBlocking(Boolean enableScreenshotBlocking) {
         this.enableScreenshotBlocking = enableScreenshotBlocking;
+    }
+
+    public Boolean getAllowPaste() {
+        return allowPaste;
+    }
+
+    public void setAllowPaste(Boolean allowPaste) {
+        this.allowPaste = allowPaste;
     }
 
     public Boolean getEnableDevToolsBlocking() {
