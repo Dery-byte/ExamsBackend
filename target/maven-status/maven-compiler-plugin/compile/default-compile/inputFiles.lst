@@ -38,6 +38,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\com
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\EmailController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\ExamOpsController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\RegisteredCoursesController.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\PasswordResetLink.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Impl\OpenAIService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\boarding\BoardingViews.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\attendance\AttendanceStatus.java
@@ -273,6 +274,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Ans
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\TheoryQuestions.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\InstitutionLogoRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\SchemaUpgrades.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\PasswordResetLinkRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\reports\ReportSupport.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\GoogleGeminiConfig.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\llm\GeminiEvaluationStrategy.java

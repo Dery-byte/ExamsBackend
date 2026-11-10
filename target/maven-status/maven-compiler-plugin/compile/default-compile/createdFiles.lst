@@ -155,6 +155,7 @@ com\exam\service\examops\QuestionBankService$DrawRequest.class
 com\exam\repository\ClassScheduleRepository.class
 com\exam\token\Token.class
 com\exam\DTO\SemesterSheetDTO$StudentMarkDTO.class
+com\exam\repository\PasswordResetLinkRepository.class
 com\exam\service\reports\QuestionPaperPdf$Footer.class
 com\exam\service\fees\FeeScheduleService$ScheduleRequest.class
 com\exam\model\exam\StudentAnswer.class
@@ -186,6 +187,7 @@ com\exam\controller\AttendanceController.class
 com\exam\service\fees\FeeDues$Due.class
 com\exam\DTO\ForgottenPasswordRequest.class
 com\exam\service\examops\QuestionBankService$1.class
+com\exam\model\PasswordResetLink.class
 com\exam\controller\FinanceStaffController$SettingsRequest.class
 com\exam\exception\ResetPasswordTokenAlreadyUsedException.class
 com\exam\service\fees\StockService$AdjustRequest.class

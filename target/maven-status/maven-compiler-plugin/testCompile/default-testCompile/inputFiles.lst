@@ -19,6 +19,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\Qui
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\QuestionDrawTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\OptionOrderTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\academic\ClassPromotionJpaTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\PasswordResetFlowTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\reports\ReportsJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\subscription\SubscriptionStatusTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\boarding\BoardingJpaTest.java

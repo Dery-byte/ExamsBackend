@@ -526,8 +526,10 @@ package com.exam.controller;
 import com.exam.DTO.ForgotPasswordRequest;
 import com.exam.DTO.ForgotPasswordUnifiedRequest;
 import com.exam.DTO.ResetPasswordWithTokenRequest;
-import com.exam.DTO.TokenData;
+import com.exam.model.PasswordResetLink;
+import com.exam.repository.PasswordResetLinkRepository;
 import com.exam.repository.UserRepository;
+import com.exam.service.academic.InstitutionService;
 import com.exam.service.MNotifyV2SmsService;
 import com.exam.service.Impl.EmailService;
 import com.exam.service.Impl.EmailTemplateName;
@@ -535,19 +537,29 @@ import com.exam.model.User;
 import com.exam.service.monitoring.ErrorMonitorService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Password Reset Controller - IN-MEMORY VERSION
- * No Redis required - stores tokens in memory
- * Perfect for development and testing
+ * "Forgot password": sends a one-time reset link by SMS or email, then sets the new password.
+ * Links are stored in the database (hashed), so they survive restarts and redeploys; only the
+ * 2-minute resend cooldown is kept in memory.
  */
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -572,15 +584,20 @@ public class PasswordResetController {
 
 
 
-    @Value("${application.mailing.frontend.baseUrl:http://localhost:4200}")
-    private String frontendUrl;
+    @Autowired
+    private PasswordResetLinkRepository linkRepository;
 
-    // In-memory storage (replaces Redis)
-    private static final Map<String, TokenData> resetTokens = new ConcurrentHashMap<>();
+    @Autowired
+    private InstitutionService institution;
+
+    @Autowired @Lazy @Qualifier("corsConfigurationSource")
+    private CorsConfigurationSource cors;
+
+    // Resend cooldown only; the links themselves live in the database
     private static final Map<String, Long> rateLimits = new ConcurrentHashMap<>();
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private static final int TOKEN_EXPIRY_MINUTES = 30;
-    private static final long TOKEN_EXPIRY_MS = TOKEN_EXPIRY_MINUTES * 60 * 1000;
     private static final long RATE_LIMIT_MS = 2 * 60 * 1000; // 2 minutes
 
     private static final String SHARED_PHONE = "This phone number is linked to more than one account. "
@@ -630,22 +647,18 @@ public class PasswordResetController {
                                     "Please wait " + wait + " seconds before requesting again."));
                 }
 
-                String resetToken = UUID.randomUUID().toString();
-                long expiryTime = System.currentTimeMillis() + TOKEN_EXPIRY_MS;
-                resetTokens.put(resetToken, new TokenData(phone, user.getId(), expiryTime));
+                String resetToken = issueToken(user, phone);
                 rateLimits.put(phone, System.currentTimeMillis());
-
-                String resetLink = String.format("%s/reset-password?token=%s", frontendUrl, resetToken);
 
                 Map<String, Object> vars = new HashMap<>();
                 vars.put("username", user.getFullName());
-                vars.put("resetUrl", resetLink);
+                vars.put("resetUrl", resetUrl(resetToken));
 
                 try {
                     smsService.sendSms(phone, vars);
                 } catch (Exception sendFailed) {
-                    // Nothing was sent: drop the token and the cooldown so the student can simply retry
-                    resetTokens.remove(resetToken);
+                    // Nothing was sent: drop the link and the cooldown so the student can simply retry
+                    discardToken(resetToken);
                     rateLimits.remove(phone);
                     throw sendFailed;
                 }
@@ -681,21 +694,17 @@ public class PasswordResetController {
                                 "Please wait " + wait + " seconds before requesting again."));
             }
 
-            String resetToken = UUID.randomUUID().toString();
-            long expiryTime = System.currentTimeMillis() + TOKEN_EXPIRY_MS;
-            resetTokens.put(resetToken, new TokenData(email, user.getId(), expiryTime));
+            String resetToken = issueToken(user, email);
             rateLimits.put(email, System.currentTimeMillis());
-
-            String resetLink = String.format("%s/reset-password?token=%s", frontendUrl, resetToken);
 
             Map<String, Object> vars = new HashMap<>();
             vars.put("username", user.getFullName());
-            vars.put("resetUrl", resetLink);
+            vars.put("resetUrl", resetUrl(resetToken));
 
             try {
                 emailService.sendEmail(user.getEmail(), EmailTemplateName.RESET_PASSWORD, vars, "Password Reset");
             } catch (Exception sendFailed) {
-                resetTokens.remove(resetToken);
+                discardToken(resetToken);
                 rateLimits.remove(email);
                 throw sendFailed;
             }
@@ -756,33 +765,20 @@ public class PasswordResetController {
                         ));
             }
 
-            // Generate unique token
-            String resetToken = UUID.randomUUID().toString();
-
-            // Store token with expiry time
-            long expiryTime = now + TOKEN_EXPIRY_MS;
-            resetTokens.put(resetToken, new TokenData(phone, user.getId(), expiryTime));
-
-            // Update rate limit
+            String resetToken = issueToken(user, phone);
             rateLimits.put(phone, now);
 
-            // Create reset link
-            String resetLink = String.format("%s/reset-password?token=%s", frontendUrl, resetToken);
-
-            // Prepare variables for SMS
             Map<String, Object> vars = new HashMap<>();
             vars.put("username", user.getFullName());
-            vars.put("resetUrl", resetLink);
+            vars.put("resetUrl", resetUrl(resetToken));
 
-            System.out.println("🔗 Reset link generated: " + resetLink);
-            System.out.println("🎫 Token: " + resetToken);
-            System.out.println("📱 Sending SMS to: " + phone);
-
-            // Send SMS via MNotify
-            String smsResponse = smsService.sendSms(phone, vars);
-
-            System.out.println("✅ SMS sent successfully");
-            System.out.println("📩 Response: " + smsResponse);
+            try {
+                smsService.sendSms(phone, vars);
+            } catch (Exception sendFailed) {
+                discardToken(resetToken);
+                rateLimits.remove(phone);
+                throw sendFailed;
+            }
 
             // Clean up expired tokens periodically
             cleanupExpiredTokens();
@@ -812,13 +808,8 @@ public class PasswordResetController {
     @GetMapping("/validate-reset-token")
     public ResponseEntity<?> validateResetToken(@RequestParam String token) {
         try {
-            TokenData tokenData = resetTokens.get(token);
-
-            // Check if token exists and is not expired
-            if (tokenData == null || tokenData.isExpired()) {
-                if (tokenData != null) {
-                    resetTokens.remove(token); // Clean up expired token
-                }
+            Optional<PasswordResetLink> link = liveLink(token);
+            if (link.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of(
                                 "success", false,
@@ -826,20 +817,17 @@ public class PasswordResetController {
                         ));
             }
 
-            // Get user info
-            Optional<User> user = userRepository.findById(tokenData.getUserId());
-            if (user == null) {
+            Optional<User> user = userRepository.findById(link.get().getUserId());
+            if (user.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("success", false, "message", "User not found"));
             }
 
-            System.out.println("✅ Token validated for: " + tokenData.getPhone());
-
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Token is valid",
-                    "phone", tokenData.getPhone(),
-                    "userId", tokenData.getUserId(),
+                    "phone", link.get().getSentTo(),
+                    "userId", link.get().getUserId(),
                     "userName", user.get().getFullName()));
 
         } catch (Exception e) {
@@ -877,11 +865,8 @@ public class PasswordResetController {
                         .body(Map.of("success", false, "message", "Password must be at least 8 characters"));
             }
 
-            // Get token data
-            TokenData tokenData = resetTokens.get(token);
-
-            if (tokenData == null || tokenData.isExpired()) {
-                resetTokens.remove(token); // Clean up
+            Optional<PasswordResetLink> link = liveLink(token.trim());
+            if (link.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of(
                                 "success", false,
@@ -889,9 +874,7 @@ public class PasswordResetController {
                         ));
             }
 
-            // Get user
-            //
-            Optional<User> userOptional = userRepository.findById(tokenData.getUserId());
+            Optional<User> userOptional = userRepository.findById(link.get().getUserId());
 
             // Check if user exists
             if (!userOptional.isPresent()) {
@@ -908,10 +891,8 @@ public class PasswordResetController {
             user.setMustChangePassword(null);
             userRepository.save(user);
 
-            // Delete used token (one-time use)
-            resetTokens.remove(token);
-
-            System.out.println("✅ Password reset successful for: " + tokenData.getPhone());
+            // One use: this link and any other unused links for the account stop working
+            linkRepository.deleteAllForUser(user.getId());
 
             // Optional: Send confirmation SMS
             try {
@@ -920,8 +901,9 @@ public class PasswordResetController {
                                 "If you didn't do this, please contact support immediately.",
                         user.getFirstname()
                 );
-                smsService.sendSms(tokenData.getPhone(), confirmMessage);
-                System.out.println("📱 Confirmation SMS sent");
+                if (user.getPhone() != null && !user.getPhone().isBlank()) {
+                    smsService.sendSms(user.getPhone(), confirmMessage);
+                }
             } catch (Exception e) {
                 System.err.println("⚠️ Failed to send confirmation SMS: " + e.getMessage());
             }
@@ -947,18 +929,76 @@ public class PasswordResetController {
         return phone.replaceAll("[\\s\\-\\(\\)]", "");
     }
 
+    /** Stores a new 30-minute reset link for this account and returns the token that goes in the URL. */
+    private String issueToken(User user, String sentTo) {
+        byte[] bytes = new byte[32];
+        RANDOM.nextBytes(bytes);
+        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        PasswordResetLink link = new PasswordResetLink();
+        link.setTokenHash(sha256(token));
+        link.setUserId(user.getId());
+        link.setSentTo(sentTo.length() > 150 ? sentTo.substring(0, 150) : sentTo);
+        link.setCreatedAt(Instant.now());
+        link.setExpiresAt(Instant.now().plus(Duration.ofMinutes(TOKEN_EXPIRY_MINUTES)));
+        linkRepository.save(link);
+        return token;
+    }
+
+    /** The message never went out: remove its link. */
+    private void discardToken(String token) {
+        try {
+            linkRepository.findByTokenHash(sha256(token)).ifPresent(linkRepository::delete);
+        } catch (Exception ignored) { /* it expires on its own */ }
+    }
+
+    /** The stored link for this token, if it exists and has not expired. */
+    private Optional<PasswordResetLink> liveLink(String token) {
+        if (token == null || token.isBlank()) return Optional.empty();
+        Optional<PasswordResetLink> link = linkRepository.findByTokenHash(sha256(token.trim()));
+        if (link.isPresent() && link.get().isExpired()) {
+            linkRepository.delete(link.get());
+            return Optional.empty();
+        }
+        return link;
+    }
+
+    private String resetUrl(String token) {
+        return webAppAddress() + "/reset-password?token=" + token;
+    }
+
     /**
-     * Clean up expired tokens and rate limits
+     * Where the link should open: the web app the request came from (its Origin, if CORS allows it),
+     * otherwise the portal address from Institution settings / FRONTEND_URL. Same rule as fee payments,
+     * so a link requested on one site never sends the student to another site's server.
      */
+    private String webAppAddress() {
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs) {
+            var request = attrs.getRequest();
+            String origin = request.getHeader("Origin");
+            CorsConfiguration allowed = cors.getCorsConfiguration(request);
+            if (origin != null && allowed != null && allowed.checkOrigin(origin) != null && !"*".equals(allowed.checkOrigin(origin)))
+                return origin.replaceAll("/+$", "");
+        }
+        return institution.portalUrl().replaceAll("/+$", "");
+    }
+
+    private static String sha256(String value) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) hex.append(String.format("%02x", b));
+            return hex.toString();
+        } catch (Exception e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
+    }
+
+    /** Drops expired links and old resend cooldowns. */
     private void cleanupExpiredTokens() {
         long now = System.currentTimeMillis();
-
-        // Remove expired tokens
-        resetTokens.entrySet().removeIf(entry -> entry.getValue().isExpired());
-
-        // Remove old rate limits
         rateLimits.entrySet().removeIf(entry -> (now - entry.getValue()) > RATE_LIMIT_MS);
-
-        System.out.println("🧹 Cleanup: " + resetTokens.size() + " active tokens, " + rateLimits.size() + " rate limits");
+        try {
+            linkRepository.deleteExpired(Instant.now());
+        } catch (Exception ignored) { /* tried again on the next request */ }
     }
 }
