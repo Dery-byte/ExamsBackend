@@ -532,6 +532,8 @@ import com.exam.service.MNotifyV2SmsService;
 import com.exam.service.Impl.EmailService;
 import com.exam.service.Impl.EmailTemplateName;
 import com.exam.model.User;
+import com.exam.service.monitoring.ErrorMonitorService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -564,6 +566,9 @@ public class PasswordResetController {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private ErrorMonitorService errorMonitor;
+
 
 
 
@@ -578,12 +583,18 @@ public class PasswordResetController {
     private static final long TOKEN_EXPIRY_MS = TOKEN_EXPIRY_MINUTES * 60 * 1000;
     private static final long RATE_LIMIT_MS = 2 * 60 * 1000; // 2 minutes
 
+    private static final String SHARED_PHONE = "This phone number is linked to more than one account. "
+            + "Use your email address instead, or ask the administrator to reset your password.";
+    private static final String SHARED_EMAIL = "This email address is linked to more than one account. "
+            + "Use your phone number instead, or ask the administrator to reset your password.";
+
     // ─────────────────────────────────────────────────────────────────────────
     // UNIFIED endpoint: POST /api/v1/auth/forgotten-password
     // Body: { "phone": "0544073427" }  OR  { "email": "user@example.com" }
     // ─────────────────────────────────────────────────────────────────────────
     @PostMapping("/forgotten-password")
-    public ResponseEntity<?> forgottenPasswordUnified(@RequestBody ForgotPasswordUnifiedRequest request) {
+    public ResponseEntity<?> forgottenPasswordUnified(@RequestBody ForgotPasswordUnifiedRequest request,
+                                                      HttpServletRequest http) {
         try {
             boolean hasPhone = request.getPhone() != null && !request.getPhone().trim().isEmpty();
             boolean hasEmail = request.getEmail() != null && !request.getEmail().trim().isEmpty();
@@ -597,11 +608,17 @@ public class PasswordResetController {
             if (hasPhone) {
                 String phone = normalizePhoneNumber(request.getPhone().trim());
 
-                User user = userRepository.findByPhone(phone);
-                if (user == null) {
+                List<User> phoneMatches = userRepository.findAllByPhone(phone);
+                if (phoneMatches.isEmpty()) {
                     return ResponseEntity.status(HttpStatus.NOT_FOUND)
                             .body(Map.of("success", false, "message", "No account found for this phone number."));
                 }
+                if (phoneMatches.size() > 1) {
+                    // Several accounts share this number: we can't tell which one to reset
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(Map.of("success", false, "message", SHARED_PHONE));
+                }
+                User user = phoneMatches.get(0);
 
                 // Rate limiting
                 Long lastRequest = rateLimits.get(phone);
@@ -624,8 +641,14 @@ public class PasswordResetController {
                 vars.put("username", user.getFullName());
                 vars.put("resetUrl", resetLink);
 
-                System.out.println("📱 [SMS] Reset link: " + resetLink);
-                smsService.sendSms(phone, vars);
+                try {
+                    smsService.sendSms(phone, vars);
+                } catch (Exception sendFailed) {
+                    // Nothing was sent: drop the token and the cooldown so the student can simply retry
+                    resetTokens.remove(resetToken);
+                    rateLimits.remove(phone);
+                    throw sendFailed;
+                }
                 cleanupExpiredTokens();
 
                 return ResponseEntity.ok(Map.of(
@@ -637,12 +660,16 @@ public class PasswordResetController {
 
             // ── Email path ────────────────────────────────────────────────────
             String email = request.getEmail().trim().toLowerCase();
-            Optional<User> userOpt = userRepository.findByEmail(email);
-            if (userOpt.isEmpty()) {
+            List<User> emailMatches = userRepository.findAllByEmailIgnoreCase(email);
+            if (emailMatches.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("success", false, "message", "No account found for this email address."));
             }
-            User user = userOpt.get();
+            if (emailMatches.size() > 1) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("success", false, "message", SHARED_EMAIL));
+            }
+            User user = emailMatches.get(0);
 
             // Rate limiting by email
             Long lastRequest = rateLimits.get(email);
@@ -665,8 +692,13 @@ public class PasswordResetController {
             vars.put("username", user.getFullName());
             vars.put("resetUrl", resetLink);
 
-            System.out.println("📧 [Email] Reset link: " + resetLink);
-            emailService.sendEmail(user.getEmail(), EmailTemplateName.RESET_PASSWORD, vars, "Password Reset");
+            try {
+                emailService.sendEmail(user.getEmail(), EmailTemplateName.RESET_PASSWORD, vars, "Password Reset");
+            } catch (Exception sendFailed) {
+                resetTokens.remove(resetToken);
+                rateLimits.remove(email);
+                throw sendFailed;
+            }
             cleanupExpiredTokens();
 
             return ResponseEntity.ok(Map.of(
@@ -676,10 +708,11 @@ public class PasswordResetController {
             ));
 
         } catch (Exception e) {
-            System.err.println("❌ [forgotten-password] " + e.getMessage());
-            e.printStackTrace();
+            // Record the real exception (with stack trace) on the developer dashboard
+            errorMonitor.recordRequest(http, HttpStatus.INTERNAL_SERVER_ERROR.value(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("success", false, "message", "Failed to send reset code. Please try again."));
+                    .body(Map.of("success", false, "message",
+                            "We couldn't send the reset message just now. Please try again in a few minutes."));
         }
     }
 
@@ -699,12 +732,17 @@ public class PasswordResetController {
 
             String phone = normalizePhoneNumber(request.getRecipient().get(0));
 
-            // Check if user exists
-            User user = userRepository.findByPhone(phone);
-            if (user == null) {
+            // Check if user exists (phones aren't unique; a shared number can't be reset this way)
+            List<User> phoneMatches = userRepository.findAllByPhone(phone);
+            if (phoneMatches.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("success", false, "message", "Phone number not found"));
             }
+            if (phoneMatches.size() > 1) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("success", false, "message", SHARED_PHONE));
+            }
+            User user = phoneMatches.get(0);
 
             // Rate limiting
             Long lastRequest = rateLimits.get(phone);

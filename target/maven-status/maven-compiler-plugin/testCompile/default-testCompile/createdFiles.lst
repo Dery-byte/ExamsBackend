@@ -62,7 +62,6 @@ com\exam\SecurityApplicationTests.class
 com\exam\service\boarding\BoardingBulkJpaTest.class
 com\exam\service\fees\FeeBreakdownTest.class
 com\exam\service\llm\EvaluationPersistenceHelperTest.class
-com\exam\FlagsProbeTmpTest.class
 com\exam\service\attendance\AttendanceJpaTest$MutableClock.class
 com\exam\service\fees\BillingJpaTest.class
 com\exam\helper\TheoryCriteriaVisibilityTest.class

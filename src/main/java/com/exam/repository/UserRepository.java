@@ -31,6 +31,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     User findByPhone(String phone);
 
+    /** Every account using this phone number. Phones aren't unique, so the single-result lookup can throw. */
+    List<User> findAllByPhone(String phone);
+
+    /** Every account using this email address, in any letter case. Emails aren't unique either. */
+    List<User> findAllByEmailIgnoreCase(String email);
+
     List<User> findByRole(Role role);
 
     /** One-time migration: 'enabled' was never enforced before, so every existing account starts active. */
