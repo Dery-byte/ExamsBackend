@@ -98,6 +98,8 @@ public class ImportService {
         out.put("valid", checked.stream().filter(r -> r.errors().isEmpty()).count());
         out.put("created", created);
         out.put("emailed", emailed);
+        // Accounts whose password came from the file: not echoed back, so the page can say where to find them
+        out.put("passwordsFromFile", credentials.stream().filter(c -> c.get("generated") == null).count());
         out.put("rows", checked.stream().map(r -> {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("row", r.number());

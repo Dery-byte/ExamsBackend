@@ -318,6 +318,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\Rate
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\QuestionEvalRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\SendSmsRequest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\DocumentVerificationRepository.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\admin\BulkPasswordService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\CategoryController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\TheoryQuestionsRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\StudentSemesterRequest.java

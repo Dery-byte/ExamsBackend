@@ -29,6 +29,7 @@ public class DataToolsController {
     @Autowired private ImportService importService;
     @Autowired private BulkEnrollService bulkEnrollService;
     @Autowired private AccountService accountService;
+    @Autowired private com.exam.service.admin.BulkPasswordService bulkPasswordService;
     @Autowired private com.exam.service.features.FeatureService featureService;
 
     public static class ImportRequest {
@@ -57,6 +58,36 @@ public class DataToolsController {
     @GetMapping("/admin-tools/results-summary")
     public ResponseEntity<?> resultsSummary(@RequestParam Long programId, @RequestParam(required = false) Integer level) {
         return withUser(u -> { featureService.require(com.exam.model.features.Feature.HOD_DATA_TOOLS, u); return ResponseEntity.ok(bulkEnrollService.resultsSummary(u, programId, level)); });
+    }
+
+    /** Accounts the admin may give new passwords: who = students | lecturers. */
+    @GetMapping("/admin-tools/password-reset/accounts")
+    public ResponseEntity<?> resetCandidates(@RequestParam(defaultValue = "students") String who,
+                                             @RequestParam(required = false) Long programId,
+                                             @RequestParam(required = false) Integer level,
+                                             @RequestParam(required = false) Long departmentId) {
+        return withUser(u -> { featureService.require(com.exam.model.features.Feature.HOD_DATA_TOOLS, u);
+            return ResponseEntity.ok(bulkPasswordService.accounts(u, who, programId, level, departmentId)); });
+    }
+
+    public static class PasswordResetRequest {
+        public List<Long> ids;
+        public boolean notify;
+    }
+
+    /** New temporary passwords for the chosen accounts, returned once. Never cached anywhere. */
+    @PostMapping("/admin-tools/password-reset")
+    public ResponseEntity<?> resetPasswords(@RequestBody PasswordResetRequest req, jakarta.servlet.http.HttpServletRequest request) {
+        return withUser(u -> {
+            featureService.require(com.exam.model.features.Feature.HOD_DATA_TOOLS, u);
+            Map<String, Object> out = bulkPasswordService.reset(u, req == null ? null : req.ids, req != null && req.notify);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> creds = (List<Map<String, Object>>) out.get("credentials");
+            String who = creds.stream().map(c -> String.valueOf(c.get("username"))).limit(40).collect(java.util.stream.Collectors.joining(", "));
+            request.setAttribute(com.exam.config.AuditInterceptor.AUDIT_DETAILS, creds.size() + " account(s)"
+                    + (creds.size() > 40 ? " incl. " : ": ") + who + (req != null && req.notify ? " (emailed)" : ""));
+            return ResponseEntity.ok().header("Cache-Control", "no-store").body(out);
+        });
     }
 
     @PostMapping("/accounts/{id}/deactivate")

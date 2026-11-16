@@ -70,3 +70,4 @@ com\exam\service\admin\ConfigTransferServiceTest.class
 com\exam\SubscriptionEnforcementIntegrationTest.class
 com\exam\WalletStaffSpendIntegrationTest.class
 com\exam\config\JacksonProxyJpaTest.class
+com\exam\service\admin\BulkPasswordServiceTest.class

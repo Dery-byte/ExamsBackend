@@ -252,6 +252,7 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
             r("POST",   ".*/api/admin-tools/import/lecturers$",     "Imported lecturers"),
             r("POST",   ".*/api/admin-tools/import/courses$",       "Imported courses"),
             r("POST",   ".*/api/admin-tools/bulk-enroll$",          "Bulk-enrolled students"),
+            r("POST",   ".*/api/admin-tools/password-reset$",       "Reset passwords (new temporary passwords)"),
             r("POST",   ".*/api/accounts/\\d+/deactivate$",         "Deactivated account"),
             r("POST",   ".*/api/accounts/\\d+/reactivate$",         "Reactivated account"),
             r("DELETE", ".*/v1/auth/student/\\d+$",                 "Deleted student"),

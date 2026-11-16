@@ -25,6 +25,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\sub
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\boarding\BoardingJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\reports\AttendanceReportsJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\AttendancePhotoIntegrationTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\admin\BulkPasswordServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\BillingJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AttemptServiceJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\ResultsHoldJpaTest.java
