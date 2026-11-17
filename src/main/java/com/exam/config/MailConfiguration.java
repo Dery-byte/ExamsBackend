@@ -29,7 +29,9 @@ public class MailConfiguration
         javaMailProperties.put("mail.smtp.starttls.enable", "true");
         javaMailProperties.put("mail.smtp.auth", "true");
         javaMailProperties.put("mail.transport.protocol", "smtp");
-        javaMailProperties.put("mail.debug", "true");
+        // Off by default: the debug trace prints every email in full (reset links, sign-in codes,
+        // temporary passwords) into the server log. Set MAIL_DEBUG=true only while diagnosing.
+        javaMailProperties.put("mail.debug", environment.getProperty("MAIL_DEBUG", "false"));
         javaMailProperties.put("mail.smtp.ssl.trust", "*");
 
         javaMailSender.setJavaMailProperties(javaMailProperties);

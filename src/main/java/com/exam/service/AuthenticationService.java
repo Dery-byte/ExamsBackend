@@ -366,7 +366,6 @@ public class AuthenticationService {
         var user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        System.out.println(user.getFullName());
         sendResetPasswordEmail(user);
     }
 
@@ -377,13 +376,9 @@ public class AuthenticationService {
 //        String resetUrl = resetURL.replace("resetpassword", "reset-password") + "?token=" + newToken;
         String resetUrl = frontendBaseUrl + "/reset-password?token=" + newToken;
 
-        System.out.println(resetUrl);
-        System.out.println(newToken);
-
         Map<String, Object> vars = new HashMap<>();
         vars.put("username", user.getFullName());
         vars.put("resetUrl", resetUrl);
-        vars.put("newToken", newToken);
         vars.put("baseUrl", "http://localhost:4200/");
 
         emailServices.sendEmail(
@@ -419,13 +414,9 @@ public class AuthenticationService {
 //        String resetUrl = resetURL.replace("resetpassword", "reset-password") + "?token=" + newToken;
         String resetUrl = frontendBaseUrl + "/reset-password?token=" + newToken;
 
-        System.out.println(resetUrl);
-        System.out.println(newToken);
-
         Map<String, Object> vars = new HashMap<>();
         vars.put("username", user.getFullName());
         vars.put("resetUrl", resetUrl);
-        vars.put("newToken", newToken);
         vars.put("baseUrl", "http://localhost:4200/");
 
         emailServices.sendEmail(
