@@ -46,7 +46,12 @@ public enum Feature {
     QUESTION_BANK(Scope.DEPARTMENT, "Staff", "Question bank",
             "Lecturers and HODs keep reusable questions per course and draw them into quizzes."),
     ATTENDANCE(Scope.DEPARTMENT, "Everyone", "Class attendance",
-            "Lecturers (or HODs, when attendance is taken by programme) start a session in class and students check in on their own phones with the code shown, from inside the classroom. Starts off; set the rules under Attendance first.");
+            "Lecturers (or HODs, when attendance is taken by programme) start a session in class and students check in on their own phones with the code shown, from inside the classroom. Starts off; set the rules under Attendance first."),
+    COURSE_MATERIALS(Scope.DEPARTMENT, "Everyone", "Course notes and assignments",
+            "Lecturers post notes, links and assignments week by week; students download them, hand in assignments online and see their marks. Lecturers choose what students see and when. When off, lecturers and students in that department don't see it; nothing uploaded is deleted.");
+
+    /** Features that exist only while the developer has their module switched on. */
+    public boolean needsMaterialsModule() { return this == COURSE_MATERIALS; }
 
     public enum Scope { SYSTEM, DEPARTMENT }
 

@@ -10,6 +10,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\The
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\monitoring\ErrorPathGroupingTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\subscription\SubscriptionSyncTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\examops\QuestionBankUploadTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\materials\SimilarityCheckTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\AssessmentsModuleIntegrationTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\TheoryCriteriaVisibilityTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\AccountsJpaTest.java
@@ -22,6 +23,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\aca
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\PasswordResetFlowTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\reports\ReportsJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\subscription\SubscriptionStatusTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\MaterialsModuleIntegrationTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\boarding\BoardingJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\reports\AttendanceReportsJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\AttendancePhotoIntegrationTest.java
@@ -39,9 +41,11 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\Aca
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\SectionALimitTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\subscription\SubscriptionKeysTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuestionImageServiceTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\materials\AssignmentAiMarkerTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\config\JacksonProxyJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\subscription\SubscriptionServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\admin\MaintenanceServiceTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\materials\MaterialsJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AnswerMatcherTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\attendance\AttendanceJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\FeatureServiceTest.java

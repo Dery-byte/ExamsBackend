@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 
 /**
  * LLM strategy backed by the OpenAI Chat Completions API.
- * Model is configurable via {@code openai.model} (default: gpt-3.5-turbo).
+ * Model is configurable via {@code openai.model} (default: gpt-4.1-mini, env OPENAI_MODEL).
  */
 @Service
 public class GPTEvaluationStrategy implements LLMEvaluationStrategy {
@@ -42,7 +42,7 @@ public class GPTEvaluationStrategy implements LLMEvaluationStrategy {
     @Value("${openai.api.key}")
     private String apiKey;
 
-    @Value("${openai.model:gpt-3.5-turbo}")
+    @Value("${openai.model:gpt-4.1-mini}")
     private String model;
 
     @Autowired private RestTemplate              restTemplate;

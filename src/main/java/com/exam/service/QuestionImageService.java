@@ -65,6 +65,10 @@ public class QuestionImageService {
         if (file == null || file.isEmpty()) {
             throw bad("No image file was provided");
         }
+        // The upload limit is set high for course materials; images keep their own 5 MB cap
+        if (file.getSize() > 5L * 1024 * 1024) {
+            throw bad("Images must be 5 MB or smaller");
+        }
         String name = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
         int dot = name.lastIndexOf('.');
         String ext = dot >= 0 ? name.substring(dot + 1).toLowerCase(Locale.ROOT) : "";

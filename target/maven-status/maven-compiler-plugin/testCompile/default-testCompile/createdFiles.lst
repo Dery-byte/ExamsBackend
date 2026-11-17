@@ -19,6 +19,7 @@ com\exam\service\attendance\AttendanceGeoTest.class
 com\exam\service\AnswerMatcherTest.class
 com\exam\service\examops\QuestionBankTheoryTest.class
 com\exam\service\QuestionTypeChangeTest.class
+com\exam\service\materials\AssignmentAiMarkerTest.class
 com\exam\service\QuizDeletionJpaTest.class
 com\exam\service\subscription\TestKeys.class
 com\exam\service\fees\AccountsJpaTest.class
@@ -38,6 +39,7 @@ com\exam\service\reports\ReportsJpaTest$Templates.class
 com\exam\service\subscription\SubscriptionStatusTest.class
 com\exam\helper\SectionALimitTest.class
 com\exam\service\MatchingPairsLoadJpaTest.class
+com\exam\MaterialsModuleIntegrationTest.class
 com\exam\service\attendance\AttendanceJpaTest.class
 com\exam\service\fees\FinanceJpaTest.class
 com\exam\service\academic\ThemeServiceTest.class
@@ -47,10 +49,12 @@ com\exam\service\FakeSettings.class
 com\exam\service\reports\ReportsJpaTest.class
 com\exam\service\subscription\SubscriptionServiceTest.class
 com\exam\service\ImportAndAccountServiceTest.class
+com\exam\service\materials\MaterialsJpaTest.class
 com\exam\service\ClassPositionTest.class
 com\exam\service\examops\QuestionBankUploadTest.class
 com\exam\AssessmentsModuleIntegrationTest.class
 com\exam\service\fees\ResultsHoldJpaTest.class
+com\exam\service\materials\SimilarityCheckTest.class
 com\exam\service\CategoryOpenToEveryoneTest.class
 com\exam\service\reports\AttendanceReportsJpaTest.class
 com\exam\service\QuizServiceAutoCloseTest.class

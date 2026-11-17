@@ -977,6 +977,47 @@ public class MarksEntryService {
         }
     }
 
+    /**
+     * Puts marks from outside the sheet (an assignment) into one section for one course: each listed
+     * student's mark (already scaled to the section) replaces what the section held, capped at its
+     * maximum; totals and grades are worked out again. Returns how many students were updated.
+     */
+    @Transactional
+    public int applyExternalMarks(Long sheetId, Long sectionId, Long courseId, java.util.Map<Long, BigDecimal> scores) {
+        SemesterSheet sheet = getSheetById(sheetId);
+        if (sheet == null) throw new IllegalArgumentException("Marks sheet not found.");
+        if ("SUBMITTED".equals(sheet.getStatus()) || "PUBLISHED".equals(sheet.getStatus()))
+            throw new IllegalArgumentException("That marks sheet has been submitted or published, so it can't be changed.");
+        MarkSheetSection section = sheet.getSections().stream().filter(s -> s.getId().equals(sectionId)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("That column isn't on this marks sheet."));
+        int updated = 0;
+        for (StudentCourseMark scm : studentCourseMarkRepository.findBySemesterSheetId(sheetId)) {
+            if (scm.getCourse() == null || !courseId.equals(scm.getCourse().getCid())) continue;
+            BigDecimal v = scores.get(scm.getStudent().getId());
+            if (v == null) continue;
+            if (v.compareTo(section.getMaxScore()) > 0) v = section.getMaxScore();
+            if (v.signum() < 0) v = BigDecimal.ZERO;
+            StudentSectionMark target = scm.getSectionMarks().stream()
+                    .filter(ssm -> ssm.getSection().getId().equals(sectionId)).findFirst().orElse(null);
+            if (target == null) {
+                target = new StudentSectionMark();
+                target.setStudentCourseMark(scm);
+                target.setSection(section);
+                scm.getSectionMarks().add(target);
+            }
+            target.setScoreObtained(v);
+            studentSectionMarkRepository.save(target);
+            BigDecimal total = BigDecimal.ZERO;
+            for (StudentSectionMark ssm : scm.getSectionMarks())
+                total = total.add(ssm.getScoreObtained() != null ? ssm.getScoreObtained() : BigDecimal.ZERO);
+            scm.setTotalScore(total);
+            gradingService.applyGrade(scm, total);
+            studentCourseMarkRepository.save(scm);
+            updated++;
+        }
+        return updated;
+    }
+
     @Transactional
     public MarkSheetSection addSection(Long sheetId, String sectionName, BigDecimal maxScore) {
         SemesterSheet sheet = getSheetById(sheetId);

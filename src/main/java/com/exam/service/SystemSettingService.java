@@ -81,11 +81,20 @@ public class SystemSettingService {
     public static final String WALLET_STAFF_SPEND_SUPER_ADMIN = "WALLET_STAFF_SPEND_SUPER_ADMIN";
     public static final String WALLET_STAFF_SPEND_BURSAR = "WALLET_STAFF_SPEND_BURSAR";
 
+    /**
+     * Developer switch: Course Materials (weekly notes, links and assignments with online submission
+     * and marking). Starts off. Off: nobody sees or reaches any of it; uploaded files are kept.
+     */
+    public static final String MODULE_MATERIALS = "MODULE_MATERIALS";
+    /** Developer limits for Course Materials: largest file (MB) and total storage (GB). */
+    public static final String MATERIALS_MAX_FILE_MB = "MATERIALS_MAX_FILE_MB";
+    public static final String MATERIALS_QUOTA_GB = "MATERIALS_QUOTA_GB";
+
     /** Keys only the developer may change; the Super Admin's settings endpoint refuses them. */
     public static final Set<String> DEVELOPER_ONLY = Set.of(AUDIT_LOG_VISIBLE_SUPER_ADMIN, "SYSTEM_MODE", MODULE_ASSESSMENTS, "RESIDENCY_MODE",
-            WALLET_STAFF_SPEND_SUPER_ADMIN, WALLET_STAFF_SPEND_BURSAR);
-    /** Whole families of developer-only keys: colour theme, maintenance mode, setup bookkeeping. */
-    private static final List<String> DEVELOPER_ONLY_PREFIXES = List.of("THEME_", "MAINTENANCE_", "SETUP_", "SUBSCRIPTION_");
+            WALLET_STAFF_SPEND_SUPER_ADMIN, WALLET_STAFF_SPEND_BURSAR, MODULE_MATERIALS);
+    /** Whole families of developer-only keys: colour theme, maintenance mode, setup bookkeeping, materials limits. */
+    private static final List<String> DEVELOPER_ONLY_PREFIXES = List.of("THEME_", "MAINTENANCE_", "SETUP_", "SUBSCRIPTION_", "MATERIALS_");
 
     public static boolean isDeveloperOnly(String key) {
         return key != null && (DEVELOPER_ONLY.contains(key) || DEVELOPER_ONLY_PREFIXES.stream().anyMatch(key::startsWith));
@@ -153,6 +162,29 @@ public class SystemSettingService {
         setting.setSettingValue(value);
         systemSettingRepository.save(setting);
         if (MODULE_ASSESSMENTS.equals(key)) assessmentsCache = null;
+        if (MODULE_MATERIALS.equals(key)) materialsCache = null;
+    }
+
+    private volatile CachedFlag materialsCache;
+
+    /** Whether the Course Materials module is on (default off); cached like {@link #assessmentsOn()}. */
+    public boolean materialsOn() {
+        CachedFlag c = materialsCache;
+        long now = System.currentTimeMillis();
+        if (c != null && now - c.at() < 10_000) return c.value();
+        boolean v = getBooleanSetting(MODULE_MATERIALS, false);
+        materialsCache = new CachedFlag(v, now);
+        return v;
+    }
+
+    /** A whole-number developer setting, kept within [min, max]. */
+    public int getIntSetting(String key, int defaultValue, int min, int max) {
+        String v = getSetting(key);
+        int n = defaultValue;
+        if (v != null) {
+            try { n = Integer.parseInt(v.trim()); } catch (NumberFormatException ignored) { }
+        }
+        return Math.max(min, Math.min(max, n));
     }
 
     private record CachedFlag(boolean value, long at) {}
@@ -180,6 +212,7 @@ public class SystemSettingService {
         flags.put("feesStudent",        getBooleanSetting(FEES_VISIBLE_STUDENT, false));
         flags.put("auditLogSuperAdmin", getBooleanSetting(AUDIT_LOG_VISIBLE_SUPER_ADMIN, true));
         flags.put("assessments",        assessmentsOn());
+        flags.put("materials",          materialsOn());
         return flags;
     }
 

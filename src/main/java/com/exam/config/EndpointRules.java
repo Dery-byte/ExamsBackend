@@ -57,6 +57,8 @@ public final class EndpointRules {
             .requestMatchers(HttpMethod.GET, p("/question-images/**")).permitAll()
             // A teaching assistant's attendance scanner link: the 256-bit link is the key; it works only while its class is live
             .requestMatchers("/api/attendance/scan/*").permitAll()
+            // Course materials: signed 5-minute download links (a phone opens them in a new tab, without the token)
+            .requestMatchers(HttpMethod.GET, "/api/materials/download/*", "/api/materials/preview/*", "/api/materials/zip/*/*").permitAll()
             // Paystack calls this server-to-server; FeePaymentService rejects it unless the signature matches
             .requestMatchers(HttpMethod.POST, "/api/payments/paystack/webhook").permitAll()
 
@@ -106,6 +108,12 @@ public final class EndpointRules {
             .requestMatchers("/api/attendance/student/**").hasAuthority("NORMAL")
             .requestMatchers("/api/attendance/manage/**").hasAnyAuthority(STAFF)
             .requestMatchers("/api/attendance/settings", "/api/attendance/settings/**").hasAnyAuthority(ADMINS)
+            // ── Course materials: staff manage their courses' notes and assignments; students read and hand in ─
+            .requestMatchers("/api/materials/manage/**").hasAnyAuthority(STAFF)
+            .requestMatchers("/api/materials/student/**").hasAuthority("NORMAL")
+            // Term dates (Academic Settings): staff read them, the Super Admin sets them
+            .requestMatchers(HttpMethod.GET, "/api/academic/terms").hasAnyAuthority(STAFF)
+            .requestMatchers(HttpMethod.PUT, "/api/academic/terms/*").hasAuthority(SUPER_ADMIN)
             // ── Boarding: students see their own room; boarding staff (checked per hostel in BoardingAccess) the rest ─
             .requestMatchers("/api/boarding/student/**").hasAuthority("NORMAL")
             .requestMatchers("/api/boarding/manage/**", "/api/boarding/settings", "/api/boarding/reports", "/api/boarding/reports/**").hasAnyAuthority(STAFF)

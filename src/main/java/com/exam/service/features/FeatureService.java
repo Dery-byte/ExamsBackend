@@ -34,10 +34,12 @@ public class FeatureService {
     // ── Checks ───────────────────────────────────────────────────────────────
 
     public boolean isOnSystemWide(Feature f) {
+        if (f.needsMaterialsModule() && !systemSettingService.materialsOn()) return false;
         return systemSettingService.getBooleanSetting(f.settingKey(), true);
     }
 
     public boolean isOnFor(Feature f, User u) {
+        if (f.needsMaterialsModule() && !systemSettingService.materialsOn()) return false;   // the developer's module switch binds everyone
         if (u != null && u.getRole() == Role.SUPER_ADMIN) return true;
         if (!isOnSystemWide(f)) return false;
         if (f.scope() == Feature.Scope.SYSTEM || u == null) return true;
@@ -89,6 +91,7 @@ public class FeatureService {
         List<Map<String, Object>> out = new ArrayList<>();
         for (Feature f : Feature.values()) {
             if (!sa && f.scope() != Feature.Scope.DEPARTMENT) continue;   // HODs only see department-level features
+            if (f.needsMaterialsModule() && !systemSettingService.materialsOn()) continue;   // module switched off by the developer
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("key", f.name());
             m.put("label", f.label());

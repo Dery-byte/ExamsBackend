@@ -38,6 +38,7 @@ public class DeveloperController {
     @Autowired private AuditService auditService;
     @Autowired private SystemSettingService systemSettingService;
     @Autowired private com.exam.service.boarding.BoardingSettings boardingSettings;
+    @Autowired private com.exam.service.materials.MaterialStorage materialStorage;
 
     // ── Sign-in (public, rate-limited) ──────────────────────────────────
 
@@ -129,9 +130,17 @@ public class DeveloperController {
 
     @GetMapping("/api/v1/developer/modules")
     public Map<String, Object> modules() {
-        return Map.of("assessments", systemSettingService.assessmentsOn(), "residency", boardingSettings.mode().name(),
-                "walletSpendSuperAdmin", systemSettingService.getBooleanSetting(SystemSettingService.WALLET_STAFF_SPEND_SUPER_ADMIN, false),
-                "walletSpendBursar", systemSettingService.getBooleanSetting(SystemSettingService.WALLET_STAFF_SPEND_BURSAR, false));
+        Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("assessments", systemSettingService.assessmentsOn());
+        m.put("residency", boardingSettings.mode().name());
+        m.put("walletSpendSuperAdmin", systemSettingService.getBooleanSetting(SystemSettingService.WALLET_STAFF_SPEND_SUPER_ADMIN, false));
+        m.put("walletSpendBursar", systemSettingService.getBooleanSetting(SystemSettingService.WALLET_STAFF_SPEND_BURSAR, false));
+        m.put("materials", systemSettingService.materialsOn());
+        m.put("materialsMaxFileMb", materialStorage.maxFileMb());
+        m.put("materialsQuotaGb", materialStorage.quotaGb());
+        m.put("materialsUsedBytes", materialStorage.usedBytes());
+        m.put("materialsFolder", materialStorage.root().toString());
+        return m;
     }
 
     /**
@@ -145,9 +154,30 @@ public class DeveloperController {
         Object residency = body == null ? null : body.get("residency");
         Object spendSa = body == null ? null : body.get("walletSpendSuperAdmin");
         Object spendBursar = body == null ? null : body.get("walletSpendBursar");
-        if (assessments == null && residency == null && spendSa == null && spendBursar == null)
-            throw new IllegalArgumentException("Send assessments, residency, walletSpendSuperAdmin or walletSpendBursar.");
+        Object materials = body == null ? null : body.get("materials");
+        Object maxFileMb = body == null ? null : body.get("materialsMaxFileMb");
+        Object quotaGb = body == null ? null : body.get("materialsQuotaGb");
+        if (assessments == null && residency == null && spendSa == null && spendBursar == null
+                && materials == null && maxFileMb == null && quotaGb == null)
+            throw new IllegalArgumentException("Send assessments, materials, residency, walletSpendSuperAdmin or walletSpendBursar.");
         List<String> changes = new ArrayList<>();
+        if (materials != null) {
+            if (!(materials instanceof Boolean on)) throw new IllegalArgumentException("materials must be true or false.");
+            systemSettingService.updateSetting(SystemSettingService.MODULE_MATERIALS, String.valueOf(on));
+            changes.add("Course materials module on = " + on);
+        }
+        if (maxFileMb != null) {
+            if (!(maxFileMb instanceof Number n) || n.intValue() < 1 || n.intValue() > 100)
+                throw new IllegalArgumentException("The largest file must be between 1 and 100 MB.");
+            systemSettingService.updateSetting(SystemSettingService.MATERIALS_MAX_FILE_MB, String.valueOf(n.intValue()));
+            changes.add("Course materials largest file = " + n.intValue() + " MB");
+        }
+        if (quotaGb != null) {
+            if (!(quotaGb instanceof Number n) || n.intValue() < 1 || n.intValue() > 10_000)
+                throw new IllegalArgumentException("Storage must be between 1 and 10000 GB.");
+            systemSettingService.updateSetting(SystemSettingService.MATERIALS_QUOTA_GB, String.valueOf(n.intValue()));
+            changes.add("Course materials storage = " + n.intValue() + " GB");
+        }
         if (spendSa != null) {
             if (!(spendSa instanceof Boolean on)) throw new IllegalArgumentException("walletSpendSuperAdmin must be true or false.");
             systemSettingService.updateSetting(SystemSettingService.WALLET_STAFF_SPEND_SUPER_ADMIN, String.valueOf(on));

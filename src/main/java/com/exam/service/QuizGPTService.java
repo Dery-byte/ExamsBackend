@@ -36,6 +36,9 @@ public class QuizGPTService {
     @Value("${openai.api.key}")
     private String apiKey;
 
+    @Value("${openai.model:gpt-4.1-mini}")
+    private String model;
+
     @Autowired
     private RestTemplate restTemplate;
 
@@ -361,7 +364,7 @@ public class QuizGPTService {
 //        );
 
         GPTRequest request = new GPTRequest();
-        request.setModel("gpt-3.5-turbo");
+        request.setModel(model);
         request.setTemperature(0.3);
         request.setMaxTokens(500);
 
