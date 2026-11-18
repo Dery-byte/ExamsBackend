@@ -56,7 +56,7 @@ import static org.mockito.Mockito.*;
         "app.materials.dir=${java.io.tmpdir}/exam-materials-test",
 })
 @Import({MaterialService.class, AssignmentService.class, MaterialAccess.class, MaterialCalendar.class, MaterialStorage.class, OfficePreview.class, AiProgress.class, SubmissionText.class, Gradebook.class,
-        MaterialLinks.class, MaterialScheduler.class, FeatureService.class, SystemSettingService.class,
+        MaterialLinks.class, MaterialScheduler.class, MaterialNotices.class, FeatureService.class, SystemSettingService.class,
         AcademicSessionService.class, com.exam.service.comms.CurrentUserService.class})
 class MaterialsJpaTest {
 

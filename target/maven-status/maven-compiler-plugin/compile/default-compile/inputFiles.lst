@@ -96,6 +96,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\Qui
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\ReportEmailService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\reports\ExamReports.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\AssessmentsModuleInterceptor.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\OpenInViewConfig.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\ReportRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\SystemSettingRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\admin\ConfigTransferService.java
@@ -474,6 +475,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\QuizPro
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\FinanceStaffController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\fees\FeePayment.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\materials\CourseSpace.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\materials\MaterialNotices.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\UserFoundException.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\JacksonConfig.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\StudentResponse.java

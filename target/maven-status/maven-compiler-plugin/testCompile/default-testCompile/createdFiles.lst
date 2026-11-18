@@ -58,6 +58,7 @@ com\exam\service\materials\SimilarityCheckTest.class
 com\exam\service\CategoryOpenToEveryoneTest.class
 com\exam\service\reports\AttendanceReportsJpaTest.class
 com\exam\service\QuizServiceAutoCloseTest.class
+com\exam\service\materials\MaterialSchedulerTest.class
 com\exam\helper\OptionOrderTest.class
 com\exam\service\academic\DocumentVerificationCodeTest.class
 com\exam\service\AttemptServiceJpaTest.class

@@ -58,6 +58,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\Mat
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AcademicPdfRenderTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\academic\DocumentVerificationCodeTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\FinanceJpaTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\materials\MaterialSchedulerTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\WalletStaffSpendIntegrationTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\helper\IndexNumberRangeTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuestionTypeChangeTest.java

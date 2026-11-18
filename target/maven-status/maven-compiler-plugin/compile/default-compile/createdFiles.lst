@@ -5,6 +5,7 @@ com\exam\model\comms\AuditLog.class
 com\exam\model\fees\FeeConcession.class
 com\exam\repository\QuestionImageRepository.class
 com\exam\service\attendance\AttendanceGeo.class
+com\exam\service\materials\MaterialScheduler$Seen.class
 com\exam\service\reports\ReportQueries$SheetCounts.class
 com\exam\service\fees\FinanceDashboardService.class
 com\exam\exception\ErrorMessage.class
@@ -73,6 +74,7 @@ com\exam\helper\ResourceNotFoundException.class
 com\exam\service\attendance\ClassroomService.class
 com\exam\model\attendance\AttendanceRecord.class
 com\exam\service\materials\Gradebook$State.class
+com\exam\config\OpenInViewConfig.class
 com\exam\model\attendance\CodeDisplay.class
 com\exam\service\fees\FeeDues$1.class
 com\exam\service\materials\AssignmentAiMarker$WorkFile.class
@@ -473,6 +475,7 @@ com\exam\service\subscription\SubscriptionService$Audience.class
 com\exam\model\exam\Questions.class
 com\exam\controller\AuthenticationController.class
 com\exam\config\MailConfiguration.class
+com\exam\service\materials\MaterialNotices$1.class
 com\exam\controller\ReportController.class
 com\exam\service\fees\FeeScheduleService$ComponentRequest.class
 com\exam\model\attendance\Classroom.class
@@ -610,6 +613,7 @@ com\exam\service\llm\ClaudeEvaluationStrategy$ContentBlock.class
 com\exam\model\fees\FeeReminder.class
 com\exam\service\fees\WalletService$DepositRequest.class
 com\exam\repository\materials\MaterialViewRepository.class
+com\exam\service\materials\MaterialNotices.class
 com\exam\service\admin\ImportService.class
 com\exam\controller\QuizAttemptController.class
 com\exam\service\attendance\AttendanceService$CheckInRequest.class
@@ -626,7 +630,6 @@ com\exam\service\attendance\AttendanceService$QrKeyRequest.class
 com\exam\DTO\TokenData.class
 com\exam\repository\ErrorEventRepository.class
 com\exam\DTO\StudentSemesterRequest.class
-com\exam\service\materials\MaterialScheduler$1.class
 com\exam\helper\UserFoundException.class
 com\exam\repository\materials\CourseWeekRepository.class
 com\exam\model\exam\StringArrayConverter.class
