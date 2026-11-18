@@ -5,7 +5,7 @@
 //   k6 run -e QUIZ_ID=123 -e STUDENTS=150 -e DOWNLOADERS=30 -e FILE_ID=<id> -e MINUTES=10 exam-load.js
 //
 // Settings (-e NAME=value):
-//   BASE         server address (default https://examsbackend.onrender.com)
+//   BASE         server address (default https://examsbackendfrantfurt.onrender.com)
 //   CSV          student accounts file, "username,password" per line (default students.csv)
 //   QUIZ_ID      the test quiz (objective questions only, so no AI marking is paid for)
 //   STUDENTS     how many students sit the quiz (default: every row in the CSV)
@@ -15,6 +15,10 @@
 //                rows AFTER the quiz students, because signing in again signs the other session out
 //   FILE_ID      the course-material file they download (see README)
 //   SUBMIT       "no" leaves the attempts open instead of submitting them (default yes)
+//   NEW_PASSWORD the password each imported test student is given on first sign-in (default LoadTest#2026)
+//   COURSE_ID    the test course's number: any test student not registered for it registers once
+//                (needs "Students register for their own courses" switched on for the department)
+//   QUIZ_PASSWORD the quiz's password, if it has one
 
 import http from 'k6/http';
 import exec from 'k6/execution';
@@ -22,7 +26,7 @@ import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import { Counter } from 'k6/metrics';
 
-const BASE = (__ENV.BASE || 'https://examsbackend.onrender.com').replace(/\/$/, '');
+const BASE = (__ENV.BASE || 'https://examsbackendfrantfurt.onrender.com').replace(/\/$/, '');
 const AUTH = `${BASE}/api/v1/auth`;
 const API = `${BASE}/api`;
 const QUIZ_ID = __ENV.QUIZ_ID;
@@ -31,6 +35,9 @@ const ARRIVE = Number(__ENV.ARRIVE || 60);
 const DOWNLOADERS = Number(__ENV.DOWNLOADERS || 0);
 const FILE_ID = __ENV.FILE_ID;
 const SUBMIT = (__ENV.SUBMIT || 'yes').toLowerCase() !== 'no';
+const NEW_PASSWORD = __ENV.NEW_PASSWORD || 'LoadTest#2026';   // what each test student's password becomes
+const COURSE_ID = __ENV.COURSE_ID;          // the test course: students not yet registered for it register themselves once
+const QUIZ_PASSWORD = __ENV.QUIZ_PASSWORD;  // the quiz's password, if it has one
 
 const students = new SharedArray('students', () => {
   const rows = open(__ENV.CSV || './students.csv').split(/\r?\n/)
@@ -49,6 +56,7 @@ if (students.length < STUDENTS + DOWNLOADERS)
 
 const poolTimeouts = new Counter('server_errors_5xx');
 const examFailures = new Counter('exam_steps_failed');
+const networkErrors = new Counter('network_errors_not_server');
 
 const scenarios = {
   exam: { executor: 'per-vu-iterations', exec: 'exam', vus: STUDENTS, iterations: 1, maxDuration: `${MINUTES + 10}m` },
@@ -64,9 +72,13 @@ export const options = {
     'http_req_failed{kind:exam}': ['rate<0.02'],          // under 2% of exam requests fail
     'http_req_duration{kind:exam}': ['p(95)<3000'],        // 95% of exam requests answer within 3 s
     server_errors_5xx: ['count<5'],
+    network_errors_not_server: ['count<5'],              // if this fails, the test computer's network is the problem
     exam_steps_failed: ['count<5'],
   },
   summaryTrendStats: ['avg', 'med', 'p(90)', 'p(95)', 'max'],
+  // -e PIN_IP=216.24.57.16 connects straight to that address instead of asking the network's DNS
+  // (a local DNS/firewall answered 192.0.2.1 for the server mid-test). The server name is still sent.
+  ...(__ENV.PIN_IP ? { hosts: { [BASE.replace(/^https?:\/\//, '').replace(/[:/].*$/, '')]: __ENV.PIN_IP } } : {}),
 };
 
 // Each simulated student gets its own made-up address, so the per-address sign-in limit
@@ -78,7 +90,8 @@ function headers(idx, token) {
 }
 
 function note(res, what, kind) {
-  if (res.status >= 500 || res.status === 0) poolTimeouts.add(1);
+  if (res.status >= 500) poolTimeouts.add(1);
+  if (res.status === 0) networkErrors.add(1);   // never reached the server (DNS, firewall, no internet)
   const ok = check(res, { [`${what} ok`]: r => r.status >= 200 && r.status < 300 });
   if (!ok) {
     if (kind === 'exam') examFailures.add(1);
@@ -87,12 +100,57 @@ function note(res, what, kind) {
   return ok;
 }
 
+function tryLogin(idx, password) {
+  return http.post(`${AUTH}/authenticate`, JSON.stringify({ username: students[idx].username, password }),
+    { headers: headers(idx), tags: { kind: 'signin' }, responseCallback: http.expectedStatuses({ min: 200, max: 499 }) });
+}
+
+// Imported students must choose a new password before they can do anything (the server answers 403
+// PASSWORD_CHANGE_REQUIRED). The first run signs in with the CSV password and sets NEW_PASSWORD;
+// later runs sign in with NEW_PASSWORD straight away, so no wrong-password attempts pile up
+// (5 wrong ones lock an account for a while).
 function login(idx, kind) {
   const s = students[idx];
-  const res = http.post(`${AUTH}/authenticate`, JSON.stringify({ username: s.username, password: s.password }),
-    { headers: headers(idx), tags: { kind, step: 'login' } });
+  let res = tryLogin(idx, NEW_PASSWORD);
+  if (res.status === 200) return res.json('token');
+
+  res = tryLogin(idx, s.password);
   if (!note(res, `sign in ${s.username}`, kind)) return null;
-  try { return res.json('token'); } catch (e) { return null; }
+  const token = res.json('token');
+  const changed = http.put(`${AUTH}/updatepassword`, JSON.stringify({ password: NEW_PASSWORD, currentPassword: s.password }),
+    { headers: headers(idx, token), tags: { kind: 'signin' } });
+  note(changed, `set test password for ${s.username}`, kind);
+  return token;
+}
+
+// Registers this student for the test course (only called after the server said they aren't registered,
+// because registering twice makes two rows).
+function register(idx, token) {
+  if (!COURSE_ID) {
+    console.warn(`${students[idx].username} is not registered for the course: add -e COURSE_ID=<number> so the script registers them`);
+    return false;
+  }
+  const r = http.post(`${AUTH}/registerCourse`, JSON.stringify({ category: { cid: Number(COURSE_ID) } }),
+    { headers: headers(idx, token), tags: { kind: 'setup' } });
+  return note(r, `register ${students[idx].username} for the course`, 'setup');
+}
+
+// Starts the attempt like the exam page: registers for the course and enters the quiz password when needed.
+function beginQuiz(idx, token) {
+  const h = headers(idx, token);
+  const tryBegin = () => http.post(`${AUTH}/quiz-attempts/${QUIZ_ID}/begin`, null,
+    { headers: h, tags: { kind: 'setup' }, responseCallback: http.expectedStatuses({ min: 200, max: 499 }) });
+  let r = tryBegin();
+  if (r.status === 403 && /not enrolled/i.test(r.body) && register(idx, token)) r = tryBegin();
+  if (r.status === 403 && /password/i.test(r.body)) {
+    if (!QUIZ_PASSWORD) console.warn('The quiz has a password: add -e QUIZ_PASSWORD=...');
+    else {
+      note(http.post(`${AUTH}/quiz/${QUIZ_ID}/unlock`, JSON.stringify({ password: QUIZ_PASSWORD }),
+        { headers: h, tags: { kind: 'exam', step: 'unlock' } }), 'unlock quiz', 'exam');
+      r = tryBegin();
+    }
+  }
+  return note(r, 'begin', 'exam');
 }
 
 export function exam() {
@@ -104,7 +162,7 @@ export function exam() {
   const p = { headers: headers(idx, token), tags: { kind: 'exam' } };
   const tag = step => ({ headers: p.headers, tags: { kind: 'exam', step } });
 
-  if (!note(http.post(`${AUTH}/quiz-attempts/${QUIZ_ID}/begin`, null, tag('begin')), 'begin', 'exam')) return;
+  if (!beginQuiz(idx, token)) return;
   const session = http.get(`${AUTH}/quiz-attempts/${QUIZ_ID}/session`, tag('session'));
   if (!note(session, 'load exam', 'exam')) return;
 
@@ -151,7 +209,10 @@ export function downloads() {
   const p = { headers: headers(idx, token), tags: { kind: 'download' } };
   const end = Date.now() + MINUTES * 60 * 1000;
   while (Date.now() < end) {
-    const link = http.post(`${API}/materials/student/files/${FILE_ID}/link?inline=false`, null, p);
+    const getLink = () => http.post(`${API}/materials/student/files/${FILE_ID}/link?inline=false`, null,
+      { headers: p.headers, tags: { kind: 'download' }, responseCallback: http.expectedStatuses({ min: 200, max: 499 }) });
+    let link = getLink();
+    if (link.status === 403 && /registered/i.test(link.body) && register(idx, token)) link = getLink();
     if (note(link, 'download link', 'download')) {
       const url = link.json('url');
       const file = http.get(`${API.replace(/\/api$/, '')}${url.startsWith('/api') ? url : '/api' + url}`,

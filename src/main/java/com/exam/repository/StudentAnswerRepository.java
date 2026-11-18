@@ -25,9 +25,16 @@ AND quiz.qId = :quizId
     );
 
     /** Removes a student's earlier objective answers for a quiz so a new attempt replaces them. */
-    @org.springframework.data.jpa.repository.Modifying
-    @Query("DELETE FROM StudentAnswer sa WHERE sa.user.id = :studentId AND sa.question.quesId IN " +
-           "(SELECT q.quesId FROM Questions q WHERE q.quiz.qId = :quizId)")
-    void deleteByStudentAndQuiz(@Param("studentId") Long studentId, @Param("quizId") Long quizId);
+    // Not a "DELETE ... WHERE user = ?": when the student has no rows yet, MySQL locks the empty index gap
+    // their rows would go in, and two students submitting at once then deadlock on each other's inserts
+    // (HTTP 500 on eval-quiz under load, 2026-11-18). A plain read takes no locks; deleting by id locks
+    // only the rows that exist, and nothing at all on a first attempt.
+    default void deleteByStudentAndQuiz(Long studentId, Long quizId) {
+        List<Long> ids = findIdsByStudentAndQuiz(studentId, quizId);
+        if (!ids.isEmpty()) deleteAllByIdInBatch(ids);
+    }
+
+    @Query("SELECT sa.id FROM StudentAnswer sa WHERE sa.user.id = :studentId AND sa.question.quiz.qId = :quizId")
+    List<Long> findIdsByStudentAndQuiz(@Param("studentId") Long studentId, @Param("quizId") Long quizId);
 
 }

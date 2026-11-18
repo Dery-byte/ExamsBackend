@@ -27,9 +27,15 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
     List<Answer> findByReport(Report report);
 
     /** Removes a student's earlier theory answers for a quiz so a new attempt replaces them. */
-    @Modifying
-    @Query("DELETE FROM Answer a WHERE a.user.id = :studentId AND a.quiz.qId = :quizId")
-    void deleteByStudentAndQuiz(@Param("studentId") Long studentId, @Param("quizId") Long quizId);
+    // Read the ids, then delete by id: a "DELETE ... WHERE user = ?" that matches nothing locks the empty
+    // index gap, and concurrent submits then deadlock (see StudentAnswerRepository).
+    default void deleteByStudentAndQuiz(Long studentId, Long quizId) {
+        List<Long> ids = findIdsByStudentAndQuiz(studentId, quizId);
+        if (!ids.isEmpty()) deleteAllByIdInBatch(ids);
+    }
+
+    @Query("SELECT a.answerId FROM Answer a WHERE a.user.id = :studentId AND a.quiz.qId = :quizId")
+    List<Long> findIdsByStudentAndQuiz(@Param("studentId") Long studentId, @Param("quizId") Long quizId);
 
     @Modifying
     @Transactional

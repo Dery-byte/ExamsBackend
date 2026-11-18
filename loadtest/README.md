@@ -10,13 +10,9 @@ It runs against the live server, so run it when no real quiz is on.
    ```
    winget install k6 --source winget
    ```
-2. **Test students.** In Data Tools, import about 200 test students (e.g. `LOADTEST001` to `LOADTEST200`) into a test course. The import downloads their login details. Save the username and password columns as `students.csv` in this folder:
-   ```
-   username,password
-   LOADTEST001,Temp#1234
-   LOADTEST002,Temp#5678
-   ```
-   Each simulated student needs its own account: signing in again signs the other session out. Don't share this file.
+2. **Test students.** Import `loadtest-students-import.csv` (in this folder) in Data Tools → Import → Students, with **"Email each new user" unticked**. It creates `LOADTEST001` to `LOADTEST300` in program `CSC`, level 200, semester 1, all with password `Load#Test1`. Upload the file as it is: opening and saving it in Excel drops the leading 0 of the phone numbers. `students.csv` already lists the same accounts for the script.
+   Imported students must change their password before they can do anything, so on its first run the script changes each one to `LoadTest#2026` (`-e NEW_PASSWORD=...` to choose another). To sign in as a test student yourself after that, use `LoadTest#2026`.
+   Each simulated student needs its own account: signing in again signs the other session out.
 3. **Test quiz.** Make a quiz in the test course with **objective questions only** (theory would send every answer to the paid AI). Give it about 30 questions, a duration longer than the test (e.g. 30 min), and open it now. Its number (`QUIZ_ID`) is in the address bar when you open it. Each run uses up one attempt per student, so for a second run make a new quiz or allow more attempts.
 4. **Test file (for the download test).** In the test course's materials, add a PDF of 5 to 15 MB and make it visible to students. To get its `FILE_ID`, sign in as a test student, press F12 → Network, download the file, and copy the id from the request `.../materials/download/<FILE_ID>?u=...`.
 
