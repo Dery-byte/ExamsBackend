@@ -27,6 +27,7 @@ public class ServerHealthLog {
     private final DataSource dataSource;
     private final boolean enabled;
     private long lastGcMs = -1;
+    private long lastCpuNs = -1;
     private long lastAt;
 
     public ServerHealthLog(DataSource dataSource, @Value("${APP_HEALTH_LOG:true}") boolean enabled) {
@@ -47,11 +48,18 @@ public class ServerHealthLog {
             long now = System.currentTimeMillis();
             String gcShare = lastGcMs < 0 ? "n/a" : Math.round(100.0 * (gcMs - lastGcMs) / Math.max(1, now - lastAt)) + "%";
             lastGcMs = gcMs;
-            lastAt = now;
 
+            // CPU time this server used since the last line, as a share of all its CPUs. (getProcessCpuLoad() reads 0
+            // inside Render's containers, so it's worked out from the process's own CPU time instead.)
+            int cores = Runtime.getRuntime().availableProcessors();
             String cpu = "n/a";
-            if (ManagementFactory.getOperatingSystemMXBean() instanceof com.sun.management.OperatingSystemMXBean os && os.getProcessCpuLoad() >= 0)
-                cpu = Math.round(os.getProcessCpuLoad() * 100) + "%";
+            if (ManagementFactory.getOperatingSystemMXBean() instanceof com.sun.management.OperatingSystemMXBean os) {
+                long cpuNs = os.getProcessCpuTime();
+                if (cpuNs >= 0 && lastCpuNs >= 0)
+                    cpu = Math.round(100.0 * (cpuNs - lastCpuNs) / 1_000_000.0 / Math.max(1, now - lastAt) / cores) + "% of " + cores + (cores == 1 ? " CPU" : " CPUs");
+                lastCpuNs = cpuNs;
+            }
+            lastAt = now;
             int threads = ManagementFactory.getThreadMXBean().getThreadCount();
 
             String pool = "n/a";

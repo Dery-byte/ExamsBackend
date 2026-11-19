@@ -65,6 +65,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\Que
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\academic\ThemeServiceTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\subscription\TestKeys.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizServiceAccessTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\config\ServerHealthLogScratchTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\WalletJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizEvaluationPoolTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\admin\ConfigTransferServiceTest.java
