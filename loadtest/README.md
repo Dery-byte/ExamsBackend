@@ -36,6 +36,17 @@ k6 run -e QUIZ_ID=124 -e STUDENTS=150 -e MINUTES=10 exam-load.js
 k6 run -e QUIZ_ID=125 -e STUDENTS=150 -e DOWNLOADERS=30 -e FILE_ID=abc123 -e MINUTES=10 exam-load.js
 ```
 
+**Rule-breaking.** By default 30% of the quiz students break the rules (`-e VIOLATORS=50` for more, `0` for none), each 1 to "max violations" times. The script reads the quiz's own violation setup from the exam, as the page does, and prints it at the start (`Quiz 52 violation setup: …`):
+
+| Quiz setting | What each violation sends |
+|---|---|
+| None | nothing |
+| Temporary lock (DELAY_ONLY) | the event + a suspension, longer each time by the multiplier; never submits |
+| Auto-submit (AUTOSUBMIT_ONLY) | the event only (a warning); the last one auto-submits |
+| Lock, then submit (DELAY_AND_AUTOSUBMIT) | the event + a suspension; the last one auto-submits |
+
+During a suspension the student stays signed in but can't answer (the page hides the questions), so no answers are saved; what is left is reported every 5 s (if suspensions pause while the student is away, the default), and a third of students reload the page part-way. To try another setup without changing the quiz: `-e VIOLATION_ACTION=DELAY_ONLY` (and `MAX_VIOLATIONS`, `DELAY`, `MULTIPLIER`). Afterwards the quiz's proctoring report shows the test students' violations.
+
 Step (c) needs at least 180 rows in `students.csv`. The downloads use your internet: a 10-minute run can pull 1 to 2 GB on a fast line. Use a small file or fewer `DOWNLOADERS` if data costs money.
 
 ## 4. Reading the result
