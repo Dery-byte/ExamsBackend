@@ -231,9 +231,12 @@ public class QuizTimerService {
 
         // -----------------------------
         // Upsert: one tab switch fires several saves at once, so the row is created atomically
-        // in the DB and then locked — a find-then-insert here collides on the (user_id, quiz_id) key
-        boolean created = quizTimerRepository.insertIfAbsent(
-                userId, quizId, request.getRemainingTime(), LocalDateTime.now()) == 1;
+        // in the DB and then locked — a find-then-insert here collides on the (user_id, quiz_id) key.
+        // Only tried while the row doesn't exist yet: on MySQL, ON DUPLICATE KEY locks the index entry AND
+        // the gap before it (a neighbouring student's) until the request ends, on every checkpoint. A plain
+        // read takes no locks, and once the row exists the save below locks just that row.
+        boolean created = !quizTimerRepository.existsByUserIdAndQuiz_qId(userId, quizId)
+                && quizTimerRepository.insertIfAbsent(userId, quizId, request.getRemainingTime(), LocalDateTime.now()) == 1;
         QuizTimer timer = lockTimer(userId, quizId);
 
         // A checkpoint can only move the clock down: never accept more time than is actually left

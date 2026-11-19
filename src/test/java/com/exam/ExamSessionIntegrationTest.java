@@ -51,6 +51,8 @@ class ExamSessionIntegrationTest {
     @Autowired Registered_coursesRepository registrations;
     @Autowired ReportRepository reports;
     @Autowired StudentAnswerRepository studentAnswers;
+    @Autowired com.exam.repository.UserQuizProgressRepository progress;
+    @Autowired com.exam.repository.QuizTimerRepository timers;
     @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
 
     private final ObjectMapper json = new ObjectMapper();
@@ -157,7 +159,14 @@ class ExamSessionIntegrationTest {
                 "[{\"quesId\":" + q1.getQuesId() + ",\"givenAnswer\":[\"right\"]}]"));
         assertThat(result.get("marksGot").asDouble()).isEqualTo(3.0);
         assertThat(studentAnswers.findAll()).hasSize(3);
+        assertThat(progress.findIdsByUserIdAndQuizId(student.getId(), qid)).isNotEmpty();
+        ok(call(patch("/api/v1/auth/quiz-timer/saveRemainingTime/" + qid), "{\"remainingTime\":60}"));
+        ok(call(patch("/api/v1/auth/quiz-timer/saveRemainingTime/" + qid), "{\"remainingTime\":50}"));   // the row exists now: no insert tried
+        assertThat(timers.findByUserIdAndQuiz_qId(student.getId(), qid)).get().extracting(t -> t.getRemainingTime()).isEqualTo(50);
         ok(call(post("/api/v1/auth/quiz-attempts/" + qid + "/finish"), null));
+        // Finishing clears the saved answers (with their selected options) and the clock, deleted by id
+        assertThat(progress.findIdsByUserIdAndQuizId(student.getId(), qid)).isEmpty();
+        assertThat(timers.existsByUserIdAndQuiz_qId(student.getId(), qid)).isFalse();
 
         // Signing out stops the token at once, though it was just confirmed (and cached) as valid
         ok(call(get("/api/v1/auth/quiz-attempts/" + qid + "/my-status"), null));

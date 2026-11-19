@@ -17,6 +17,9 @@ public interface QuizTimerRepository extends JpaRepository<QuizTimer, Long> {
 
     Optional<QuizTimer> findByUserIdAndQuiz_qId(Long userId, Long quizId);
 
+    /** A plain read (no lock, nothing loaded): whether the row exists yet. */
+    boolean existsByUserIdAndQuiz_qId(Long userId, Long quizId);
+
     /**
      * Creates the (user, quiz) row if it does not exist yet, atomically, so concurrent first saves
      * (blur + visibilitychange + violation count all fire on one tab switch) cannot collide on the

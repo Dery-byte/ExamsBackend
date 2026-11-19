@@ -27,9 +27,17 @@ public interface UserQuizProgressRepository extends JpaRepository<UserQuizAnswer
 
     void deleteByUserIdAndQuestionId(Long userId, Long questionId);
 
-    @Modifying
-    @Query("DELETE FROM UserQuizAnswer ua WHERE ua.userId = :userId AND ua.quizId = :quizId")
-    void deleteByUserIdAndQuizId(@Param("userId") Long userId, @Param("quizId") Long quizId);
+    // Not a "DELETE ... WHERE user AND quiz": on MySQL that locks the whole index range and the gaps around it
+    // until the request ends, and every student saving an answer next to it in the index waits (with a hall
+    // finishing at once, 30 of 30 connections busy and 60+ requests waiting, 2026-11-19). A plain read takes
+    // no locks; deleting by id locks only those rows, and nothing at all when there are none.
+    default void deleteByUserIdAndQuizId(Long userId, Long quizId) {
+        List<Long> ids = findIdsByUserIdAndQuizId(userId, quizId);
+        if (!ids.isEmpty()) deleteAllByIdInBatch(ids);
+    }
+
+    @Query("SELECT ua.id FROM UserQuizAnswer ua WHERE ua.userId = :userId AND ua.quizId = :quizId")
+    List<Long> findIdsByUserIdAndQuizId(@Param("userId") Long userId, @Param("quizId") Long quizId);
 
 
 
