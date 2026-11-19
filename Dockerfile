@@ -37,6 +37,9 @@ EXPOSE 8080
 # Java in a container uses only 1/4 of the memory for its heap by default (512 MB of Render Standard's 2 GB),
 # and on one CPU the simplest stop-everything garbage collector. Under a full exam hall that heap fills and the
 # server stalls. Give the heap 65% (the rest is for threads, classes and the OS), use G1, and restart cleanly
-# instead of limping on if memory ever does run out. JAVA_OPTS (Render environment) can override these.
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=65 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar exam-docker.jar"]
+# instead of limping on if memory ever does run out. Java reads JAVA_TOOL_OPTIONS itself (the log shows
+# "Picked up JAVA_TOOL_OPTIONS"); setting it in the Render environment overrides these.
+# Java must be started directly, NOT through "sh -c": the shell drops environment variables whose names contain
+# dots (GOOGLE.GEMINI.API.URL ...), and the server then refuses to start (2026-11-19).
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=65 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
+ENTRYPOINT ["java", "-jar", "exam-docker.jar"]
