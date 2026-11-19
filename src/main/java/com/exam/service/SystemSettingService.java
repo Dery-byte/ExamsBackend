@@ -132,12 +132,41 @@ public class SystemSettingService {
                 systemSettingRepository.save(new SystemSetting(key, "true"));
             }
         }
+        forgetCachedSettings();
+    }
+
+    // Settings are read on almost every request (feature switches, exam clock rules …) and change rarely, so
+    // each value is kept for a few seconds. Every write goes through this service and clears them at once, and
+    // again when its transaction ends (a rolled-back change, or one read back before commit, isn't kept).
+    private static final long SETTING_CACHE_MS = 5_000;
+    private record CachedValue(String value, long at) {}
+    private final Map<String, CachedValue> settingCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private void forgetCachedSettings() {
+        settingCache.clear();
+        assessmentsCache = null;
+        materialsCache = null;
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override public void afterCompletion(int status) {
+                            settingCache.clear();
+                            assessmentsCache = null;
+                            materialsCache = null;
+                        }
+                    });
+        }
     }
 
     public String getSetting(String key) {
-        return systemSettingRepository.findById(key)
+        long now = System.currentTimeMillis();
+        CachedValue c = settingCache.get(key);
+        if (c != null && now - c.at() < SETTING_CACHE_MS) return c.value();
+        String v = systemSettingRepository.findById(key)
                 .map(SystemSetting::getSettingValue)
                 .orElse(null);
+        settingCache.put(key, new CachedValue(v, now));
+        return v;
     }
 
     public boolean getBooleanSetting(String key, boolean defaultValue) {
@@ -155,14 +184,14 @@ public class SystemSettingService {
 
     public void deleteSetting(String key) {
         if (systemSettingRepository.existsById(key)) systemSettingRepository.deleteById(key);
+        forgetCachedSettings();
     }
 
     public void updateSetting(String key, String value) {
         SystemSetting setting = systemSettingRepository.findById(key).orElse(new SystemSetting(key));
         setting.setSettingValue(value);
         systemSettingRepository.save(setting);
-        if (MODULE_ASSESSMENTS.equals(key)) assessmentsCache = null;
-        if (MODULE_MATERIALS.equals(key)) materialsCache = null;
+        forgetCachedSettings();
     }
 
     private volatile CachedFlag materialsCache;

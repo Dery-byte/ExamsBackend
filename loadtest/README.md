@@ -70,31 +70,42 @@ Delete the test quizzes and their attempts, and deactivate the test students (or
 
 ## Attendance test (`attendance-load.js`)
 
-Acts like a class checking in at the same moment:
-- **Lecturer:** a test lecturer starts a class for the course at a made-up spot. Their session page refreshes the class list every 5 s and the projector refreshes the code every 2 s.
-- **Students:** they arrive over 3 minutes and open the attendance card, which asks whether a class is open. Each sends their location a couple of times, types the code on the projector and checks in from inside the room on their own (made-up) phone. The card then stays open, asking every 15 s and sending location every 20–60 s.
-- **Bystanders (optional, `-e BYSTANDERS=200`):** students elsewhere sitting on their dashboard, whose card asks every 60 s.
+Acts like a class checking in at the same moment, for each way a lecturer can run attendance (`-e METHOD=…`):
+
+| METHOD | Staff side | Students |
+|---|---|---|
+| `TYPED` (default) | Session page: class list every 5 s, code every 2 s. Projector: code every 2 s. | Type the code on the projector. |
+| `READ_ALOUD` | Session page: list 5 s, code 2 s. The lecturer approves waiting check-ins about once a minute. | Type the code read out. The check-in waits for approval. |
+| `STUDENT_SCAN` | Session page + projector showing the class QR, every 2 s. Helpers' phones show the class QR, every 2 s. | Scan the class QR, on the projector or on a helper's phone. |
+| `STAFF_SCAN` | Session page (5 s) and the lecturer's scanner page (5 s). Helpers' scanner pages refresh every 5 s. The lecturer and helpers each scan one student every `SCAN_SECONDS` (default 3). | The phone gets its QR key (location and phone checks), shows its changing QR code and refreshes the card every 5 s until scanned. |
+
+The test simulates a student's QR code exactly like the phone does; that was checked against the server's own code. k6 can't hand a code from one simulated person to another, so the scan request is sent from the student's script, with the lecturer's sign-in or the helper's link. The server sees exactly what a real scan sends.
+
+For every method, students arrive over 3 minutes and open the attendance card, which asks whether a class is open. They send their location a couple of times, then check in that method's way. The card then stays open, asking every 15 s and sending location every 20–60 s. **Helpers** (`-e HELPERS=2`, QR methods only, up to 10) get their links from the test. **Bystanders** (`-e BYSTANDERS=100`) are students elsewhere sitting on their dashboard, whose card asks every 60 s.
 
 **Before the first run:**
+- **A test course** whose list has only `LOADTEST` students, for example the LOAD TEST course. Never a real course: the test refuses one, because ending a class marks every student who didn't check in Absent.
 - **Test lecturer:** a lecturer account that teaches the test course and that nobody is signed in to. Signing in here signs it out everywhere else.
 - **Attendance switched on** for the test course's department, set to take attendance per course.
 - **Test students:** each gets its "phone" linked (`lt-LOADTEST001-phone` …). Phone links are reset on the session page, or left as they are for the next run.
 
 ```
-# Smoke test: 10 students, 3 minutes
+# Smoke test: 10 students, 3 minutes (add -e METHOD=... to try each method)
 k6 run -e PIN_IP=216.24.57.16 -e LECTURER_USER=... -e LECTURER_PASS=... -e COURSE_ID=52 -e STUDENTS=10 -e ARRIVE=30 -e MINUTES=3 attendance-load.js
-
-# A full class of 300 checking in
-k6 run -e PIN_IP=216.24.57.16 -e LECTURER_USER=... -e LECTURER_PASS=... -e COURSE_ID=52 -e STUDENTS=300 -e MINUTES=10 attendance-load.js
 
 # 200 checking in, while 100 others sit on their dashboards (the 300 test accounts are shared between them)
 k6 run -e PIN_IP=216.24.57.16 -e LECTURER_USER=... -e LECTURER_PASS=... -e COURSE_ID=52 -e STUDENTS=200 -e BYSTANDERS=100 -e MINUTES=10 attendance-load.js
+k6 run ... -e METHOD=READ_ALOUD ...
+k6 run ... -e METHOD=STUDENT_SCAN -e HELPERS=2 ...
+k6 run ... -e METHOD=STAFF_SCAN -e HELPERS=2 ...
 ```
 
-The test ends the class it started (`-e KEEP=yes` leaves it running). The end of the output prints the class's counts.
+Run one test at a time. The test deletes the class it started, so no test meetings are left in the course (`-e KEEP=yes` leaves it running). If a class for the course is still running, the test uses it, but only when it was started with the same method. The end of the output prints the class's counts.
 
 **The run passes if every threshold has a ✓:**
-- `check-in` and `class-list` p(95) under 3 s;
+- `check-in` (or `scan` for STAFF_SCAN) and `class-list` p(95) under 3 s;
 - `server_errors_5xx` and `attendance_steps_failed` under 5.
 
-`checked_in` should equal STUDENTS. `code_expired_retried` counts students whose code changed while they typed it and who then typed the new one. That's normal and not a failure.
+`checked_in` should equal STUDENTS. `code_expired_retried` counts students whose code changed while they typed or scanned it and who then used the new one. That's normal and not a failure.
+
+**How long staff scanning takes:** with 1 lecturer + 2 helpers at 3 s each, 200 students take about 200 ÷ 3 × 3 s ≈ 3½ minutes.

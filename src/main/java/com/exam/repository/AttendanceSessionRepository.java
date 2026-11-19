@@ -60,4 +60,39 @@ public interface AttendanceSessionRepository extends JpaRepository<AttendanceSes
     @Query("SELECT u FROM User u WHERE u.role = com.exam.model.Role.NORMAL AND u.enabled = true"
             + " AND u.program.id = :programId AND (:level IS NULL OR u.currentLevel = :level)")
     List<User> programmeRoster(@Param("programId") Long programId, @Param("level") Integer level);
+
+    // The same class lists as [id, firstname, lastname, username] rows. Loading whole User entities costs an
+    // extra query per student (their eagerly loaded secondary departments): ~300 queries for one class list,
+    // which the lecturer's page asks for every 5 s.
+
+    @Query("SELECT DISTINCT u.id, u.firstname, u.lastname, u.username FROM Registered_courses r JOIN r.user u LEFT JOIN r.session rs"
+            + " WHERE r.category.cid = :courseId AND (rs.id = :sessionId OR rs IS NULL)"
+            + " AND u.role = com.exam.model.Role.NORMAL AND u.enabled = true")
+    List<Object[]> courseRosterPeople(@Param("courseId") Long courseId, @Param("sessionId") Long academicSessionId);
+
+    @Query("SELECT u.id, u.firstname, u.lastname, u.username FROM User u WHERE u.role = com.exam.model.Role.NORMAL AND u.enabled = true"
+            + " AND u.program.id = :programId AND (:level IS NULL OR u.currentLevel = :level)")
+    List<Object[]> programmeRosterPeople(@Param("programId") Long programId, @Param("level") Integer level);
+
+    @Query("SELECT COUNT(DISTINCT u.id) FROM Registered_courses r JOIN r.user u LEFT JOIN r.session rs"
+            + " WHERE r.category.cid = :courseId AND (rs.id = :sessionId OR rs IS NULL)"
+            + " AND u.role = com.exam.model.Role.NORMAL AND u.enabled = true")
+    long courseRosterCount(@Param("courseId") Long courseId, @Param("sessionId") Long academicSessionId);
+
+    @Query("SELECT COUNT(u) FROM User u WHERE u.role = com.exam.model.Role.NORMAL AND u.enabled = true"
+            + " AND u.program.id = :programId AND (:level IS NULL OR u.currentLevel = :level)")
+    long programmeRosterCount(@Param("programId") Long programId, @Param("level") Integer level);
+
+    /**
+     * The running meetings this student is on the list for, in one query: course meetings of a course they are
+     * registered for this academic session (or with no session, as {@code countRegistration}), and programme
+     * meetings of their programme and level. Replaces loading every running meeting and testing each one.
+     */
+    @Query("SELECT s FROM AttendanceSession s WHERE s.closedAt IS NULL AND ("
+            + " (s.scope = :course AND EXISTS (SELECT r FROM Registered_courses r LEFT JOIN r.session rs"
+            + "     WHERE r.category = s.course AND r.user.id = :studentId AND (rs = s.academicSession OR rs IS NULL)))"
+            + " OR (s.scope = :programme AND s.program.id = :programId AND (s.level IS NULL OR s.level = :level)))")
+    List<AttendanceSession> openFor(@Param("studentId") Long studentId, @Param("programId") Long programId, @Param("level") Integer level,
+                                    @Param("course") com.exam.model.attendance.AttendanceMode course,
+                                    @Param("programme") com.exam.model.attendance.AttendanceMode programme);
 }

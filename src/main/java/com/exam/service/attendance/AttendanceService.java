@@ -394,6 +394,32 @@ public class AttendanceService {
         return s.getProgram() == null ? List.of() : sessions.programmeRoster(s.getProgram().getId(), s.getLevel());
     }
 
+    /** A student on a class list, without loading the whole User (see {@link #rosterPeople}). */
+    record Person(Long id, String name, String indexNo) {
+        static Person of(Object[] row, int from) {
+            Long id = (Long) row[from];
+            String first = (String) row[from + 1], last = (String) row[from + 2], username = (String) row[from + 3];
+            String full = ((first != null ? first : "") + " " + (last != null ? last : "")).trim();
+            return new Person(id, full.isEmpty() ? username : full, username);   // same as CurrentUserService.displayName
+        }
+    }
+
+    /** The class list as id + name + index number: one query, where whole Users cost one more per student. */
+    List<Person> rosterPeople(AttendanceSession s) {
+        List<Object[]> rows;
+        if (s.getScope() == AttendanceMode.COURSE)
+            rows = s.getCourse() == null ? List.of() : sessions.courseRosterPeople(s.getCourse().getCid(), s.getAcademicSession().getId());
+        else
+            rows = s.getProgram() == null ? List.of() : sessions.programmeRosterPeople(s.getProgram().getId(), s.getLevel());
+        return rows.stream().map(r -> Person.of(r, 0)).toList();
+    }
+
+    private int rosterCount(AttendanceSession s) {
+        if (s.getScope() == AttendanceMode.COURSE)
+            return s.getCourse() == null ? 0 : (int) sessions.courseRosterCount(s.getCourse().getCid(), s.getAcademicSession().getId());
+        return s.getProgram() == null ? 0 : (int) sessions.programmeRosterCount(s.getProgram().getId(), s.getLevel());
+    }
+
     private record CachedSize(long at, int size) {}
     private final Map<Long, CachedSize> rosterSizes = new ConcurrentHashMap<>();
 
@@ -402,7 +428,7 @@ public class AttendanceService {
         long t = System.currentTimeMillis();
         CachedSize c = rosterSizes.get(s.getId());
         if (c != null && t - c.at() < 30_000) return c.size();
-        int size = roster(s).size();
+        int size = rosterCount(s);
         rosterSizes.put(s.getId(), new CachedSize(t, size));
         if (rosterSizes.size() > 500) rosterSizes.clear();
         return size;
@@ -427,8 +453,12 @@ public class AttendanceService {
         if (!on) { out.put("sessions", List.of()); return out; }
         LocalDateTime now = now();
         List<Map<String, Object>> list = new ArrayList<>();
-        for (AttendanceSession s : sessions.findByClosedAtIsNull()) {
-            if (!onRoster(student, s)) continue;
+        // Only the meetings this student is on the list for, in one query (every dashboard asks every minute,
+        // so testing each running meeting in the institution one by one doesn't scale)
+        List<AttendanceSession> mine = student.getRole() != Role.NORMAL ? List.of()
+                : sessions.openFor(student.getId(), student.getProgram() != null ? student.getProgram().getId() : null,
+                        student.getCurrentLevel(), AttendanceMode.COURSE, AttendanceMode.PROGRAMME);
+        for (AttendanceSession s : mine) {
             Phase p = phase(s, now);
             AttendanceRecord r = records.findBySession_IdAndStudent_Id(s.getId(), student.getId()).orElse(null);
             int failures = strikes.findBySession_IdAndStudent_Id(s.getId(), student.getId()).map(AttendanceStrike::getFailures).orElse(0);
@@ -967,14 +997,17 @@ public class AttendanceService {
         AttendanceAccess.requireManage(actor, s);
         Map<String, Object> out = summaryDto(s);
 
+        // Names come with the rows (no whole Users): this page refreshes every 5 s, for classes of hundreds
+        Map<Long, Person> people = new LinkedHashMap<>();
+        rosterPeople(s).forEach(p -> people.put(p.id(), p));
         Map<Long, AttendanceRecord> byStudent = new HashMap<>();
-        records.forSession(s.getId()).forEach(r -> byStudent.put(r.getStudent().getId(), r));
+        for (Object[] row : records.forSessionWithNames(s.getId())) {
+            Person p = Person.of(row, 1);
+            byStudent.put(p.id(), (AttendanceRecord) row[0]);
+            people.putIfAbsent(p.id(), p);   // recorded, though no longer on the list
+        }
         Map<Long, Integer> failures = new HashMap<>();
         strikes.forSession(s.getId()).forEach(k -> failures.put(k.getStudent().getId(), k.getFailures()));
-
-        Map<Long, User> people = new LinkedHashMap<>();
-        roster(s).forEach(u -> people.put(u.getId(), u));
-        byStudent.values().forEach(r -> people.putIfAbsent(r.getStudent().getId(), r.getStudent()));
 
         // Which students have a phone linked (so staff know whose link to reset)
         Map<Long, Object[]> phones = new HashMap<>();
@@ -985,13 +1018,13 @@ public class AttendanceService {
 
         Map<String, Long> counts = new LinkedHashMap<>();
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (User u : people.values()) {
-            AttendanceRecord r = byStudent.get(u.getId());
-            int f = failures.getOrDefault(u.getId(), 0);
+        for (Person u : people.values()) {
+            AttendanceRecord r = byStudent.get(u.id());
+            int f = failures.getOrDefault(u.id(), 0);
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("studentId", u.getId());
-            m.put("name", CurrentUserService.displayName(u));
-            m.put("indexNo", u.getUsername());
+            m.put("studentId", u.id());
+            m.put("name", u.name());
+            m.put("indexNo", u.indexNo());
             m.put("status", r != null ? r.getStatus().name() : null);
             m.put("method", r != null ? r.getMethod() : null);
             m.put("firstCheckAt", r != null ? r.getFirstCheckAt() : null);
@@ -1007,11 +1040,11 @@ public class AttendanceService {
             m.put("note", r != null ? r.getNote() : null);
             m.put("failures", f);
             m.put("locked", f >= s.getMaxFailedAttempts());
-            Object[] phone = phones.get(u.getId());
+            Object[] phone = phones.get(u.id());
             m.put("phoneLinked", phone != null);
             m.put("phoneLinkedAt", phone != null ? phone[1] : null);
             m.put("phoneLastUsedAt", phone != null ? phone[2] : null);
-            AttendancePlaceLog place = places.get(u.getId());
+            AttendancePlaceLog place = places.get(u.id());
             if (place != null) {
                 Map<String, Object> lp = new LinkedHashMap<>();
                 lp.put("fit", place.getFit());
@@ -1543,8 +1576,8 @@ public class AttendanceService {
         s.setClosedAt(now);
         sessions.save(s);
 
-        Map<Long, AttendanceRecord> byStudent = records.forSession(s.getId()).stream()
-                .collect(Collectors.toMap(r -> r.getStudent().getId(), r -> r, (a, b) -> a));
+        Map<Long, AttendanceRecord> byStudent = new HashMap<>();
+        for (Object[] row : records.forSessionWithNames(s.getId())) byStudent.putIfAbsent((Long) row[1], (AttendanceRecord) row[0]);
         boolean secondHeld = s.getSecondCheckOpensAt() != null;
         List<AttendanceRecord> changed = new ArrayList<>();
         for (AttendanceRecord r : byStudent.values()) {
@@ -1556,11 +1589,11 @@ public class AttendanceService {
                 changed.add(r);
             }
         }
-        for (User u : roster(s)) {
-            if (byStudent.containsKey(u.getId())) continue;
+        for (Person p : rosterPeople(s)) {
+            if (byStudent.containsKey(p.id())) continue;
             AttendanceRecord r = new AttendanceRecord();
             r.setSession(s);
-            r.setStudent(u);
+            r.setStudent(users.getReferenceById(p.id()));   // only the id is needed to save the row
             r.setStatus(AttendanceStatus.ABSENT);
             r.setMethod(AttendanceRecord.METHOD_AUTO);
             changed.add(r);

@@ -11,7 +11,6 @@ com\exam\service\monitoring\DeveloperAuthServiceTest.class
 com\exam\service\examops\QuestionBankUploadTest$1.class
 com\exam\helper\IndexNumberRangeTest.class
 com\exam\service\subscription\SubscriptionKeysTest.class
-com\exam\config\ServerHealthLogScratchTest.class
 com\exam\PasswordResetFlowTest.class
 com\exam\service\QuizServiceAccessTest.class
 com\exam\ExamSessionIntegrationTest.class

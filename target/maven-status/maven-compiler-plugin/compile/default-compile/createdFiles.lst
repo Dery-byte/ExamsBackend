@@ -335,6 +335,7 @@ com\exam\service\AnswerService.class
 com\exam\repository\PriceItemRepository.class
 com\exam\service\attendance\AttendanceService$CheckInResult.class
 com\exam\model\academic\GradeBand.class
+com\exam\service\SystemSettingService$1.class
 com\exam\service\subscription\SubscriptionKey.class
 com\exam\service\ReportService.class
 com\exam\service\reports\Period.class
@@ -602,6 +603,7 @@ com\exam\service\materials\AssignmentService$MarkRequest.class
 com\exam\controller\CategoryController.class
 com\exam\controller\DataToolsController.class
 com\exam\helper\StringListConverter$1.class
+com\exam\service\attendance\AttendanceService$Person.class
 com\exam\model\fees\WalletWithdrawal$Status.class
 com\exam\service\academic\AcademicSessionService.class
 com\exam\service\Impl\GeminiAIService.class
@@ -718,6 +720,7 @@ com\exam\model\fees\FeeComponent.class
 com\exam\controller\GradeController.class
 com\exam\service\reports\ReportPdfService$Cell.class
 com\exam\service\reports\ReportPdfService.class
+com\exam\service\SystemSettingService$CachedValue.class
 com\exam\service\attendance\AttendanceService$PlaceCheck.class
 com\exam\service\materials\AssignmentAiMarker$1.class
 com\exam\DTO\ForgotPasswordRequest.class

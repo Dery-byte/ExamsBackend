@@ -15,6 +15,13 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     @Query("SELECT r FROM AttendanceRecord r JOIN FETCH r.student WHERE r.session.id = :sessionId")
     List<AttendanceRecord> forSession(@Param("sessionId") Long sessionId);
 
+    /**
+     * [record, studentId, firstname, lastname, username] for the class list: the student's name without loading
+     * the whole User (whose eager relations cost a query per student). The record's student stays a proxy.
+     */
+    @Query("SELECT r, u.id, u.firstname, u.lastname, u.username FROM AttendanceRecord r JOIN r.student u WHERE r.session.id = :sessionId")
+    List<Object[]> forSessionWithNames(@Param("sessionId") Long sessionId);
+
     Optional<AttendanceRecord> findBySession_IdAndStudent_Id(Long sessionId, Long studentId);
 
     @Query("SELECT COUNT(r) > 0 FROM AttendanceRecord r WHERE r.session.id = :sessionId AND r.deviceHash = :hash AND r.student.id <> :studentId")

@@ -416,6 +416,63 @@ class AttendanceJpaTest {
         assertThat(checkIn(kofi, id, code(id), 5, 10, KOFI_PHONE).reason()).isEqualTo("CLOSED");
     }
 
+    /**
+     * The student's "classes open for me" comes from one query (openFor) instead of testing every running
+     * meeting with onRoster. Both must agree for every student and meeting: registered this session, registered
+     * with no session (older data), registered only in an earlier session, not registered, another level, staff.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void theOpenClassesQueryAgreesWithTheClassLists(@Autowired com.exam.repository.AcademicSessionRepository academicSessionRepo,
+                                                    @Autowired com.exam.repository.AttendanceSessionRepository sessionRepo) {
+        AcademicSession earlier = new AcademicSession();
+        earlier.setName("2020/2021");
+        earlier.setStartDate(java.time.LocalDate.of(2020, 8, 1));
+        earlier = academicSessionRepo.save(earlier);
+
+        User legacy = user("10005", Role.NORMAL, cs);          // registered with no session: counts
+        registrations.save(new Registered_courses(null, new Date(), course, legacy));
+        User old = user("10006", Role.NORMAL, cs);             // registered only in an earlier session: doesn't
+        Registered_courses past = new Registered_courses(null, new Date(), course, old);
+        past.setSession(earlier);
+        registrations.save(past);
+        User senior = user("10007", Role.NORMAL, cs);          // registered, but Level 300: course yes, Level 200 programme no
+        senior.setCurrentLevel(300);
+        senior = users.save(senior);
+        Registered_courses sr = new Registered_courses(null, new Date(), course, senior);
+        sr.setSession(academicSessions.current());
+        registrations.save(sr);
+
+        Long courseMeeting = openCourse("PROJECTOR", 60, false);
+        policies.saveSystem(sa, new AttendancePolicyService.PolicyRequest("PROGRAMME",
+                null, null, null, null, null, null, null, null, null, null, null, null));
+        Long programmeMeeting = (Long) attendance.open(hod, new AttendanceService.OpenRequest("PROGRAMME", null, cs.getId(), 200, null,
+                LAT, LNG, 8.0, null, 60, "Assembly", null, false)).get("id");
+
+        for (User u : List.of(ama, kofi, esi, outsider, legacy, old, senior, lecturer, hod)) {
+            Set<Long> shown = new HashSet<>();
+            ((List<Map<String, Object>>) attendance.openForStudent(u).get("sessions")).forEach(m -> shown.add((Long) m.get("sessionId")));
+            Set<Long> expected = new HashSet<>();
+            for (Long id : List.of(courseMeeting, programmeMeeting))
+                if (attendance.onRoster(u, sessionRepo.findById(id).orElseThrow())) expected.add(id);
+            assertThat(shown).as(u.getUsername()).isEqualTo(expected);
+        }
+        // Spot checks, so the comparison above isn't comparing two empty sets
+        assertThat(attendance.onRoster(ama, sessionRepo.findById(courseMeeting).orElseThrow())).isTrue();
+        assertThat(attendance.onRoster(legacy, sessionRepo.findById(courseMeeting).orElseThrow())).isTrue();
+        assertThat(attendance.onRoster(old, sessionRepo.findById(courseMeeting).orElseThrow())).isFalse();
+        assertThat(attendance.onRoster(outsider, sessionRepo.findById(programmeMeeting).orElseThrow())).isTrue();
+        assertThat(attendance.onRoster(senior, sessionRepo.findById(programmeMeeting).orElseThrow())).isFalse();
+
+        // The lecturer's class list names the same people, with the same name and index number as before
+        Map<String, Object> list = attendance.detail(lecturer, courseMeeting);
+        assertThat((List<Map<String, Object>>) list.get("students")).extracting(m -> m.get("indexNo"))
+                .containsExactlyInAnyOrder("10001", "10002", "10003", "10005", "10007");
+        assertThat(row(courseMeeting, ama).get("name")).isEqualTo("10001 Test");
+        assertThat(list.get("rosterSize")).isEqualTo(5);
+        assertThat(attendance.codeView(lecturer, courseMeeting).get("rosterSize")).isEqualTo(5);
+    }
+
     @Test
     void theDepartmentModeDecidesWhoStartsSessions() {
         AttendancePolicyService.PolicyRequest programme = new AttendancePolicyService.PolicyRequest("PROGRAMME",
