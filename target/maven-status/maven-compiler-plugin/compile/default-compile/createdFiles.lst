@@ -63,6 +63,7 @@ com\exam\controller\FeatureController.class
 com\exam\service\reports\QuestionPapers$Choice.class
 com\exam\service\reports\ResultsReports$1Term.class
 com\exam\service\comms\AnalyticsService.class
+com\exam\config\ServerHealthLog.class
 com\exam\controller\CommsController.class
 com\exam\controller\TermCalendarController$TermRequest.class
 com\exam\controller\QuizResultsController.class

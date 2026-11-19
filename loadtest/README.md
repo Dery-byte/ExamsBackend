@@ -67,3 +67,34 @@ Any request that fails is also printed in the k6 output (`save answer → HTTP 5
 ## 5. Afterwards
 
 Delete the test quizzes and their attempts, and deactivate the test students (or keep them for the next test).
+
+## Attendance test (`attendance-load.js`)
+
+Acts like a class checking in at the same moment:
+- **Lecturer:** a test lecturer starts a class for the course at a made-up spot. Their session page refreshes the class list every 5 s and the projector refreshes the code every 2 s.
+- **Students:** they arrive over 3 minutes and open the attendance card, which asks whether a class is open. Each sends their location a couple of times, types the code on the projector and checks in from inside the room on their own (made-up) phone. The card then stays open, asking every 15 s and sending location every 20–60 s.
+- **Bystanders (optional, `-e BYSTANDERS=200`):** students elsewhere sitting on their dashboard, whose card asks every 60 s.
+
+**Before the first run:**
+- **Test lecturer:** a lecturer account that teaches the test course and that nobody is signed in to. Signing in here signs it out everywhere else.
+- **Attendance switched on** for the test course's department, set to take attendance per course.
+- **Test students:** each gets its "phone" linked (`lt-LOADTEST001-phone` …). Phone links are reset on the session page, or left as they are for the next run.
+
+```
+# Smoke test: 10 students, 3 minutes
+k6 run -e PIN_IP=216.24.57.16 -e LECTURER_USER=... -e LECTURER_PASS=... -e COURSE_ID=52 -e STUDENTS=10 -e ARRIVE=30 -e MINUTES=3 attendance-load.js
+
+# A full class of 300 checking in
+k6 run -e PIN_IP=216.24.57.16 -e LECTURER_USER=... -e LECTURER_PASS=... -e COURSE_ID=52 -e STUDENTS=300 -e MINUTES=10 attendance-load.js
+
+# 200 checking in, while 100 others sit on their dashboards (the 300 test accounts are shared between them)
+k6 run -e PIN_IP=216.24.57.16 -e LECTURER_USER=... -e LECTURER_PASS=... -e COURSE_ID=52 -e STUDENTS=200 -e BYSTANDERS=100 -e MINUTES=10 attendance-load.js
+```
+
+The test ends the class it started (`-e KEEP=yes` leaves it running). The end of the output prints the class's counts.
+
+**The run passes if every threshold has a ✓:**
+- `check-in` and `class-list` p(95) under 3 s;
+- `server_errors_5xx` and `attendance_steps_failed` under 5.
+
+`checked_in` should equal STUDENTS. `code_expired_retried` counts students whose code changed while they typed it and who then typed the new one. That's normal and not a failure.
