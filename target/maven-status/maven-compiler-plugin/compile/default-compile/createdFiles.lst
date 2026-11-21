@@ -538,6 +538,7 @@ com\exam\DTO\QuestionEvalRequest.class
 com\exam\DTO\QuizPublicSummaryDTO.class
 com\exam\service\fees\ReceiptService.class
 com\exam\token\TokenType.class
+com\exam\controller\SuperAdminOverviewController.class
 com\exam\service\fees\ResultsHoldService$1.class
 com\exam\model\exam\Answer.class
 com\exam\model\fees\FeeArrears$Kind.class

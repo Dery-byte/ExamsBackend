@@ -67,4 +67,7 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     @Modifying
     @Query("DELETE FROM AttendanceRecord r WHERE r.session.id = :sessionId")
     void deleteBySession(@Param("sessionId") Long sessionId);
+
+    /** Super Admin overview chart: class check-ins within [from, to]. */
+    long countByFirstCheckAtBetween(java.time.LocalDateTime from, java.time.LocalDateTime to);
 }

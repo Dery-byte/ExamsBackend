@@ -39,4 +39,7 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     @Modifying
     @Query("DELETE FROM QuizAttempt a WHERE a.quiz.qId = :quizId")
     void deleteByQuizId(@Param("quizId") Long quizId);
+
+    /** Super Admin overview chart: attempts handed in within [from, to]. */
+    long countBySubmittedAtBetween(java.time.LocalDateTime from, java.time.LocalDateTime to);
 }

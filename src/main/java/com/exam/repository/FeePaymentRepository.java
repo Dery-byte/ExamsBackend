@@ -146,4 +146,7 @@ public interface FeePaymentRepository extends JpaRepository<FeePayment, Long> {
             + "AND p.paidAt >= :from AND p.paidAt < :to ORDER BY p.paidAt DESC")
     List<FeePayment> receivedBetween(@Param("status") FeePayment.Status status, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
+
+    /** Super Admin overview chart: payments of this status received in [from, to]. */
+    long countByStatusAndPaidAtBetween(FeePayment.Status status, LocalDateTime from, LocalDateTime to);
 }
