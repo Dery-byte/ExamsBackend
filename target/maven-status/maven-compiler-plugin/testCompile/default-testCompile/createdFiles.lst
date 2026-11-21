@@ -1,4 +1,5 @@
 com\exam\service\GradingPresetTest.class
+com\exam\config\RateLimiterTest.class
 com\exam\service\boarding\BoardingJpaTest.class
 com\exam\service\comms\NotificationServiceTest.class
 com\exam\service\fees\FeeFlowJpaTest.class
@@ -16,6 +17,7 @@ com\exam\service\QuizServiceAccessTest.class
 com\exam\ExamSessionIntegrationTest.class
 com\exam\service\AcademicRecordServiceTest.class
 com\exam\service\examops\ProctoringResetTest.class
+com\exam\service\examops\ResultWithholdServiceTest.class
 com\exam\service\QuizTimerViolationResetTest.class
 com\exam\service\attendance\AttendanceGeoTest.class
 com\exam\service\AnswerMatcherTest.class
@@ -76,5 +78,6 @@ com\exam\helper\TheoryCriteriaVisibilityTest.class
 com\exam\service\admin\ConfigTransferServiceTest.class
 com\exam\SubscriptionEnforcementIntegrationTest.class
 com\exam\WalletStaffSpendIntegrationTest.class
+com\exam\service\examops\ResultWithholdJpaTest.class
 com\exam\config\JacksonProxyJpaTest.class
 com\exam\service\admin\BulkPasswordServiceTest.class

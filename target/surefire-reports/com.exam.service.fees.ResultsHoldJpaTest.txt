@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.exam.service.fees.ResultsHoldJpaTest
 -------------------------------------------------------------------------------
-Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.2 s - in com.exam.service.fees.ResultsHoldJpaTest
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.598 s - in com.exam.service.fees.ResultsHoldJpaTest

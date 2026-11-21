@@ -19,6 +19,9 @@ public class AnswerController {
     private final AnswerService answerService;
     @Autowired
     private final UserDetailsService userDetailsService;
+    @Autowired
+    private com.exam.service.examops.ResultWithholdService resultWithholdService;
+
     public AnswerController(AnswerService answerService, UserDetailsService userDetailsService) {
         this.answerService = answerService;
         this.userDetailsService = userDetailsService;
@@ -45,13 +48,22 @@ public class AnswerController {
             @PathVariable Long quizId,
             Principal principal) {
         User user = (User) this.userDetailsService.loadUserByUsername(principal.getName());
+        resultWithholdService.requireVisible(user, user.getId(), quizId);
         return ResponseEntity.ok(answerService.getAnswersByUserAndQuiz(user.getId(), quizId));
     }
 
     @GetMapping("/answers/by-user-quiz/{userId}/{quizId}")
-    public ResponseEntity<List<AnswerDTO>> getStudentAnswers(
+    public ResponseEntity<?> getStudentAnswers(
             @PathVariable Long userId,
-            @PathVariable Long quizId) {
+            @PathVariable Long quizId,
+            Principal principal) {
+        User caller = principal == null ? null : (User) this.userDetailsService.loadUserByUsername(principal.getName());
+        if (caller == null) return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).body(java.util.Map.of("message", "Please sign in."));
+        // A student may only read their own answers; staff may read any student's
+        if (caller.getRole() == com.exam.model.Role.NORMAL && !caller.getId().equals(userId)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(java.util.Map.of("message", "You can only view your own results."));
+        }
+        resultWithholdService.requireVisible(caller, userId, quizId);
         return ResponseEntity.ok(answerService.getAnswersByUserAndQuiz(userId, quizId));
     }
 

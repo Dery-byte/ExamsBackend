@@ -118,7 +118,9 @@ public class QuizDeletionService {
         run("DELETE FROM TheoryProgress tp WHERE tp.quiz.qId = :id", quizId);
         run("DELETE FROM QuizTimer qt WHERE qt.quiz.qId = :id", quizId);
         run("DELETE FROM ProctoringEvent pe WHERE pe.quiz.qId = :id", quizId);
+        run("DELETE FROM ResultWithhold rw WHERE rw.quiz.qId = :id", quizId);
         run("DELETE FROM QuizUnlock qu WHERE qu.quiz.qId = :id", quizId);
+        run("DELETE FROM QuizCodeLock cl WHERE cl.quiz.qId = :id", quizId);
         run("DELETE FROM QuizAttempt a WHERE a.quiz.qId = :id", quizId);
         run("DELETE FROM report r WHERE r.quiz.qId = :id", quizId);
         run("DELETE FROM TheoryQuestions t WHERE t.quiz.qId = :id", quizId);

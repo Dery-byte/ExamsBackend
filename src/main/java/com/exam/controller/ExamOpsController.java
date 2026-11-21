@@ -35,6 +35,8 @@ public class ExamOpsController {
     @Autowired private RemarkService remarkService;
     @Autowired private com.exam.service.features.FeatureService featureService;
     @Autowired private QuizTimerService quizTimerService;
+    @Autowired private ResultWithholdService resultWithholdService;
+    @Autowired private QuizCodeLockService quizCodeLockService;
 
     // ── Timetable ────────────────────────────────────────────────────────────
 
@@ -160,6 +162,54 @@ public class ExamOpsController {
     @GetMapping("/proctoring/quiz/{quizId}/student/{studentId}")
     public ResponseEntity<?> proctoringTimeline(@PathVariable Long quizId, @PathVariable Long studentId) {
         return withUser(u -> ResponseEntity.ok(proctoringService.studentTimeline(u, quizId, studentId)));
+    }
+
+    /** Staff: a student locked out after too many wrong access codes may enter the code again. */
+    @PostMapping("/proctoring/quiz/{quizId}/student/{studentId}/allow-code")
+    public ResponseEntity<?> allowCodeAttempts(@PathVariable Long quizId, @PathVariable Long studentId, HttpServletRequest http) {
+        http.setAttribute(com.exam.config.AuditInterceptor.AUDIT_DETAILS, "quizId=" + quizId + ", studentId=" + studentId);
+        return withUser(u -> ResponseEntity.ok(quizCodeLockService.allowAgain(u, quizId, studentId)));
+    }
+
+    // ── Withheld results ─────────────────────────────────────────────────────
+
+    /**
+     * Staff, for Quiz Review: whether they may withhold, the quiz's withheld results (by student),
+     * each student's current violation count, and the time allowed (to compare with time used).
+     */
+    @GetMapping("/results/quiz/{quizId}/review-info")
+    public ResponseEntity<?> resultReviewInfo(@PathVariable Long quizId) {
+        return withUser(u -> {
+            Map<String, Object> report = proctoringService.quizReport(u, quizId);   // also checks access to the quiz
+            Map<Long, Object> violations = new java.util.LinkedHashMap<>();
+            for (Object o : (java.util.List<?>) report.get("students")) {
+                Map<?, ?> row = (Map<?, ?>) o;
+                violations.put((Long) row.get("studentId"), row.get("violations"));
+            }
+            Map<String, Object> out = new java.util.LinkedHashMap<>();
+            out.put("canWithhold", resultWithholdService.mayWithhold(u));
+            out.put("withheld", resultWithholdService.withheldForQuiz(quizId));
+            out.put("violations", violations);
+            out.put("allowedSeconds", quizTimerService.allowedSeconds(quizId));
+            return ResponseEntity.ok(out);
+        });
+    }
+
+    /** Staff: hold back one student's result for the quiz (reason required, never shown to the student). */
+    @PostMapping("/results/quiz/{quizId}/student/{studentId}/withhold")
+    public ResponseEntity<?> withholdResult(@PathVariable Long quizId, @PathVariable Long studentId,
+                                            @RequestBody(required = false) Map<String, String> body, HttpServletRequest http) {
+        String reason = body == null ? null : body.get("reason");
+        http.setAttribute(com.exam.config.AuditInterceptor.AUDIT_DETAILS,
+                "quizId=" + quizId + ", studentId=" + studentId + ", reason=" + (reason == null ? "" : reason.trim()));
+        return withUser(u -> ResponseEntity.ok(resultWithholdService.withhold(u, quizId, studentId, reason)));
+    }
+
+    /** Staff: release a withheld result (the waiting result email and notice go out if it was reviewed). */
+    @PostMapping("/results/quiz/{quizId}/student/{studentId}/release")
+    public ResponseEntity<?> releaseResult(@PathVariable Long quizId, @PathVariable Long studentId, HttpServletRequest http) {
+        http.setAttribute(com.exam.config.AuditInterceptor.AUDIT_DETAILS, "quizId=" + quizId + ", studentId=" + studentId);
+        return withUser(u -> ResponseEntity.ok(resultWithholdService.release(u, quizId, studentId)));
     }
 
     // ── Re-mark requests ─────────────────────────────────────────────────────

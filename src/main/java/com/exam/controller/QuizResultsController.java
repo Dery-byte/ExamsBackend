@@ -19,6 +19,8 @@ public class QuizResultsController {
 
     @Autowired
     private ReportService reportService;
+    @Autowired
+    private com.exam.service.examops.ResultWithholdService resultWithholdService;
 
     /**
      * Get all reports and answers for a quiz
@@ -58,6 +60,7 @@ public class QuizResultsController {
     public ResponseEntity<?> getMyQuizReports(
             @PathVariable Long quizId,
             @AuthenticationPrincipal User currentUser) {
+        resultWithholdService.requireVisible(currentUser, currentUser.getId(), quizId);
         try {
             List<Map<String, Object>> reports = reportService
                     .getUserReportsForQuiz(currentUser.getId(), quizId);
@@ -82,6 +85,7 @@ public class QuizResultsController {
     public ResponseEntity<?> getMyLatestQuizReport(
             @PathVariable Long quizId,
             @AuthenticationPrincipal User currentUser) {
+        resultWithholdService.requireVisible(currentUser, currentUser.getId(), quizId);
         try {
             Map<String, Object> result = reportService
                     .getLatestReportForQuiz(currentUser.getId(), quizId);

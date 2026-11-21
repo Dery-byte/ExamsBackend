@@ -46,6 +46,9 @@ public class SystemSettingService {
     /** Super Admin switches: whether HODs / lecturers may reset a student's violation count during a quiz (Super Admin always may). */
     public static final String VIOLATION_RESET_ADMIN    = "VIOLATION_RESET_ADMIN";
     public static final String VIOLATION_RESET_LECTURER = "VIOLATION_RESET_LECTURER";
+    /** Super Admin switches: whether HODs / lecturers may withhold one student's quiz result (Super Admin always may). */
+    public static final String RESULT_WITHHOLD_ADMIN    = "RESULT_WITHHOLD_ADMIN";
+    public static final String RESULT_WITHHOLD_LECTURER = "RESULT_WITHHOLD_LECTURER";
 
     /** Super Admin switches for fees: the Fees page for students, paying online, paying in parts. */
     public static final String FEES_VISIBLE_STUDENT  = "FEES_VISIBLE_STUDENT";
@@ -112,7 +115,7 @@ public class SystemSettingService {
             systemSettingRepository.save(new SystemSetting(EXAM_LOCKOUT_RUNS_WHILE_AWAY, "false"));
         }
         for (String key : List.of(MARKS_SHEET_VISIBLE_ADMIN, MARKS_SHEET_VISIBLE_LECTURER, MARKS_SHEET_VISIBLE_STUDENT,
-                VIOLATION_RESET_ADMIN, VIOLATION_RESET_LECTURER)) {
+                VIOLATION_RESET_ADMIN, VIOLATION_RESET_LECTURER, RESULT_WITHHOLD_ADMIN, RESULT_WITHHOLD_LECTURER)) {
             if (!systemSettingRepository.existsById(key)) {
                 systemSettingRepository.save(new SystemSetting(key, "true"));
             }

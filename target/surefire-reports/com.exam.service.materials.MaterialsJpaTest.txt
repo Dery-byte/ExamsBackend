@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.exam.service.materials.MaterialsJpaTest
 -------------------------------------------------------------------------------
-Tests run: 15, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 10.637 s - in com.exam.service.materials.MaterialsJpaTest
+Tests run: 15, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.735 s - in com.exam.service.materials.MaterialsJpaTest

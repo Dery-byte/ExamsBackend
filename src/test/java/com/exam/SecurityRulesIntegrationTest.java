@@ -380,12 +380,16 @@ class SecurityRulesIntegrationTest {
     @Test
     void repeatedWrongPasswordsLockTheAccount() throws Exception {
         String body = "{\"username\":\"stu\",\"password\":\"wrong\"}";
-        int last = 0;
+        org.springframework.mock.web.MockHttpServletResponse last = null;
         for (int i = 0; i < 6; i++) {
             last = mvc.perform(post("/api/v1/auth/authenticate").contentType(MediaType.APPLICATION_JSON).content(body))
-                    .andReturn().getResponse().getStatus();
+                    .andReturn().getResponse();
         }
-        assertThat(last).isEqualTo(429);
+        assertThat(last.getStatus()).isEqualTo(429);
+        // The page counts down from this: never more than 5 minutes
+        long wait = new com.fasterxml.jackson.databind.ObjectMapper().readTree(last.getContentAsString()).path("retryAfterSeconds").asLong();
+        assertThat(wait).isBetween(1L, 300L);
+        assertThat(last.getHeader("Retry-After")).isEqualTo(String.valueOf(wait));
     }
 
     @Test
@@ -485,5 +489,73 @@ class SecurityRulesIntegrationTest {
         assertThat(status(get("/api/v1/developer/health").with(as(developer)))).isEqualTo(200);
         developerEmails.deleteAll();
         assertThat(status(get("/api/v1/developer/health").with(as(developer)))).isEqualTo(403);
+    }
+
+    /** Students read only their own results and answers; staff can read any student's. */
+    @Test
+    void aStudentCanOnlyReadTheirOwnResults() throws Exception {
+        // Someone else's: refused
+        assertThat(status(get("/api/v1/auth/getReportsByUser/" + other.getId()).with(as(student)))).isEqualTo(403);
+        assertThat(status(get("/api/v1/auth/getReportByUidAndQid/" + other.getId() + "/1").with(as(student)))).isEqualTo(403);
+        assertThat(status(get("/api/v1/auth/answers/by-user-quiz/" + other.getId() + "/1").with(as(student)))).isEqualTo(403);
+        // Their own: allowed
+        assertThat(status(get("/api/v1/auth/getReportsByUser/" + student.getId()).with(as(student)))).isEqualTo(200);
+        assertThat(status(get("/api/v1/auth/answers/by-user-quiz/" + student.getId() + "/1").with(as(student)))).isEqualTo(200);
+        // Staff: allowed
+        assertThat(status(get("/api/v1/auth/getReportsByUser/" + student.getId()).with(as(lecturer)))).isEqualTo(200);
+        assertThat(status(get("/api/v1/auth/answers/by-user-quiz/" + student.getId() + "/1").with(as(lecturer)))).isEqualTo(200);
+    }
+
+    @Autowired com.exam.repository.QuizRepository quizzes;
+    @Autowired com.exam.repository.QuizCodeLockRepository codeLocks;
+    @Autowired com.exam.repository.QuizUnlockRepository quizUnlocks;
+    @Autowired com.exam.config.RateLimiter rateLimiter;
+
+    /** 10 wrong access codes lock the code box for the quiz until the lecturer allows attempts again. */
+    @Test
+    void tenWrongAccessCodesLockTheQuizUntilStaffAllowAgain() throws Exception {
+        com.exam.model.exam.Quiz q = new com.exam.model.exam.Quiz();
+        q.setTitle("Locked code test");
+        q.setQuizTime("45");
+        q.setQuizpassword("RIGHT-CODE");
+        q.setQuizType(com.exam.model.QuizType.OBJ);
+        q.setActive(true);
+        q.setUser(lecturer);                 // the lecturer's own quiz
+        q = quizzes.save(q);
+        String unlock = "/api/v1/auth/quiz/" + q.getqId() + "/unlock";
+        String wrong = "{\"password\":\"nope\"}";
+        String right = "{\"password\":\"RIGHT-CODE\"}";
+        com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
+        try {
+            for (int i = 1; i <= 9; i++) {
+                if (i % 5 == 0) rateLimiter.reset("quiz-unlock:" + student.getId() + ":" + q.getqId());   // the per-minute limit is tested elsewhere
+                var r = mvc.perform(post(unlock).with(as(student)).contentType(MediaType.APPLICATION_JSON).content(wrong)).andReturn().getResponse();
+                assertThat(r.getStatus()).isEqualTo(403);
+                assertThat(json.readTree(r.getContentAsString()).path("triesLeft").asInt()).isEqualTo(10 - i);
+            }
+            rateLimiter.reset("quiz-unlock:" + student.getId() + ":" + q.getqId());
+            // The 10th wrong code locks it; after that even the right code is refused
+            assertThat(mvc.perform(post(unlock).with(as(student)).contentType(MediaType.APPLICATION_JSON).content(wrong))
+                    .andReturn().getResponse().getStatus()).isEqualTo(423);
+            var locked = mvc.perform(post(unlock).with(as(student)).contentType(MediaType.APPLICATION_JSON).content(right)).andReturn().getResponse();
+            assertThat(locked.getStatus()).isEqualTo(423);
+            assertThat(json.readTree(locked.getContentAsString()).path("code").asText()).isEqualTo("CODE_LOCKED");
+
+            // The lecturer sees the student in the proctoring report
+            var report = json.readTree(mvc.perform(get("/api/proctoring/quiz/" + q.getqId()).with(as(lecturer))).andReturn().getResponse().getContentAsString());
+            assertThat(report.path("codeLocks").get(0).path("studentId").asLong()).isEqualTo(student.getId());
+
+            // A student cannot let themselves in; the lecturer can
+            String allow = "/api/proctoring/quiz/" + q.getqId() + "/student/" + student.getId() + "/allow-code";
+            assertThat(status(post(allow).with(as(student)))).isEqualTo(403);
+            assertThat(status(post(allow).with(as(lecturer)))).isEqualTo(200);
+            assertThat(mvc.perform(post(unlock).with(as(student)).contentType(MediaType.APPLICATION_JSON).content(right))
+                    .andReturn().getResponse().getStatus()).isEqualTo(200);
+        } finally {
+            codeLocks.deleteAll();
+            quizUnlocks.deleteAll();
+            quizzes.delete(q);
+            rateLimiter.reset("quiz-unlock:" + student.getId() + ":" + q.getqId());
+        }
     }
 }

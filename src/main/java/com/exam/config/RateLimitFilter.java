@@ -20,7 +20,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final long MIN = 60_000L;
     private static final List<Limit> LIMITS = List.of(
-            new Limit("POST", "/api/v1/auth/authenticate",          30, 10 * MIN, "login"),
+            // Counted over 5 minutes, so a refused sign-in never waits more than 5 minutes
+            new Limit("POST", "/api/v1/auth/authenticate",          30,  5 * MIN, "login"),
             new Limit("POST", "/api/v1/auth/register",              10, 60 * MIN, "register"),
             new Limit("POST", "/api/v1/auth/register/super-admin",   5, 60 * MIN, "register-sa"),
             new Limit("POST", "/api/v1/auth/forgotten-password",    10, 15 * MIN, "reset"),
@@ -52,8 +53,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 response.setStatus(429);
                 response.setHeader("Retry-After", String.valueOf(wait));
                 response.setContentType("application/json");
-                response.getWriter().write("{\"message\":\"Too many attempts. Please wait " + Math.max(1, wait / 60)
-                        + " minute(s) and try again.\"}");
+                // retryAfterSeconds lets the page show a countdown
+                response.getWriter().write("{\"message\":\"Too many attempts. Please wait " + RateLimiter.describeWait(wait)
+                        + " and try again.\",\"retryAfterSeconds\":" + wait + "}");
                 return;
             }
             break;

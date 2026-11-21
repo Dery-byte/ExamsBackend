@@ -281,14 +281,18 @@ public class MarksEntryController {
 
     @PostMapping("/{sheetId}/sync-marks/{studentId}")
     public ResponseEntity<?> syncMarksForStudent(@PathVariable Long sheetId, @PathVariable Long studentId, @RequestParam Long sectionId) {
-        marksEntryService.syncSystemMarksForStudent(sheetId, studentId, sectionId);
-        return ResponseEntity.ok(java.util.Map.of("message", "Marks synced successfully for student"));
+        int withheld = marksEntryService.syncSystemMarksForStudent(sheetId, studentId, sectionId);
+        return ResponseEntity.ok(java.util.Map.of("message", withheld > 0
+                ? "Marks synced. " + withheld + " course mark(s) left blank because a quiz result is withheld."
+                : "Marks synced successfully for student", "withheld", withheld));
     }
 
     @PostMapping("/{sheetId}/sync-marks/bulk")
     public ResponseEntity<?> syncMarksBulk(@PathVariable Long sheetId, @RequestParam Long sectionId) {
-        marksEntryService.syncSystemMarksBulk(sheetId, sectionId);
-        return ResponseEntity.ok(java.util.Map.of("message", "Marks synced successfully for all students"));
+        int withheld = marksEntryService.syncSystemMarksBulk(sheetId, sectionId);
+        return ResponseEntity.ok(java.util.Map.of("message", withheld > 0
+                ? "Marks synced. " + withheld + " student mark(s) left blank because a quiz result is withheld."
+                : "Marks synced successfully for all students", "withheld", withheld));
     }
 
     @PostMapping("/{sheetId}/sections")

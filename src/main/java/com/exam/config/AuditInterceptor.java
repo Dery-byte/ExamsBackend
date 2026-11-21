@@ -56,6 +56,9 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
     private static final List<Rule> RULES = List.of(
             // Marks sheets
             r("POST",   ".*/proctoring/quiz/\\d+/student/\\d+/reset-violations$", "Reset a student's quiz violations"),
+            r("POST",   ".*/results/quiz/\\d+/student/\\d+/withhold$", "Withheld a student's quiz result"),
+            r("POST",   ".*/proctoring/quiz/\\d+/student/\\d+/allow-code$", "Let a student enter a quiz access code again"),
+            r("POST",   ".*/results/quiz/\\d+/student/\\d+/release$", "Released a withheld quiz result"),
             r("POST",   ".*/marks/sheet/activate$",                 "Created marks sheet"),
             r("POST",   ".*/marks/sheet/\\d+/save$",                "Saved marks"),
             r("POST",   ".*/marks/sheet/\\d+/submit$",              "Submitted marks sheet"),

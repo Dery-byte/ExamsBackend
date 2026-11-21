@@ -59,6 +59,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\examops\QuestionBankService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\reports\AccountsReports.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\fees\FinanceAccess.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\ResultWithholdRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\UpdateQuestionDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\fees\FeeRefund.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\SectionALimit.java
@@ -192,6 +193,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\QuizTimerService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\GeminiConfig.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\academic\GradingPreset.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\examops\QuizCodeLock.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\materials\TermCalendarRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\CategoryWithQuizzesDTO.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\MarksEntryService.java
@@ -231,6 +233,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\reports\Lookups.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\Providers.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\PdfReportService.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\examops\QuizCodeLockService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\SemesterSheetRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\config\SecurityConfiguration.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\ReceiptSequenceRepository.java
@@ -239,6 +242,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\exam\
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\materials\AssignmentService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\academic\SchoolWords.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\fees\CashUp.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\examops\ResultWithholdService.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\AnnouncementRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\fees\FeeAllocationBackfill.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\OptionOrder.java
@@ -397,6 +401,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\MNo
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\AnswerController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\controller\DepartmentReportsController.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\AnswerStatus.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\QuizCodeLockRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\fees\FeeLedger.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\helper\CustomLocalDateDeserializer.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\ResultsFeeHoldRepository.java
@@ -521,5 +526,6 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\service\aca
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\attendance\Classroom.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\exception\ResetPasswordTokenExpiredException.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\DTO\TheoryProgressDTO.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\model\examops\ResultWithhold.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\materials\MaterialViewRepository.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\main\java\com\exam\repository\QuestionsRepository.java

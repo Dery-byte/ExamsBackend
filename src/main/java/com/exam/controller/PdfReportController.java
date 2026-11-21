@@ -18,6 +18,7 @@ public class PdfReportController {
 
     @Autowired private PdfReportService pdfReportService;
     @Autowired private UserDetailsService userDetailsService;
+    @Autowired private com.exam.service.examops.ResultWithholdService resultWithholdService;
 
     @Autowired private QuizService quizService;
 
@@ -38,6 +39,10 @@ public class PdfReportController {
             System.out.println("\n[PDF] ▶ Step 1: Resolving user from principal: " + principal.getName());
             User user = (User) userDetailsService.loadUserByUsername(principal.getName());
             System.out.println("[PDF] ✔ Step 1 Done — userId=" + user.getId());
+            if (com.exam.service.examops.ResultWithholdService.hidesFrom(user) && resultWithholdService.isWithheld(user.getId(), quizId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(java.util.Map.of("code", "RESULT_WITHHELD", "withheld", true,
+                        "message", com.exam.service.examops.ResultWithholdService.STUDENT_MESSAGE));
+            }
 
             System.out.println("[PDF] ▶ Step 2: Calling pdfReportService.generateReportPdf(quizId=" + quizId + ", userId=" + user.getId() + ")");
             byte[] pdf = pdfReportService.generateReportPdf(quizId, user.getId());

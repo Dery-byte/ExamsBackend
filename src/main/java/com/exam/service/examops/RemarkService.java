@@ -33,6 +33,7 @@ public class RemarkService {
 
     @Autowired private RemarkRequestRepository remarkRepository;
     @Autowired private ReportRepository reportRepository;
+    @Autowired private com.exam.repository.ResultWithholdRepository resultWithholdRepository;
     @Autowired private NotificationService notificationService;
     @Autowired private com.exam.repository.UserRepository userRepository;
     @Autowired private com.exam.service.features.FeatureService featureService;
@@ -47,6 +48,8 @@ public class RemarkService {
                 .orElseThrow(() -> new IllegalArgumentException("Result not found."));
         if (report.getUser() == null || !report.getUser().getId().equals(student.getId()))
             throw new AccessDeniedException("This is not your result.");
+        if (report.getQuiz() != null && resultWithholdRepository.existsByQuiz_qIdAndStudent_IdAndActiveTrue(report.getQuiz().getqId(), student.getId()))
+            throw new IllegalArgumentException(com.exam.service.examops.ResultWithholdService.STUDENT_MESSAGE);
         if (!Boolean.TRUE.equals(report.getIsReviewed()))
             throw new IllegalArgumentException("You can request a re-mark once your script has been reviewed.");
         if (remarkRepository.existsByReport_Id(reportId))

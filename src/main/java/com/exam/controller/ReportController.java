@@ -51,6 +51,27 @@ private ReportService reportService;
     private com.exam.service.ReportEmailService reportEmailService;
     @Autowired
     private com.exam.service.SystemSettingService systemSettingService;
+    @Autowired
+    private com.exam.service.examops.ResultWithholdService resultWithholdService;
+
+    /** The signed-in user, or null. */
+    private User caller(Principal principal) {
+        if (principal == null) return null;
+        try { return (User) userDetailsService.loadUserByUsername(principal.getName()); } catch (Exception e) { return null; }
+    }
+
+    /**
+     * A student may only read their own results; staff may read any student's. Returns the 403 to send,
+     * or null when the caller may go on.
+     */
+    private ResponseEntity<?> refuseOtherStudent(User caller, Number studentId) {
+        if (caller == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Please sign in."));
+        boolean student = caller.getRole() == com.exam.model.Role.NORMAL;
+        if (student && (studentId == null || !caller.getId().equals(studentId.longValue()))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "You can only view your own results."));
+        }
+        return null;
+    }
     public ReportController(UserDetailsService userDetailsService) {
         this.userDetailsService = userDetailsService;
     }
@@ -158,20 +179,25 @@ public ResponseEntity<List<Report>> getQuizIds(@PathVariable("quiz_Id") Long qui
 
 // Reports by user ID
     @GetMapping("/getReportsByUser/{user_Id}")
-    public ResponseEntity<List<Report>>  getReportUser_Id(@PathVariable("user_Id") Integer user_Id){
+    public ResponseEntity<?>  getReportUser_Id(@PathVariable("user_Id") Integer user_Id, Principal principal){
+        ResponseEntity<?> refused = refuseOtherStudent(caller(principal), user_Id);
+        if (refused != null) return refused;
         User user = authenticationService.getUserById(user_Id);
         List<Report> reports = reportService.reportByUser_id(user);
-        return ResponseEntity.ok(reports);
+        // A student sees "withheld" in place of a result staff are holding back
+        return ResponseEntity.ok(resultWithholdService.forViewer(caller(principal), reports));
     }
 
     @GetMapping("/getReportByUidAndQid/{user_Id}/{quiz_Id}")
-    public ResponseEntity<?> getQuizResultsByUserAndType( @PathVariable("user_Id") Integer user_Id, @PathVariable("quiz_Id") Long quiz_Id){
+    public ResponseEntity<?> getQuizResultsByUserAndType( @PathVariable("user_Id") Integer user_Id, @PathVariable("quiz_Id") Long quiz_Id, Principal principal){
+        ResponseEntity<?> refused = refuseOtherStudent(caller(principal), user_Id);
+        if (refused != null) return refused;
         Optional<Quiz> quiz = Optional.ofNullable(quizService.getQuiz(quiz_Id));
         Optional<User> user = Optional.ofNullable(authenticationService.getUserById(user_Id));
         Optional<User> users = Optional.of(Optional.ofNullable(authenticationService.getUserById(user_Id)).orElseThrow());
         if(quiz.isPresent() && user.isPresent()){
             List<Report> quizResults = reportService.getReportByUserAndType(user,quiz);
-            return ResponseEntity.ok(quizResults);
+            return ResponseEntity.ok(resultWithholdService.forViewer(caller(principal), quizResults));
         }
         else{
 //            Make sure to handle the error here
@@ -224,8 +250,10 @@ public ResponseEntity<List<Report>> getQuizIds(@PathVariable("quiz_Id") Long qui
         Report updatedReport = reportRepository.save(existingReport);
         attemptService.syncOfficialMarks(updatedReport);
 
-        // Review just completed → email the student their result slip (if the feature is enabled)
-        if (!wasReviewed && Boolean.TRUE.equals(updatedReport.getIsReviewed())) {
+        // Review just completed → email the student their result slip (if the feature is enabled).
+        // A withheld result waits: both go out when staff release it.
+        boolean withheld = resultWithholdService.isWithheld(request.userId, request.quizId);
+        if (!wasReviewed && Boolean.TRUE.equals(updatedReport.getIsReviewed()) && !withheld) {
             reportEmailService.sendReviewedReport(updatedReport.getUser(), updatedReport.getQuiz());
             notificationService.resultReleased(updatedReport.getUser(), updatedReport.getQuiz());
         }
@@ -276,6 +304,7 @@ public ResponseEntity<List<Report>> getQuizIds(@PathVariable("quiz_Id") Long qui
         if (user == null ) {
             return ResponseEntity.badRequest().body("Student not found");
         }
+        resultWithholdService.requireVisible(user, user.getId(), quizId);
         Map<String, Object> result = reportService.getStudentQuizResult(quizId, user.getId());
         return ResponseEntity.ok(result);
     }
@@ -297,9 +326,9 @@ public ResponseEntity<List<Report>> getQuizIds(@PathVariable("quiz_Id") Long qui
 //GET THE QUIZ BY QUID_ID AND USER_ID
 // Reports by user ID
 @GetMapping("/my/quiz-titles/reports")
-public ResponseEntity<List<Report>> getMyReports(Principal principal) {
+public ResponseEntity<?> getMyReports(Principal principal) {
     return ResponseEntity.ok(
-            reportService.getReportsForCurrentUser(principal)
+            resultWithholdService.forViewer(caller(principal), reportService.getReportsForCurrentUser(principal))
     );
 }
 

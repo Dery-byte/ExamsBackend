@@ -38,6 +38,8 @@ public class ProctoringService {
     @Autowired private UserRepository userRepository;
     @Autowired private QuizTimerService quizTimerService;
     @Autowired private SystemSettingService systemSettingService;
+    @Autowired private ResultWithholdService resultWithholdService;
+    @Autowired private QuizCodeLockService quizCodeLockService;
 
     /** Event saved when staff reset a student's violations (not a violation itself). */
     public static final String RESET_TYPE = "violations-reset";
@@ -157,6 +159,7 @@ public class ProctoringService {
                 .collect(Collectors.toSet());
 
         Integer maxViolations = quiz.getMaxViolations();
+        Map<Long, Map<String, Object>> withheld = resultWithholdService.withheldForQuiz(quizId);
         List<Map<String, Object>> rows = new ArrayList<>();
         for (User s : students.values()) {
             List<ProctoringEvent> events = byStudent.getOrDefault(s.getId(), List.of());
@@ -185,6 +188,8 @@ public class ProctoringService {
             m.put("lastEventAt", events.isEmpty() ? null : events.get(events.size() - 1).getOccurredAt());
             m.put("submitted", reports.containsKey(s.getId()));
             m.put("inProgress", inProgress.contains(s.getId()));
+            m.put("withheld", withheld.containsKey(s.getId()));
+            if (withheld.containsKey(s.getId())) m.put("withheldReason", withheld.get(s.getId()).get("reason"));
             m.put("hasEvents", !events.isEmpty());
             if (lastReset >= 0) {
                 ProctoringEvent r = events.get(lastReset);
@@ -208,6 +213,9 @@ public class ProctoringService {
         out.put("violationAction", quiz.getViolationAction() != null ? quiz.getViolationAction().name() : null);
         out.put("maxViolations", maxViolations);
         out.put("canResetViolations", mayResetViolations(staff));
+        out.put("canWithholdResults", resultWithholdService.mayWithhold(staff));
+        // Students locked out of the access code after too many wrong codes (staff can allow them again)
+        out.put("codeLocks", quizCodeLockService.lockedForQuiz(quizId));
         // The reset dialog shows how long the next lock-out would be for each count it offers
         out.put("delaySeconds", quiz.getDelaySeconds());
         out.put("delayMultiplier", quiz.getDelayMultiplier());

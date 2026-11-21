@@ -49,6 +49,9 @@ public class MarksEntryService {
     private ReportRepository reportRepository;
 
     @Autowired
+    private com.exam.repository.ResultWithholdRepository resultWithholdRepository;
+
+    @Autowired
     private MarkSheetSectionRepository markSheetSectionRepository;
 
     @Transactional
@@ -901,17 +904,21 @@ public class MarksEntryService {
     }
 
     /**
-     * Sync system assessment marks for a specific student into the active sheet.
+     * Sync system assessment marks for a specific student into the active sheet. A course with a quiz
+     * result that staff are withholding is not copied: its column is left blank until the result is
+     * released and the marks are fetched again. Returns how many of the student's courses were skipped.
      */
     @Transactional
-    public void syncSystemMarksForStudent(Long sheetId, Long studentId, Long targetSectionId) {
+    public int syncSystemMarksForStudent(Long sheetId, Long studentId, Long targetSectionId) {
         SemesterSheet sheet = getSheetById(sheetId);
         if (sheet == null || "SUBMITTED".equals(sheet.getStatus()) || "PUBLISHED".equals(sheet.getStatus())) {
-            return;
+            return 0;
         }
 
         List<Report> reports = reportRepository.findByUser_Id(studentId);
-        if (reports == null || reports.isEmpty()) return;
+        if (reports == null || reports.isEmpty()) return 0;
+        java.util.Set<Long> withheldQuizzes = new java.util.HashSet<>(resultWithholdRepository.findActiveQuizIdsForStudent(studentId));
+        int skipped = 0;
 
         List<StudentCourseMark> scms = studentCourseMarkRepository.findBySemesterSheetId(sheetId)
                 .stream().filter(s -> s.getStudent().getId().equals(studentId))
@@ -920,6 +927,28 @@ public class MarksEntryService {
         for (StudentCourseMark scm : scms) {
             Long courseId = scm.getCourse().getCid();
             
+
+            boolean courseWithheld = reports.stream().anyMatch(r -> r.getQuiz() != null && r.getQuiz().getCategory() != null
+                    && courseId.equals(r.getQuiz().getCategory().getCid()) && withheldQuizzes.contains(r.getQuiz().getqId()));
+            if (courseWithheld) {
+                // Leave the column blank (and drop anything copied before the result was withheld)
+                if (scm.getSectionMarks() != null) {
+                    scm.getSectionMarks().stream()
+                            .filter(ssm -> ssm.getSection().getId().equals(targetSectionId))
+                            .findFirst()
+                            .ifPresent(ssm -> { ssm.setScoreObtained(null); studentSectionMarkRepository.save(ssm); });
+                    BigDecimal total = BigDecimal.ZERO;
+                    for (StudentSectionMark ssm : scm.getSectionMarks()) {
+                        total = total.add(ssm.getScoreObtained() != null ? ssm.getScoreObtained() : BigDecimal.ZERO);
+                    }
+                    scm.setTotalScore(total);
+                    gradingService.applyGrade(scm, total);
+                    studentCourseMarkRepository.save(scm);
+                }
+                skipped++;
+                continue;
+            }
+
             // Sum all marks + marksB for this course
             BigDecimal courseTotalFromSystem = BigDecimal.ZERO;
             for (Report r : reports) {
@@ -957,24 +986,28 @@ public class MarksEntryService {
                 studentCourseMarkRepository.save(scm);
             }
         }
+        return skipped;
     }
 
     /**
-     * Bulk sync system assessment marks for all students in the sheet.
+     * Bulk sync system assessment marks for all students in the sheet. Returns how many
+     * student-course marks were left blank because a quiz result is withheld.
      */
     @Transactional
-    public void syncSystemMarksBulk(Long sheetId, Long targetSectionId) {
+    public int syncSystemMarksBulk(Long sheetId, Long targetSectionId) {
         SemesterSheet sheet = getSheetById(sheetId);
         if (sheet == null || "SUBMITTED".equals(sheet.getStatus()) || "PUBLISHED".equals(sheet.getStatus())) {
-            return;
+            return 0;
         }
         List<Long> studentIds = studentCourseMarkRepository.findBySemesterSheetId(sheetId).stream()
                 .map(s -> s.getStudent().getId())
                 .distinct()
                 .collect(java.util.stream.Collectors.toList());
+        int skipped = 0;
         for (Long sId : studentIds) {
-            syncSystemMarksForStudent(sheetId, sId, targetSectionId);
+            skipped += syncSystemMarksForStudent(sheetId, sId, targetSectionId);
         }
+        return skipped;
     }
 
     /**

@@ -34,6 +34,8 @@ public class ReportEmailService {
     @Value("${app.mail.from-address:optimusinforservice@gmail.com}") private String fromAddress;
     @Value("${app.mail.from-name:}") private String fromName;
     @Autowired private com.exam.service.academic.InstitutionService institutionService;
+    /** Read directly (not through ResultWithholdService, which calls this service on release). */
+    @Autowired private com.exam.repository.ResultWithholdRepository resultWithholdRepository;
 
     public boolean isEnabled() {
         return systemSettingService.getBooleanSetting(SystemSettingService.EMAIL_REPORT_FEATURE_ENABLED, true);
@@ -48,6 +50,9 @@ public class ReportEmailService {
             if (student == null || quiz == null) return;
             if (!Boolean.TRUE.equals(quiz.getEmailReportOnReview())) return;   // lecturer opted out for this quiz
             if (!isEnabled()) return;                                          // admin master switch is off
+            if (resultWithholdRepository.existsByQuiz_qIdAndStudent_IdAndActiveTrue(quiz.getqId(), student.getId())) {
+                return;                                                        // withheld: sent when released
+            }
             String to = student.getEmail();
             if (to == null || to.isBlank()) {
                 log.warn("[REPORT-MAIL] Student {} has no email address; skipping", student.getId());

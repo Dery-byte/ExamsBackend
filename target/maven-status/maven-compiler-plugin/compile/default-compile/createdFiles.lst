@@ -50,6 +50,7 @@ com\exam\repository\StockMovementRepository.class
 com\exam\service\fees\ReminderService$Target.class
 com\exam\service\comms\NotificationService$1.class
 com\exam\config\ApplicationConfig.class
+com\exam\service\examops\ResultWithholdService$2.class
 com\exam\model\exam\QuestionType.class
 com\exam\service\fees\FeePaymentService.class
 com\exam\helper\CustomResponse$CustomResponseBuilder.class
@@ -61,6 +62,7 @@ com\exam\service\comms\NotificationService.class
 com\exam\model\exam\Program$ProgramBuilder.class
 com\exam\controller\FeatureController.class
 com\exam\service\reports\QuestionPapers$Choice.class
+com\exam\service\examops\QuizCodeLockService$WrongCode.class
 com\exam\service\reports\ResultsReports$1Term.class
 com\exam\service\comms\AnalyticsService.class
 com\exam\config\ServerHealthLog.class
@@ -320,6 +322,7 @@ com\exam\model\fees\WalletSpend.class
 com\exam\service\reports\QuestionPapers$Paper.class
 com\exam\DTO\AttemptStatusDTO.class
 com\exam\config\SameSiteCookieFilter$1.class
+com\exam\model\examops\QuizCodeLock.class
 com\exam\service\reports\Standings$Standing.class
 com\exam\repository\AnswerRepository.class
 com\exam\service\reports\ReportQueries$StudentRow.class
@@ -391,6 +394,7 @@ com\exam\model\exam\GeminiResponse$Content.class
 com\exam\model\monitoring\ErrorEvent$Source.class
 com\exam\controller\MarksEntryController$ActivateSheetRequest$SectionRequest.class
 com\exam\config\RateLimitFilter.class
+com\exam\service\examops\ResultWithholdService.class
 com\exam\config\QuizOwnershipInterceptor.class
 com\exam\model\AnswerStatus.class
 com\exam\service\fees\WalletService$SettingsRequest.class
@@ -401,6 +405,7 @@ com\exam\DTO\QuestionDTO.class
 com\exam\repository\FeeSessionCloseRepository.class
 com\exam\service\academic\TermRemarkService$Row.class
 com\exam\repository\CashUpRepository.class
+com\exam\service\examops\ResultWithholdService$ResultWithheldException.class
 com\exam\repository\FeeConcessionRepository.class
 com\exam\model\materials\CourseMaterial.class
 com\exam\service\AnswerMatcher$1.class
@@ -447,10 +452,12 @@ com\exam\service\academic\GradingService$2.class
 com\exam\service\MNotifyV2SmsService.class
 com\exam\auth\AuthenticationRequest$AuthenticationRequestBuilder.class
 com\exam\service\boarding\BoardingBulkService$ClearRequest.class
+com\exam\service\examops\QuizCodeLockService.class
 com\exam\controller\SuperAdminController.class
 com\exam\DTO\CategoryUpdateRequest.class
 com\exam\service\materials\AssignmentService$ReopenRequest.class
 com\exam\service\subscription\SubscriptionKeys.class
+com\exam\repository\ResultWithholdRepository.class
 com\exam\repository\WalletSpendRepository.class
 com\exam\service\fees\FinanceAccess.class
 com\exam\service\admin\ConfigTransferService.class
@@ -470,6 +477,7 @@ com\exam\service\materials\MaterialScheduler.class
 com\exam\model\exam\Providers.class
 com\exam\DTO\DepartmentDTO$DepartmentDTOBuilder.class
 com\exam\service\reports\QuestionPapers$TheoryGroup.class
+com\exam\model\examops\ResultWithhold.class
 com\exam\service\academic\TermRemarkService.class
 com\exam\service\QuizGPTService.class
 com\exam\model\examops\BankQuestion.class
@@ -615,6 +623,7 @@ com\exam\service\fees\WalletService$PayOutRequest.class
 com\exam\DTO\RegisterHodRequest.class
 com\exam\service\llm\ClaudeEvaluationStrategy$ContentBlock.class
 com\exam\model\fees\FeeReminder.class
+com\exam\repository\QuizCodeLockRepository.class
 com\exam\service\fees\WalletService$DepositRequest.class
 com\exam\repository\materials\MaterialViewRepository.class
 com\exam\service\materials\MaterialNotices.class
@@ -625,6 +634,7 @@ com\exam\DTO\SingleQuestionSummaryDTO$MatchingPairDTO.class
 com\exam\repository\GradeBandRepository.class
 com\exam\controller\QuizTimerController.class
 com\exam\repository\MarkSheetSectionRepository.class
+com\exam\service\examops\ResultWithholdService$1.class
 com\exam\service\QuizTimerService.class
 com\exam\config\OAuthAuthenicationSuccessHandler.class
 com\exam\DTO\SemesterSheetDTO$CourseMarkDTO.class

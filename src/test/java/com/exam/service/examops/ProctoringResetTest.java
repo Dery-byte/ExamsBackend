@@ -47,6 +47,8 @@ class ProctoringResetTest {
     @Mock UserRepository userRepository;
     @Mock QuizTimerService quizTimerService;
     @Mock SystemSettingService systemSettingService;
+    @Mock ResultWithholdService resultWithholdService;
+    @Mock QuizCodeLockService quizCodeLockService;
     @InjectMocks ProctoringService service;
 
     private Quiz quiz;

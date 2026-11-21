@@ -28,6 +28,12 @@ public class ApiExceptionHandler {
         return body(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    /** A student asked for a quiz result that staff are withholding (the reason is never sent). */
+    @ExceptionHandler(com.exam.service.examops.ResultWithholdService.ResultWithheldException.class)
+    public ResponseEntity<Map<String, Object>> handle(com.exam.service.examops.ResultWithholdService.ResultWithheldException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("code", "RESULT_WITHHELD", "withheld", true, "message", ex.getMessage()));
+    }
+
     /** A student's report cards / transcript are held for unpaid fees; the body says what to pay. */
     @ExceptionHandler(com.exam.service.fees.ResultsHoldService.ResultsHeldException.class)
     public ResponseEntity<Map<String, Object>> handle(com.exam.service.fees.ResultsHoldService.ResultsHeldException ex) {

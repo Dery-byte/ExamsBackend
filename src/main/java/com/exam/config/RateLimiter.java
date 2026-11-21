@@ -59,6 +59,15 @@ public class RateLimiter {
         }
     }
 
+    /** A wait for people: "45 seconds", "1 minute", "4 min 05 s". */
+    public static String describeWait(long seconds) {
+        long s = Math.max(1, seconds);
+        if (s < 60) return s + (s == 1 ? " second" : " seconds");
+        long m = s / 60, r = s % 60;
+        if (r == 0) return m + (m == 1 ? " minute" : " minutes");
+        return m + " min " + String.format("%02d", r) + " s";
+    }
+
     private static void prune(Deque<Long> q, long cutoff) {
         while (!q.isEmpty() && q.peekFirst() < cutoff) q.pollFirst();
     }

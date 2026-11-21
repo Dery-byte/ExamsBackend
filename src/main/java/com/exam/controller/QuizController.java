@@ -111,12 +111,19 @@ public class QuizController {
     @Autowired private com.exam.repository.UserRepository userRepositoryForUnlock;
     @Autowired private com.exam.config.RateLimiter rateLimiter;
     @Autowired @Lazy private com.exam.service.AttemptService attemptService;
+    @Autowired private com.exam.service.examops.QuizCodeLockService quizCodeLockService;
 
     /**
      * Student enters the quiz password. Checked on the server (students never receive the
      * password); a correct entry lets them start one new attempt in the next few hours.
-     * At most 10 guesses per student per quiz every 15 minutes.
+     * At most 5 tries per student per quiz in any minute, so a student who runs out never waits
+     * more than a minute; the reply says how many seconds (the dialog counts down). After 10 wrong
+     * codes (since the last correct one) the code box locks for the quiz until staff allow attempts
+     * again (QuizCodeLockService).
      */
+    private static final int UNLOCK_TRIES = 5;
+    private static final long UNLOCK_WINDOW_MS = 60_000L;
+
     @PostMapping("quiz/{qid}/unlock")
     public ResponseEntity<?> unlockQuiz(@PathVariable("qid") Long qid, @RequestBody Map<String, String> body, Principal principal) {
         if (principal == null) return ResponseEntity.status(401).body(Map.of("message", "Please sign in."));
@@ -126,20 +133,42 @@ public class QuizController {
 
         com.exam.model.User user = userRepositoryForUnlock.findByUsername(principal.getName()).orElse(null);
         if (user == null) return ResponseEntity.status(401).body(Map.of("message", "Please sign in."));
-        if (!rateLimiter.tryAcquire("quiz-unlock:" + user.getId() + ":" + qid, 10, 15 * 60 * 1000L))
-            return ResponseEntity.status(429).body(Map.of("message", "Too many attempts. Please wait a few minutes and try again."));
+        // Locked after too many wrong codes: no more tries until staff allow them
+        if (quizCodeLockService.isLocked(user.getId(), qid)) return codeLocked();
+        String unlockKey = "quiz-unlock:" + user.getId() + ":" + qid;
+        if (!rateLimiter.tryAcquire(unlockKey, UNLOCK_TRIES, UNLOCK_WINDOW_MS)) {
+            long wait = Math.min(UNLOCK_WINDOW_MS / 1000, rateLimiter.retryAfterSeconds(unlockKey, UNLOCK_WINDOW_MS));
+            return ResponseEntity.status(429)
+                    .header("Retry-After", String.valueOf(wait))
+                    .body(Map.of("message", "Too many attempts. Please wait " + com.exam.config.RateLimiter.describeWait(wait) + " and try again.",
+                            "retryAfterSeconds", wait));
+        }
 
         String given = body == null ? null : body.get("password");
         boolean ok = given != null && java.security.MessageDigest.isEqual(
                 given.getBytes(java.nio.charset.StandardCharsets.UTF_8),
                 quiz.getQuizpassword().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        if (!ok) return ResponseEntity.status(403).body(Map.of("message", "The code provided does not match our records."));
+        if (!ok) {
+            com.exam.service.examops.QuizCodeLockService.WrongCode w = quizCodeLockService.recordWrong(user, quiz);
+            if (w.locked()) return codeLocked();
+            return ResponseEntity.status(403).body(Map.of(
+                    "message", "The code provided does not match our records. " + w.triesLeft()
+                            + (w.triesLeft() == 1 ? " try" : " tries") + " left before the code box locks.",
+                    "triesLeft", w.triesLeft()));
+        }
+        quizCodeLockService.recordCorrect(user.getId(), qid);
 
         com.exam.model.examops.QuizUnlock unlock = new com.exam.model.examops.QuizUnlock();
         unlock.setUser(user);
         unlock.setQuiz(quiz);
         quizUnlockRepository.save(unlock);
         return ResponseEntity.ok(Map.of("unlocked", true));
+    }
+
+    /** 423: too many wrong access codes for this quiz; staff must allow attempts again. */
+    private static ResponseEntity<?> codeLocked() {
+        return ResponseEntity.status(423).body(Map.of("code", "CODE_LOCKED", "locked", true,
+                "message", com.exam.service.examops.QuizCodeLockService.LOCKED_MESSAGE));
     }
 
     @GetMapping("quiz/{qid}/public-summary")

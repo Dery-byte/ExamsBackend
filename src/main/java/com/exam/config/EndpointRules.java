@@ -138,6 +138,9 @@ public final class EndpointRules {
             .requestMatchers(HttpMethod.GET, "/api/proctoring/quiz/**").hasAnyAuthority(STAFF)
             // Which staff roles may reset is a Super Admin setting, checked in ProctoringService
             .requestMatchers(HttpMethod.POST, "/api/proctoring/quiz/*/student/*/reset-violations").hasAnyAuthority(STAFF)
+            .requestMatchers(HttpMethod.POST, "/api/proctoring/quiz/*/student/*/allow-code").hasAnyAuthority(STAFF)
+            // Withholding one student's result; which staff roles may is a Super Admin setting (ResultWithholdService)
+            .requestMatchers("/api/results/quiz/**").hasAnyAuthority(STAFF)
 
             // ── Marks sheets: admins run the workflow, staff enter marks, students read their own ─
             .requestMatchers(HttpMethod.POST, "/api/marks/sheet/activate", "/api/marks/sheet/*/publish", "/api/marks/sheet/*/revert",

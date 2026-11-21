@@ -508,6 +508,12 @@ public class QuizTimerService {
         return systemSettingService.getBooleanSetting(com.exam.service.SystemSettingService.EXAM_LOCKOUT_RUNS_WHILE_AWAY, false);
     }
 
+    /** Full exam length in seconds (quiz time plus every theory section's time): Quiz Review compares time used with it. */
+    @Transactional(readOnly = true)
+    public int allowedSeconds(Long quizId) {
+        return maxAllowedSeconds(quizId);
+    }
+
     /** Full exam length in seconds: the quiz time plus the time allowed for every theory section. */
     private int maxAllowedSeconds(Long quizId) {
         Quiz quiz = quizRepository.findById(quizId)

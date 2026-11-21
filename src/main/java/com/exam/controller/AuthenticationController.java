@@ -198,7 +198,8 @@ private com.exam.service.admin.MaintenanceService maintenance;
 @Autowired
 private com.exam.service.subscription.SubscriptionService subscription;
 private static final int MAX_FAILED_LOGINS = 5;
-private static final long LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000L;
+/** Wrong passwords are counted over 5 minutes, so a locked account never waits more than 5 minutes. */
+private static final long LOGIN_LOCK_WINDOW_MS = 5 * 60 * 1000L;
 
 @PostMapping("/authenticate")
 public ResponseEntity<AuthenticationResponse> authenticate(
@@ -216,9 +217,13 @@ public ResponseEntity<AuthenticationResponse> authenticate(
     // Per-account lockout: too many wrong passwords for one username locks it for a while
     String lockKey = "login-fail:" + String.valueOf(request.getUsername()).trim().toLowerCase();
     if (rateLimiter.count(lockKey, LOGIN_LOCK_WINDOW_MS) >= MAX_FAILED_LOGINS) {
-        long wait = Math.max(1, rateLimiter.retryAfterSeconds(lockKey, LOGIN_LOCK_WINDOW_MS) / 60);
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(AuthenticationResponse.builder()
-                .message("Too many failed sign-in attempts for this account. Try again in " + wait + " minute(s).").build());
+        long wait = Math.min(LOGIN_LOCK_WINDOW_MS / 1000, Math.max(1, rateLimiter.retryAfterSeconds(lockKey, LOGIN_LOCK_WINDOW_MS)));
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(wait))
+                .body(AuthenticationResponse.builder()
+                        .message("Too many failed sign-in attempts for this account. Try again in "
+                                + com.exam.config.RateLimiter.describeWait(wait) + ".")
+                        .retryAfterSeconds(wait).build());
     }
 
     // Maintenance: nobody new signs in except those the developer allowed (developers use their own sign-in)

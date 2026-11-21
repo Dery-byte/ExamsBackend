@@ -51,6 +51,37 @@ public class SchemaUpgrades implements ApplicationRunner {
         addColumnIfMissing("proctoring_event", "before_reset", "BIT(1) NULL");
         addColumnIfMissing("proctoring_event", "actor_name", "VARCHAR(160) NULL");
         addColumnIfMissing("proctoring_event", "note", "VARCHAR(600) NULL");
+        // Staff can withhold one student's quiz result
+        createTableIfMissing("result_withhold", "CREATE TABLE result_withhold ("
+                + "id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+                + "quiz_id BIGINT NOT NULL, student_id BIGINT NOT NULL, "
+                + "reason VARCHAR(600) NOT NULL, withheld_by_name VARCHAR(160) NULL, withheld_at DATETIME(6) NOT NULL, "
+                + "released_by_name VARCHAR(160) NULL, released_at DATETIME(6) NULL, active BIT(1) NOT NULL, "
+                + "INDEX idx_result_withhold_quiz_student (quiz_id, student_id), "
+                + "CONSTRAINT fk_result_withhold_quiz FOREIGN KEY (quiz_id) REFERENCES quiz (q_id), "
+                + "CONSTRAINT fk_result_withhold_student FOREIGN KEY (student_id) REFERENCES `user` (id))");
+        // Wrong quiz access codes per student and quiz (locks after 10)
+        createTableIfMissing("quiz_code_lock", "CREATE TABLE quiz_code_lock ("
+                + "id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+                + "quiz_id BIGINT NOT NULL, student_id BIGINT NOT NULL, "
+                + "wrong_count INT NOT NULL, last_wrong_at DATETIME(6) NULL, locked_at DATETIME(6) NULL, "
+                + "reopened_by_name VARCHAR(160) NULL, reopened_at DATETIME(6) NULL, "
+                + "CONSTRAINT uk_quiz_code_lock_quiz_student UNIQUE (quiz_id, student_id), "
+                + "CONSTRAINT fk_quiz_code_lock_quiz FOREIGN KEY (quiz_id) REFERENCES quiz (q_id), "
+                + "CONSTRAINT fk_quiz_code_lock_student FOREIGN KEY (student_id) REFERENCES `user` (id))");
+    }
+
+    /** A new table, for servers that run with ddl-auto=none. Skipped when it is already there. */
+    private void createTableIfMissing(String table, String ddl) {
+        try {
+            Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
+                    Integer.class, table);
+            if (n != null && n > 0) return;
+            jdbc.execute(ddl);
+            log.info("[SCHEMA] Created table {}", table);
+        } catch (Exception e) {
+            log.error("[SCHEMA] Could not create table {}: {}", table, e.getMessage());
+        }
     }
 
     /** A new nullable column, for servers that run with ddl-auto=none. Skipped when the table is not there yet. */
