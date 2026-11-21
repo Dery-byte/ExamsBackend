@@ -16,5 +16,7 @@ public class ViolationTimerResponseDTO {
     private Integer totalViolationCount;
     /** True when a lock-out pauses while the student is away; the client then reports what is left. */
     private Boolean pausesWhileAway;
+    /** Goes up each time staff reset the student's violations; the exam page then takes the count from here. */
+    private Integer violationResetNo;
 
 }

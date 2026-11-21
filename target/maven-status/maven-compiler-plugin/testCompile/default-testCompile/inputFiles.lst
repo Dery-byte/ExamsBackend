@@ -23,6 +23,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\aca
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\PasswordResetFlowTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\reports\ReportsJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\subscription\SubscriptionStatusTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\QuizTimerViolationResetTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\MaterialsModuleIntegrationTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\boarding\BoardingJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\reports\AttendanceReportsJpaTest.java
@@ -53,6 +54,7 @@ D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\SecurityRul
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\SchoolStructureJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\fees\FeeBreakdownTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\boarding\BoardingBulkJpaTest.java
+D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\examops\ProctoringResetTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\FakeSettings.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\MatchingPairsLoadJpaTest.java
 D:\Projects\ExamProject\ExamServer_Springboot\src\test\java\com\exam\service\AcademicPdfRenderTest.java

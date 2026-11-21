@@ -14,6 +14,8 @@ public class QuizTimerResponseDTO {
     private Integer remainingTime;
     private LocalDateTime updatedAt;
     private Integer totalViolationCount;
+    /** Lets a clock checkpoint tell the exam page that staff reset the violations. */
+    private Integer violationResetNo;
     private String status;
 // getter + setter
 }

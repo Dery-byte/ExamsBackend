@@ -43,6 +43,9 @@ public class SystemSettingService {
      * comes back. When "true", the time away counts towards the lock-out.
      */
     public static final String EXAM_LOCKOUT_RUNS_WHILE_AWAY = "EXAM_LOCKOUT_RUNS_WHILE_AWAY";
+    /** Super Admin switches: whether HODs / lecturers may reset a student's violation count during a quiz (Super Admin always may). */
+    public static final String VIOLATION_RESET_ADMIN    = "VIOLATION_RESET_ADMIN";
+    public static final String VIOLATION_RESET_LECTURER = "VIOLATION_RESET_LECTURER";
 
     /** Super Admin switches for fees: the Fees page for students, paying online, paying in parts. */
     public static final String FEES_VISIBLE_STUDENT  = "FEES_VISIBLE_STUDENT";
@@ -108,7 +111,8 @@ public class SystemSettingService {
         if (!systemSettingRepository.existsById(EXAM_LOCKOUT_RUNS_WHILE_AWAY)) {
             systemSettingRepository.save(new SystemSetting(EXAM_LOCKOUT_RUNS_WHILE_AWAY, "false"));
         }
-        for (String key : List.of(MARKS_SHEET_VISIBLE_ADMIN, MARKS_SHEET_VISIBLE_LECTURER, MARKS_SHEET_VISIBLE_STUDENT)) {
+        for (String key : List.of(MARKS_SHEET_VISIBLE_ADMIN, MARKS_SHEET_VISIBLE_LECTURER, MARKS_SHEET_VISIBLE_STUDENT,
+                VIOLATION_RESET_ADMIN, VIOLATION_RESET_LECTURER)) {
             if (!systemSettingRepository.existsById(key)) {
                 systemSettingRepository.save(new SystemSetting(key, "true"));
             }

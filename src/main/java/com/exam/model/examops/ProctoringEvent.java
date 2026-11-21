@@ -37,4 +37,18 @@ public class ProctoringEvent {
     private LocalDateTime occurredAt = LocalDateTime.now();
 
     private String ipAddress;
+
+    /**
+     * True for a violation stamped with a reset number older than the student's current one: it
+     * happened (or was queued) before staff reset the count, so it is shown but not counted.
+     */
+    @Column(name = "before_reset")
+    private Boolean beforeReset;
+
+    /** A "violations-reset" event: the staff member who reset the count, and their reason. */
+    @Column(name = "actor_name", length = 160)
+    private String actorName;
+
+    @Column(name = "note", length = 600)
+    private String note;
 }

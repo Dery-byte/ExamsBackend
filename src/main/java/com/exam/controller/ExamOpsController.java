@@ -99,6 +99,8 @@ public class ExamOpsController {
         public Long quizId;
         public String type;
         public Integer violationNumber;
+        /** The reset number the exam page knew when it queued the event (null from older pages: 0). */
+        public Integer resetNo;
     }
 
     /**
@@ -109,12 +111,45 @@ public class ExamOpsController {
     public ResponseEntity<?> recordEvent(@RequestBody ProctoringEventRequest req, HttpServletRequest http) {
         if (req.quizId == null) return ResponseEntity.badRequest().body(new ErrorMessage("quizId is required."));
         return withUser(u -> {
-            proctoringService.record(u, req.quizId, req.type, req.violationNumber, clientIp(http));
-            if (req.violationNumber != null && u.getRole() == Role.NORMAL) {
-                quizTimerService.recordViolationCount(req.quizId, u.getId(), req.violationNumber);
+            if (u.getRole() != Role.NORMAL) return ResponseEntity.ok().build();
+            // The count first: it says whether the event is from before a staff reset
+            int sentResetNo = req.resetNo == null ? 0 : req.resetNo;
+            int count;
+            int resetNo;
+            if (req.violationNumber != null) {
+                QuizTimerService.ViolationState st = quizTimerService.recordViolationCount(req.quizId, u.getId(), req.violationNumber, req.resetNo);
+                count = st.count();
+                resetNo = st.resetNo();
+            } else {
+                var st = quizTimerService.getViolationState(req.quizId, u.getId());
+                count = st.getTotalViolationCount();
+                resetNo = st.getViolationResetNo();
             }
-            return ResponseEntity.ok().build();
+            proctoringService.record(u, req.quizId, req.type, req.violationNumber, clientIp(http), sentResetNo < resetNo);
+            // The exam page takes the count from here when staff have reset it
+            return ResponseEntity.ok(Map.of("totalViolationCount", count, "violationResetNo", resetNo));
         });
+    }
+
+    /**
+     * Staff: set a student's violation count back to 0, or down to a lower number ("count"), while
+     * they are sitting the quiz (reason required).
+     */
+    @PostMapping("/proctoring/quiz/{quizId}/student/{studentId}/reset-violations")
+    public ResponseEntity<?> resetViolations(@PathVariable Long quizId, @PathVariable Long studentId,
+                                             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest http) {
+        Object r = body == null ? null : body.get("reason");
+        String reason = r == null ? null : String.valueOf(r);
+        Object c = body == null ? null : body.get("count");
+        Integer count;
+        try {
+            count = c == null || String.valueOf(c).isBlank() ? 0 : (int) Double.parseDouble(String.valueOf(c));
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(new ErrorMessage("The new count must be a whole number."));
+        }
+        http.setAttribute(com.exam.config.AuditInterceptor.AUDIT_DETAILS,
+                "quizId=" + quizId + ", studentId=" + studentId + ", setTo=" + count + ", reason=" + (reason == null ? "" : reason.trim()));
+        return withUser(u -> ResponseEntity.ok(proctoringService.resetViolations(u, quizId, studentId, reason, count)));
     }
 
     @GetMapping("/proctoring/quiz/{quizId}")

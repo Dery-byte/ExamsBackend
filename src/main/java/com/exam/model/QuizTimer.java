@@ -42,6 +42,22 @@ public class QuizTimer {
     @Column(name = "total_violation_count")
     private Integer totalViolationCount;
 
+    /**
+     * Goes up by one each time staff reset the student's violations. The exam page stamps every
+     * violation and lock-out with the number it knows, so ones from before a reset (still queued on
+     * the student's device, or sent before the page heard of the reset) can't bring the count back.
+     */
+    @Column(name = "violation_reset_no")
+    private Integer violationResetNo;
+
+    public int getViolationResetNo() {
+        return violationResetNo == null ? 0 : violationResetNo;
+    }
+
+    public void setViolationResetNo(Integer violationResetNo) {
+        this.violationResetNo = violationResetNo;
+    }
+
 
     public Integer getTotalViolationCount() {
         return totalViolationCount;

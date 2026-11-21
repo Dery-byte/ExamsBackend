@@ -136,6 +136,8 @@ public final class EndpointRules {
             .requestMatchers(p("/quiz-attempts/quiz/**", "/llm/**")).hasAnyAuthority(STAFF)
             .requestMatchers("/api/question-bank/**", "/api/remarks/manage", "/api/remarks/*/respond").hasAnyAuthority(STAFF)
             .requestMatchers(HttpMethod.GET, "/api/proctoring/quiz/**").hasAnyAuthority(STAFF)
+            // Which staff roles may reset is a Super Admin setting, checked in ProctoringService
+            .requestMatchers(HttpMethod.POST, "/api/proctoring/quiz/*/student/*/reset-violations").hasAnyAuthority(STAFF)
 
             // ── Marks sheets: admins run the workflow, staff enter marks, students read their own ─
             .requestMatchers(HttpMethod.POST, "/api/marks/sheet/activate", "/api/marks/sheet/*/publish", "/api/marks/sheet/*/revert",

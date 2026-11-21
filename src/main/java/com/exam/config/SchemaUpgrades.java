@@ -46,6 +46,27 @@ public class SchemaUpgrades implements ApplicationRunner {
                 "uk_fee_schedule_class_period", "program_id, level, session_id, period_key");
         // A payment may now be for a bill, or for everything owed, instead of one fee
         makeNullable("fee_payment", "schedule_id", "BIGINT");
+        // Staff can reset a student's violations (only added here when ddl-auto is off on this server)
+        addColumnIfMissing("quiz_timers", "violation_reset_no", "INT NULL");
+        addColumnIfMissing("proctoring_event", "before_reset", "BIT(1) NULL");
+        addColumnIfMissing("proctoring_event", "actor_name", "VARCHAR(160) NULL");
+        addColumnIfMissing("proctoring_event", "note", "VARCHAR(600) NULL");
+    }
+
+    /** A new nullable column, for servers that run with ddl-auto=none. Skipped when the table is not there yet. */
+    private void addColumnIfMissing(String table, String column, String definition) {
+        try {
+            Integer tables = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
+                    Integer.class, table);
+            if (tables == null || tables == 0) return;
+            Integer cols = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+                    Integer.class, table, column);
+            if (cols != null && cols > 0) return;
+            jdbc.execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
+            log.info("[SCHEMA] Added {}.{}", table, column);
+        } catch (Exception e) {
+            log.error("[SCHEMA] Could not add {}.{}: {}", table, column, e.getMessage());
+        }
     }
 
     /** NOT NULL → NULL, which ddl-auto=update never does once the column exists. */

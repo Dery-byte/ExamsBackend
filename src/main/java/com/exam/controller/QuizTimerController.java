@@ -226,6 +226,15 @@ public class QuizTimerController {
                 quizTimerService.getViolationDelayTime(quizId, user.getId()));
     }
 
+    /** The student's own violation count, reset number and lock-out left (checked during a lock-out and before an auto-submit). */
+    @GetMapping("/violation-state/{quizId}")
+    public ResponseEntity<ViolationTimerResponseDTO> getViolationState(
+            @PathVariable Long quizId,
+            Principal principal) {
+        User user = signedIn(principal);
+        return ResponseEntity.ok(quizTimerService.getViolationState(quizId, user.getId()));
+    }
+
     @PostMapping("/saveViolation-delay/{quizId}")
     public ResponseEntity<ViolationTimerResponseDTO> saveViolationDelayTime(
             @PathVariable Long quizId,

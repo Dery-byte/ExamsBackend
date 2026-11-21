@@ -68,6 +68,7 @@ com\exam\controller\CommsController.class
 com\exam\controller\TermCalendarController$TermRequest.class
 com\exam\controller\QuizResultsController.class
 com\exam\service\DepartmentService.class
+com\exam\service\examops\ProctoringService$1.class
 com\exam\service\fees\CashBookService$ConfirmRequest.class
 com\exam\service\reports\ReportCatalog$Entry.class
 com\exam\model\exam\GradeResponse.class
@@ -791,6 +792,7 @@ com\exam\controller\FeeController$CopyRequest.class
 com\exam\controller\FeeController.class
 com\exam\DTO\QuizEvaluationResponse.class
 com\exam\repository\GradingPresetRepository.class
+com\exam\service\QuizTimerService$ViolationState.class
 com\exam\service\fees\CashBookService.class
 com\exam\service\materials\MaterialService$VisibilityRequest.class
 com\exam\model\academic\TermReportRemark.class

@@ -254,6 +254,7 @@ public class QuizTimerService {
         response.setRemainingTime(saved.getRemainingTime());
         response.setUpdatedAt(saved.getUpdatedAt());
         response.setTotalViolationCount(saved.getTotalViolationCount());
+        response.setViolationResetNo(saved.getViolationResetNo());
         response.setStatus("saved");
 
         return response;
@@ -289,6 +290,7 @@ public class QuizTimerService {
                     response.setRemainingTime(left);
                     response.setUpdatedAt(qt.getUpdatedAt());
                     response.setTotalViolationCount(qt.getTotalViolationCount());
+                    response.setViolationResetNo(qt.getViolationResetNo());
                     // "expired" → the client must submit straight away instead of restarting the clock
                     response.setStatus(left > 0 ? "saved" : "expired");
                     return response;
@@ -322,17 +324,26 @@ public class QuizTimerService {
     public ViolationTimerResponseDTO saveViolationDelayTime(Long quizId, Long userId,
                                                             VoilationTimerRequestDTO requestDTO) {
         int seconds = requestDTO.getViolationDelayTime() == null ? 0 : Math.max(0, requestDTO.getViolationDelayTime());
+        int sentResetNo = requestDTO.getViolationResetNo() == null ? 0 : requestDTO.getViolationResetNo();
         ViolationTimerResponseDTO response = new ViolationTimerResponseDTO();
         Optional<QuizTimer> found = seconds > 0
                 ? timerForViolation(userId, quizId)
                 : quizTimerRepository.findForUpdate(userId, quizId);
-        found.ifPresent(timer -> {
-            timer.setViolationDelayTime(seconds);
-            timer.setViolationDelayUntil(seconds > 0 ? LocalDateTime.now().plusSeconds(seconds) : null);
-            quizTimerRepository.save(timer);
-        });
-        response.setViolationDelayTime(found.isPresent() ? seconds : 0);
+        // A lock-out queued before staff reset the violations must not start again after the reset
+        boolean beforeReset = found.map(t -> sentResetNo < t.getViolationResetNo()).orElse(false);
+        if (!beforeReset) {
+            found.ifPresent(timer -> {
+                timer.setViolationDelayTime(seconds);
+                timer.setViolationDelayUntil(seconds > 0 ? LocalDateTime.now().plusSeconds(seconds) : null);
+                quizTimerRepository.save(timer);
+            });
+        }
+        response.setViolationDelayTime(found.isPresent() && !beforeReset ? seconds : 0);
         response.setPausesWhileAway(!lockoutRunsWhileAway());
+        found.ifPresent(t -> {
+            response.setViolationResetNo(t.getViolationResetNo());
+            response.setTotalViolationCount(t.getTotalViolationCount() == null ? 0 : t.getTotalViolationCount());
+        });
         return response;
     }
 
@@ -382,14 +393,73 @@ public class QuizTimerService {
      * undo a violation.
      */
     public int recordViolationCount(Long quizId, Long userId, int violationNumber) {
+        return recordViolationCount(quizId, userId, violationNumber, null).count();
+    }
+
+    /** What the server holds for the student's violations after a save: the count, the reset number, and whether this one counted. */
+    public record ViolationState(int count, int resetNo, boolean counted) {}
+
+    /**
+     * Like {@link #recordViolationCount(Long, Long, int)}, for a violation stamped with the reset number
+     * the exam page knew. One from before the latest reset (resetNo lower than stored) is not counted.
+     * A null resetNo (a page loaded before resets existed) is treated as 0.
+     */
+    public ViolationState recordViolationCount(Long quizId, Long userId, int violationNumber, Integer resetNo) {
+        int sent = resetNo == null ? 0 : resetNo;
         return timerForViolation(userId, quizId).map(timer -> {
             int current = timer.getTotalViolationCount() == null ? 0 : timer.getTotalViolationCount();
+            int stored = timer.getViolationResetNo();
+            if (sent < stored) return new ViolationState(current, stored, false);
             if (violationNumber > current) {
                 timer.setTotalViolationCount(violationNumber);
                 quizTimerRepository.save(timer);
             }
-            return Math.max(current, violationNumber);
-        }).orElse(0);
+            return new ViolationState(Math.max(current, violationNumber), stored, true);
+        }).orElse(new ViolationState(0, 0, false));
+    }
+
+    /**
+     * Staff reset of the student's violations for the attempt in progress: count back to 0, any
+     * lock-out cleared, and the reset number raised so older saves from the student's page are
+     * ignored. Returns the new reset number. Access checks are the caller's (ProctoringService).
+     */
+    public int resetViolations(Long quizId, Long userId) {
+        return resetViolations(quizId, userId, 0);
+    }
+
+    /**
+     * Like {@link #resetViolations(Long, Long)}, but sets the count to {@code newCount} instead of 0.
+     * It may only go down (0 is always allowed): the next violation on the student's page then counts
+     * as newCount + 1, and a lock-out after it is as long as that number's.
+     */
+    public int resetViolations(Long quizId, Long userId, int newCount) {
+        QuizTimer timer = timerForViolation(userId, quizId)
+                .orElseThrow(() -> new IllegalArgumentException("This student is not sitting the quiz right now, so there is nothing to reset."));
+        int current = timer.getTotalViolationCount() == null ? 0 : timer.getTotalViolationCount();
+        if (newCount < 0) throw new IllegalArgumentException("The new count can't be below 0.");
+        if (newCount > 0 && newCount >= current) {
+            throw new IllegalArgumentException("The new count must be lower than the student's current count (" + current + ").");
+        }
+        int next = timer.getViolationResetNo() + 1;
+        timer.setViolationResetNo(next);
+        timer.setTotalViolationCount(newCount);
+        timer.setViolationDelayTime(0);
+        timer.setViolationDelayUntil(null);
+        quizTimerRepository.save(timer);
+        return next;
+    }
+
+    /** Count, reset number and lock-out left, in one read: the exam page checks it during a lock-out and before an auto-submit. */
+    @Transactional(readOnly = true)
+    public ViolationTimerResponseDTO getViolationState(Long quizId, Long userId) {
+        boolean runsWhileAway = lockoutRunsWhileAway();
+        ViolationTimerResponseDTO response = new ViolationTimerResponseDTO();
+        QuizTimer t = quizTimerRepository.findByUserIdAndQuiz_qId(userId, quizId).orElse(null);
+        response.setTotalViolationCount(t != null && t.getTotalViolationCount() != null ? t.getTotalViolationCount() : 0);
+        response.setViolationResetNo(t != null ? t.getViolationResetNo() : 0);
+        response.setViolationDelayTime(t != null ? remainingDelay(t, runsWhileAway) : 0);
+        response.setPausesWhileAway(!runsWhileAway);
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -400,6 +470,7 @@ public class QuizTimerService {
 
         ViolationTimerResponseDTO response = new ViolationTimerResponseDTO();
         response.setTotalViolationCount(timer != null && timer.getTotalViolationCount() != null ? timer.getTotalViolationCount() : 0);
+        response.setViolationResetNo(timer != null ? timer.getViolationResetNo() : 0);
         return response;
     }
 

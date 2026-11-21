@@ -55,6 +55,7 @@ public class AuditInterceptor implements HandlerInterceptor, WebMvcConfigurer {
     /** First match wins. Paths are matched against the full request URI. */
     private static final List<Rule> RULES = List.of(
             // Marks sheets
+            r("POST",   ".*/proctoring/quiz/\\d+/student/\\d+/reset-violations$", "Reset a student's quiz violations"),
             r("POST",   ".*/marks/sheet/activate$",                 "Created marks sheet"),
             r("POST",   ".*/marks/sheet/\\d+/save$",                "Saved marks"),
             r("POST",   ".*/marks/sheet/\\d+/submit$",              "Submitted marks sheet"),
